@@ -1,0 +1,5 @@
+{
+  "editor.wordWrap": "on",
+  "search.exclude": { "dist": true, "vendor": true, "node_modules": true },
+  "files.associations": { "CLAUDE.md": "markdown" }
+}

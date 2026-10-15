@@ -1,0 +1,23 @@
+{
+  "name": "split-level-house",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Interactive 3D walkthrough of a split-level house with a four-seasons addition and a new deck.",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "postinstall": "node scripts/vendor-three.mjs"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

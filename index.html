@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Split-level walkthrough with addition and deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+<div id="loading">Building the house…</div>
+<div id="err" class="panel"></div>
+
+<div id="top" class="panel">
+  <h1>Split-level house, with the four-seasons addition and new deck</h1>
+  <p>Blue marks new construction from your two concept plans.</p>
+  <div class="seg" role="group" aria-label="View">
+    <button data-view="walk" aria-pressed="false">Walk</button>
+    <button data-view="plan" aria-pressed="false">Floor plan</button>
+    <button data-view="three" aria-pressed="true">¾ view</button>
+  </div>
+  <div class="row">
+    <button class="chip" id="tTrees" aria-pressed="true">Trees</button>
+    <button class="chip" id="tLabels" aria-pressed="true">Room names</button>
+    <button class="chip" id="tDims" aria-pressed="true">Measurements</button>
+    <button class="chip" id="tSite" aria-pressed="false">Setback lines</button>
+    <button class="chip" id="tDebug" aria-pressed="false">Debug IDs</button>
+    <button class="chip" id="tArrange" aria-pressed="false">Arrange</button>
+    <label class="row" style="gap:4px;font-size:12px;color:var(--ink-2)">Go to
+      <select id="goto"></select></label>
+  </div>
+  <div class="row">
+    <label class="row" style="gap:4px;font-size:12px;color:var(--ink-2)">Light
+      <select id="tod"></select></label>
+    <div class="seg q" role="group" aria-label="Render quality">
+      <button data-q="high" aria-pressed="true">High quality</button>
+      <button data-q="fast" aria-pressed="false">Fast</button>
+    </div>
+  </div>
+  <p id="qnote" style="display:none"></p>
+</div>
+
+<div id="levels" class="panel">
+  <h2>Levels</h2>
+  <div id="section"></div>
+  <button class="lvl" id="allbtn" style="position:relative" aria-pressed="true">Whole house</button>
+</div>
+
+<div id="hud" class="panel">
+  <div id="where"></div>
+  <div class="help" id="help"></div>
+  <div id="refine" style="display:none"></div>
+</div>
+<div id="joy"><i></i></div>
+<div id="arr" class="panel" role="region" aria-label="Arrange furniture" style="display:none">
+  <div class="arr-head"><strong id="arrName"></strong><span id="arrCount"></span></div>
+  <p id="arrInfo"></p>
+  <div class="row" id="arrSel">
+    <button class="chip" id="arrL" title="Turn 15° left (Q)">⟲ 15°</button><button class="chip" id="arrR" title="Turn 15° right (E)">⟳ 15°</button><button class="chip" id="arr90">Turn 90°</button>
+    <button class="chip" id="arrReset">Reset</button><button class="chip on" id="arrCopy">Copy move for Claude</button><button class="chip" id="arrDone">Done</button>
+  </div>
+  <div class="row arr-all"><button class="chip" id="arrCopyAll">Copy all moves</button><button class="chip" id="arrResetAll">Reset all</button></div>
+</div>
+<div id="dbg" class="panel" role="dialog" aria-label="Element inspector" style="display:none">
+  <div class="dbg-head"><span id="dbgId"></span><span id="dbgKind"></span></div>
+  <dl><dt>Level</dt><dd id="dbgLevel"></dd><dt>Code</dt><dd id="dbgLine"></dd><dt>Size</dt><dd id="dbgSize"></dd><dt>Materials</dt><dd id="dbgMats"></dd></dl>
+  <pre id="dbgSrc"></pre>
+  <div class="row"><button class="chip on" id="dbgCopy">Copy for Claude</button><button class="chip" id="dbgClose">Close</button></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script>if(!window.THREE){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')}</script>
+<script src="src/00-boot.js"></script>
+<script src="src/01-registry.js"></script>
+<script src="src/02-spec.js"></script>
+<script src="src/03-textures.js"></script>
+<script src="src/04-textures-living.js"></script>
+<script src="src/05-geometry.js"></script>
+<script src="src/06-house.js"></script>
+<script src="src/07-furniture.js"></script>
+<script src="src/08-site.js"></script>
+<script src="src/09-look-pipeline.js"></script>
+<script src="src/10-debug.js"></script>
+<script src="src/11-arrange.js"></script>
+<script src="src/12-app.js"></script>
+</body>
+</html>
