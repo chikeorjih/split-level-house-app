@@ -62,9 +62,9 @@ function rugTex(kind){const W=512,H=640,[c,g]=cv(W,H);
     g.globalAlpha=1;g.fillStyle=P.d;g.beginPath();g.ellipse(W/2,H/2,40,58,0,0,7);g.fill();}
   for(let i=0;i<9000;i++){g.fillStyle=`rgba(255,255,255,${rr(0,.12)})`;g.fillRect(rr(0,W),rr(0,H),rr(1,6),1);}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
-function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#55702f';g.fillRect(0,0,S,S);
-  for(let i=0;i<S*S/40;i++){g.fillStyle=hsl(rr(60,80),rr(20,40),rr(22,34));g.fillRect(rr(0,S),rr(0,S),rr(2,6),rr(2,6));}
-  for(let i=0;i<S*S/14;i++){const x=rr(0,S),y=rr(0,S),l=rr(3,9)*TEXQ,a=rr(-.5,.5);g.strokeStyle=hsl(rr(68,105),rr(30,55),rr(20,44));g.lineWidth=rr(.6,1.4)*TEXQ;
+function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#667a2f';g.fillRect(0,0,S,S);
+  for(let i=0;i<S*S/40;i++){g.fillStyle=hsl(rr(58,76),rr(22,38),rr(24,34));g.fillRect(rr(0,S),rr(0,S),rr(2,6),rr(2,6));}
+  for(let i=0;i<S*S/14;i++){const x=rr(0,S),y=rr(0,S),l=rr(3,9)*TEXQ,a=rr(-.5,.5);g.strokeStyle=hsl(rr(64,92),rr(30,50),rr(22,44));g.lineWidth=rr(.6,1.4)*TEXQ;
     g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.sin(a)*l,y-Math.cos(a)*l);g.stroke();}
   return tex(c,10,10);}
 function plainNoise(col,ft,amt){const S=TX(256),[c,g]=cv(S,S);g.fillStyle=col;g.fillRect(0,0,S,S);noise(g,S,S,amt);return tex(c,ft,ft);}
@@ -225,4 +225,20 @@ function makeMaterials(){
   MAT.gold=std({color:0xc49a52,metalness:.85,roughness:.3});
   addFacadeMaterials();addLivingMaterials();
   addRelief();
+  antiTile(MAT.grass,true,.34);for(const k of ['drive','concrete','asphalt'])antiTile(MAT[k],false,.16);for(const k of ['brick','roof','slateRoof'])antiTile(MAT[k],false,.1);
 }
+// break up visible texture repeats: optionally blend in a second, rotated and rescaled sample of the same texture through a noise mask,
+// and add broad light/dark patches. Settings are uniforms, so every patched material shares one shader program.
+function antiTile(m,swap,macro){if(!m)return;const U={atSwap:{value:swap?1:0},atMacro:{value:macro}};
+  m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);
+    s.fragmentShader=s.fragmentShader.replace('#include <common>',`#include <common>
+uniform float atSwap,atMacro;
+float atH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float atN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(atH(i),atH(i+vec2(1.,0.)),f.x),mix(atH(i+vec2(0.,1.)),atH(i+vec2(1.,1.)),f.x),f.y);}`)
+    .replace('#include <map_fragment>',`#ifdef USE_MAP
+  vec4 texelColor=mapTexelToLinear(texture2D(map,vUv));
+  if(atSwap>.5){vec2 uB=mat2(.82,-.57,.57,.82)*vUv*.43+vec2(.31,.17);vec4 tB=mapTexelToLinear(texture2D(map,uB));
+    texelColor=mix(texelColor,tB,smoothstep(.3,.7,atN(vUv*.13)*.65+atN(vUv*.41)*.35));}
+  texelColor.rgb*=1.+atMacro*(atN(vUv*.05)+atN(vUv*.17)*.5-.75);
+  diffuseColor*=texelColor;
+#endif`);};}

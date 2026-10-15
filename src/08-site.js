@@ -20,6 +20,17 @@ function terrainH(x,z){
   if(x>-21.5&&x<=0&&z>12.9&&z<32.5)h=Math.min(h,-12);
   return h;
 }
+// far ground: a coarse skirt from just inside the terrain's edge out to the horizon, at the height of the nearest terrain edge, so the view
+// never runs off the world; the fog fades it into the sky
+function buildSkirt(){const X0=-95,X1=135,Z0=-95,Z1=150,IN=4,cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lines=(a0,a1)=>{const q=new Set([a0+IN,a1-IN]);for(const d of [0,25,60,110,180,280,420,620,900,1300,1800]){q.add(a0-d);q.add(a1+d);}for(let v=a0+IN;v<a1-IN;v+=10)q.add(v);return [...q].sort((a,b)=>a-b);};
+  const XS=lines(X0,X1),ZS=lines(Z0,Z1),P=[],N=[],U=[],C=[],c=new THREE.Color(),cA=new THREE.Color(0x7a9443),cB=new THREE.Color(0x667c3c);
+  const vtx=(x,z)=>{const y=terrainH(cl(x,X0,X1),cl(z,Z0,Z1))-.15;P.push(x,y,z);N.push(0,1,0);U.push(x,z);c.copy(cA).lerp(cB,.5+.5*Math.sin(x*.013+Math.cos(z*.011)*2));C.push(c.r,c.g,c.b);};
+  for(let i=0;i<XS.length-1;i++)for(let j=0;j<ZS.length-1;j++){const x0=XS[i],x1=XS[i+1],z0=ZS[j],z1=ZS[j+1];
+    if(x0>=X0+IN-1e-6&&x1<=X1-IN+1e-6&&z0>=Z0+IN-1e-6&&z1<=Z1-IN+1e-6)continue;
+    for(const [x,z] of [[x0,z0],[x0,z1],[x1,z0],[x1,z0],[x0,z1],[x1,z1]])vtx(x,z);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));return g;}
 function buildTerrain(){
   const X0=-95,X1=135,Z0=-95,Z1=150;
   const xs=new Set(),zs=new Set();
@@ -28,12 +39,12 @@ function buildTerrain(){
   for(const v of [-27,-21.5,0,10.3])xs.add(v);for(const v of [-3.75,12.9,32.5,SITE.street0])zs.add(v);
   const XS=[...xs].sort((a,b)=>a-b),ZS=[...zs].sort((a,b)=>a-b),nx=XS.length,nz=ZS.length;
   const pos=new Float32Array(nx*nz*3),uv=new Float32Array(nx*nz*2),col=new Float32Array(nx*nz*3);
-  const cA=new THREE.Color(0x5f7d3a),cB=new THREE.Color(0x4d5a2c),cC=new THREE.Color(0x6b5a3e),tmp=new THREE.Color();
+  const cA=new THREE.Color(0x7d9c45),cB=new THREE.Color(0x67823a),cC=new THREE.Color(0x76764a),tmp=new THREE.Color();
   for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const k=j*nx+i,x=XS[i],z=ZS[j],h=terrainH(x,z);
     pos[k*3]=x;pos[k*3+1]=h;pos[k*3+2]=z;uv[k*2]=x;uv[k*2+1]=z;
     const n=.5+.5*Math.sin(x*.37+Math.cos(z*.23)*2)*Math.cos(z*.31-x*.11);
     const wood=sstep((-z-2)/18)+(x<-24?.6:0)+(x>58&&z<20?.5:0);
-    tmp.copy(cA).lerp(cB,n*.6);tmp.lerp(cC,Math.min(.85,wood*.75)*(.6+.4*n));if(isBed(x,z))tmp.setRGB(.24,.15,.09);col[k*3]=tmp.r;col[k*3+1]=tmp.g;col[k*3+2]=tmp.b;}
+    tmp.copy(cA).lerp(cB,n*.6);tmp.lerp(cC,Math.min(.6,wood*.45)*(.6+.4*n));if(isBed(x,z))tmp.setRGB(.24,.15,.09);col[k*3]=tmp.r;col[k*3+1]=tmp.g;col[k*3+2]=tmp.b;}
   const idx=[];
   for(let j=0;j<nz-1;j++)for(let i=0;i<nx-1;i++){const cx=(XS[i]+XS[i+1])/2,cz=(ZS[j]+ZS[j+1])/2;
     if(inFoot(cx,cz))continue;if(cz>SITE.street0&&cz<SITE.street1)continue;
@@ -78,7 +89,7 @@ function buildSiteHard(){
 }
 function leafTex(small){const S=TX(256),C=S/2,[c,g]=cv(S,S);g.clearRect(0,0,S,S);
   for(let q=0;q<4;q++){const ox=(q%2)*C,oy=Math.floor(q/2)*C;g.save();g.beginPath();g.rect(ox,oy,C,C);g.clip();
-    for(let i=0;i<(small?260:110);i++){const a=rr(0,6.283),d=Math.pow(rnd(),.7)*C*.44,x=ox+C/2+Math.cos(a)*d,y=oy+C/2+Math.sin(a)*d,L=(small?rr(3,6):rr(7,15))*S/256,W=L*rr(.35,.5),r=rr(0,6.283);
+    for(let i=0;i<(small?260:190);i++){const a=rr(0,6.283),d=Math.pow(rnd(),.7)*C*.44,x=ox+C/2+Math.cos(a)*d,y=oy+C/2+Math.sin(a)*d,L=(small?rr(3,6):rr(4.5,9))*S/256,W=L*(small?rr(.35,.5):rr(.6,.85)),r=rr(0,6.283);
       g.save();g.translate(x,y);g.rotate(r);g.fillStyle=hsl(rr(78,118),rr(30,55),rr(small?16:20,small?32:42));g.beginPath();g.moveTo(-L,0);g.quadraticCurveTo(0,-W,L,0);g.quadraticCurveTo(0,W,-L,0);g.fill();
       g.strokeStyle='rgba(255,255,220,.18)';g.lineWidth=.6;g.beginPath();g.moveTo(-L*.8,0);g.lineTo(L*.8,0);g.stroke();g.restore();}
     g.restore();}
@@ -89,11 +100,13 @@ function buildTrees(){
   const pushGeo=(arr,g,m)=>{let gg=g.index?g.toNonIndexed():g;gg.applyMatrix4(m);const p=gg.attributes.position.array,n=gg.attributes.normal.array,u=gg.attributes.uv?gg.attributes.uv.array:null;
     for(let i=0;i<p.length;i++){arr.p.push(p[i]);arr.n.push(n[i]);}for(let i=0;i<p.length/3;i++){arr.u.push(u?u[i*2]*2:0,u?u[i*2+1]*6:0);}};
   const up=new THREE.Vector3(0,1,0),_a=new THREE.Vector3(),_b=new THREE.Vector3(),_n=new THREE.Vector3(),_c=new THREE.Vector3(),_p=new THREE.Vector3();
-  // alpha-cut leaf cards scattered through an ellipsoid; normals point out of the canopy so it shades like foliage
-  const cards=(A,col,cx,cy,cz,R,sy,n,size,base)=>{for(let i=0;i<n;i++){_n.set(rr(-1,1),rr(-1,1),rr(-1,1)).normalize();const rad=R*Math.cbrt(rnd())*.92;
+  // alpha-cut leaf cards scattered through an ellipsoid; normals point out of the canopy so it shades like foliage.
+  // `shell` packs them toward the surface so a crown has a defined outline; cards deeper in and lower down are darker (cheap self-shadowing)
+  const cards=(A,col,cx,cy,cz,R,sy,n,size,base,shell)=>{for(let i=0;i<n;i++){_n.set(rr(-1,1),rr(-1,1),rr(-1,1)).normalize();
+      const f=shell?.45+.55*Math.sqrt(rnd()):Math.cbrt(rnd()),rad=R*f*.92;
       _c.set(cx+_n.x*rad,cy+_n.y*rad*sy,cz+_n.z*rad);const s=size*rr(.7,1.25);
       _p.set(rr(-1,1),rr(-1,1),rr(-1,1)).normalize();_a.crossVectors(_p,up);if(_a.lengthSq()<1e-3)_a.set(1,0,0);_a.normalize();_b.crossVectors(_p,_a).normalize();
-      const ou=rnd()<.5?0:.5,ov=rnd()<.5?0:.5;tc.copy(base).offsetHSL(rr(-.015,.015),rr(-.05,.05),rr(-.07,.07));
+      const ou=rnd()<.5?0:.5,ov=rnd()<.5?0:.5;tc.copy(base).offsetHSL(rr(-.015,.015),rr(-.05,.05),rr(-.07,.07)).multiplyScalar((.45+.55*f)*(.86+.14*_n.y));
       const V=[[-1,-1,0,0],[1,-1,1,0],[1,1,1,1],[-1,1,0,1]].map(([i1,j1,u,v])=>{const x=_c.x+(_a.x*i1+_b.x*j1)*s/2,y=_c.y+(_a.y*i1+_b.y*j1)*s/2,z=_c.z+(_a.z*i1+_b.z*j1)*s/2;
         let nx=(x-cx)/R,ny=(y-cy)/(R*sy)+.35,nz=(z-cz)/R;const l=Math.hypot(nx,ny,nz)||1;return [x,y,z,nx/l,ny/l,nz/l,ou+u*.5,ov+v*.5];});
       for(const q of [0,1,2,0,2,3]){const v=V[q];A.p.push(v[0],v[1],v[2]);A.n.push(v[3],v[4],v[5]);A.u.push(v[6],v[7]);col.push(tc.r,tc.g,tc.b);}}};
@@ -101,26 +114,30 @@ function buildTrees(){
   const ok=(x,z,r)=>{if(z>28&&z<SITE.street0+2&&x>-34&&x<70)return false;if(x>70&&x<120&&z>5&&z<52)return false;if(x>-22-r*5&&x<55+r*5&&z>-3-r*5.5&&z<34+r*2)return false;if(x>-23-r&&x<1&&z>-3-r&&z<34)return false;
     if(x>12&&x<56&&z>-12&&z<0)return false;if(x>33&&x<57&&z>27&&z<SITE.street1+2)return false;if(x>17&&x<28&&z>30&&z<48)return false;
     if(z>SITE.street0-4&&z<SITE.street1+20)return false;for(const q of placed)if(Math.hypot(q[0]-x,q[1]-z)<q[2]+r*.9)return false;return true;};
-  const tree=(x,z,big)=>{const g=terrainH(x,z),H=big?rr(42,62):rr(18,30),r=big?rr(.7,1.1):rr(.35,.6);
-    pushGeo(B,new THREE.CylinderGeometry(r*.45,r,H,10),M(x,g+H/2-1,z));
-    for(let k=0;k<(big?4:2);k++){const a=rr(0,6.3),len=rr(7,14),y0=g+H*rr(.45,.72);const ex=x+Math.cos(a)*len,ez=z+Math.sin(a)*len,ey=y0+len*.75;
-      const d=new THREE.Vector3(ex-x,ey-y0,ez-z),L2=d.length();d.normalize();const q=new THREE.Quaternion().setFromUnitVectors(up,d);
-      pushGeo(B,new THREE.CylinderGeometry(r*.15,r*.32,L2,6),new THREE.Matrix4().compose(new THREE.Vector3((x+ex)/2,(y0+ey)/2,(z+ez)/2),q,new THREE.Vector3(1,1,1)));}
-    const n=big?Math.round(rr(7,11)):Math.round(rr(4,6)),R=big?rr(9,14):rr(5,8),base=new THREE.Color().setHSL(rr(.2,.27),rr(.22,.4),rr(.62,.78));
-    for(let k=0;k<n;k++){const a=rr(0,6.3),d=rr(0,R*.75),bx=x+Math.cos(a)*d,bz=z+Math.sin(a)*d,by=g+H-rr(0,R*.9)+(big?2:1),br=rr(R*.45,R*.8);
-      cards(L,lcol,bx,by,bz,br,rr(.6,.85),big?24:16,br*rr(.6,.85),base);}
-    placed.push([x,z,big?6:3]);};
+  // limb from (x0,y0,z0) to (x1,y1,z1), tapering from radius r0 to r1
+  const limb=(x0,y0,z0,x1,y1,z1,r0,r1,seg)=>{const d=new THREE.Vector3(x1-x0,y1-y0,z1-z0),L2=d.length();d.normalize();const q=new THREE.Quaternion().setFromUnitVectors(up,d);
+    pushGeo(B,new THREE.CylinderGeometry(r1,r0,L2,seg||5),new THREE.Matrix4().compose(new THREE.Vector3((x0+x1)/2,(y0+y1)/2,(z0+z1)/2),q,new THREE.Vector3(1,1,1)));};
+  // broadleaf shade tree, like the maples and oaks in a mature lawn: a short trunk that forks into limbs, each carrying a clump of
+  // leaf cards; the clumps overlap into a rounded crown with gaps you can see branches through
+  const tree=(x,z,big,orn)=>{const g=terrainH(x,z),H=orn?rr(11,14):big?rr(30,44):rr(17,25),th=H*(orn?.42:rr(.3,.38)),r=orn?.2:big?rr(.55,.8):rr(.3,.45);
+    const CR=orn?rr(3.4,4.4):big?rr(11,15):rr(6,8.5),cy=g+th+(H-th)*.48,sy=(H-th)*.5/CR,base=new THREE.Color().setHSL(rr(.22,.28),rr(.3,.42),rr(.8,.92));
+    limb(x,g-.5,z,x+rr(-.3,.3),g+th+CR*sy*.4,z+rr(-.3,.3),r,r*.45,8);
+    const n=orn?3:big?Math.round(rr(5,6)):4,top=g+th;
+    for(let k=0;k<n;k++){const a=k/n*6.283+rr(-.4,.4),d=CR*rr(.4,.55),cx=x+Math.cos(a)*d,cz=z+Math.sin(a)*d,ccy=cy+rr(-.2,.45)*CR*sy,R=CR*rr(.48,.6);
+      limb(x,top-th*.1,z,x+(cx-x)*.75,top+(ccy-top)*.7,z+(cz-z)*.75,r*.45,r*.14);
+      cards(L,lcol,cx,ccy,cz,R,sy*rr(.85,1.05),orn?18:big?34:24,R*.7,base,true);}
+    cards(L,lcol,x,cy+CR*sy*.15,z,CR*.7,sy,orn?20:big?52:34,CR*.5,base,true);
+    placed.push([x,z,orn?2:big?CR*.55:CR*.5]);};
   let tries=0,count=0;
-  while(count<160&&tries<9000){tries++;const x=rr(-95,135),z=rr(-95,26);const rear=z<5,side=x<-22||x>58;
-    if(!rear&&(!side||rnd()<.6))continue;if(!ok(x,z,4))continue;tree(x,z,rnd()<.82);count++;}
-  for(let i=0;i<90;i++){const x=rr(-80,120),z=rr(-85,20);if(z>5&&x>-22&&x<58)continue;if(!ok(x,z,2))continue;tree(x,z,false);}
+  while(count<120&&tries<9000){tries++;const x=rr(-95,135),z=rr(-95,26);const rear=z<5,side=x<-22||x>58;
+    if(!rear&&(!side||rnd()<.6))continue;if(!ok(x,z,4))continue;tree(x,z,rnd()<.8);count++;}
+  for(let i=0;i<70;i++){const x=rr(-80,120),z=rr(-85,20);if(z>5&&x>-22&&x<58)continue;if(!ok(x,z,2))continue;tree(x,z,false);}
   // foundation shrubs (boxwood) and the tall conical shrub by the porch stair
   const shrub=(x,z,r,sy)=>{const y=terrainH(x,z);cards(S,scol,x,y+r*.75*(sy||1),z,r,(sy||.8),Math.round(18+r*r*22),r*.85,new THREE.Color().setHSL(rr(.25,.3),.35,rr(.55,.68)));};
   for(let x=27.5;x<35;x+=2.2)shrub(x,33.0,.95);for(let z=34;z<60;z+=4)shrub(56.5,z,1.3);
   for(const [x,z,r] of [[10.5,37.6,1.1],[12.6,38.2,.9],[14.6,37.9,1.2],[0.8,33.6,1.0],[-0.6,36.4,1.15],[20.5,37.3,.9],[24.8,37.2,1.0],[28.5,36.4,1.2],[31.5,36.8,.9],[-12.5,35.6,.95],[-4,35.2,1.1]])shrub(x,z,r);
   shrub(17.0,38.4,2.2,1.45);
-  for(const [x,z] of [[-5,46],[-23,54]]){const y=terrainH(x,z);pushGeo(B,new THREE.CylinderGeometry(.12,.18,9,7),M(x,y+4.5,z));
-    for(let k=0;k<4;k++)cards(L,lcol,x+rr(-1,1),y+rr(7.8,10),z+rr(-1,1),rr(1.8,2.4),.85,18,1.8,new THREE.Color().setHSL(.25,.35,.75));}
+  for(const [x,z] of [[-5,46],[-23,54]])tree(x,z,false,true);
   const mk=(A,mat,c)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
     g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));if(c)g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));return new THREE.Mesh(g,mat);};
   const lt=leafTex(false),st=leafTex(true);
@@ -130,10 +147,18 @@ function buildTrees(){
   const grp=new THREE.Group();const tr=mk(B,barkMat),lv=mk(L,MAT.leafCards,lcol),sh=mk(S,MAT.shrubCards,scol);
   lv.customDepthMaterial=depthMat(lt);sh.customDepthMaterial=depthMat(st);grp.add(tr,lv,sh);
   grp.children.forEach(m=>{m.castShadow=true;m.receiveShadow=true;});sh.userData.shrub=true;
+  // horizon: one alpha-cut band of distant treetops around the site, hazed by the fog, so the woods carry on past the lot
+  {const [c,g]=cv(1024,256);g.clearRect(0,0,1024,256);
+    for(let i=0;i<150;i++){const x=rr(0,1024),r=rr(16,38),cy=256-rr(70,205);g.fillStyle=hsl(rr(80,108),rr(22,36),rr(17,28));
+      g.fillRect(x-r*.8,cy,r*1.6,256-cy);for(let k=0;k<4;k++){g.beginPath();g.arc(x+rr(-r*.6,r*.6),cy+rr(-r*.4,r*.3),r*rr(.55,.85),0,6.283);g.fill();}}
+    for(const dx of [-1024,1024])g.drawImage(c,dx,0);
+    const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;t.repeat.set(7,1);
+    MAT.treeline=new THREE.MeshStandardMaterial({map:t,alphaTest:.5,side:THREE.BackSide,roughness:1,color:0xd8e0c8});
+    const band=new THREE.Mesh(new THREE.CylinderGeometry(560,560,70,72,1,true),MAT.treeline);band.position.set(20,-46+35,25);band.userData.horizon=true;grp.add(band);}
   return grp;
 }
 function bladeTex(){const S=TX(128),[c,g]=cv(S,S);g.clearRect(0,0,S,S);
-  for(let i=0;i<46;i++){const x0=S/2+rr(-S*.32,S*.32),lean=rr(-.3,.3),h=rr(.55,.98)*S,w=rr(1.2,2.6)*S/128;g.fillStyle=hsl(rr(68,100),rr(32,55),rr(22,40));
+  for(let i=0;i<46;i++){const x0=S/2+rr(-S*.32,S*.32),lean=rr(-.3,.3),h=rr(.55,.98)*S,w=rr(1.2,2.6)*S/128;g.fillStyle=hsl(rr(66,92),rr(30,48),rr(30,46));
     g.beginPath();g.moveTo(x0-w,S);g.quadraticCurveTo(x0+lean*h*.4,S-h*.5,x0+lean*h,S-h);g.quadraticCurveTo(x0+lean*h*.4+w*.5,S-h*.5,x0+w,S);g.fill();}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
 function isBed(x,z){return (x>-1.5&&x<19.8&&z>31.6&&z<39.6)||(x>25&&x<37&&z>31.6&&z<35.4)||Math.hypot(x+5,z-46)<2.2||Math.hypot(x+23,z-54)<2.2||(x>55&&x<58&&z>32&&z<61);}
@@ -147,7 +172,7 @@ function buildGrass(){const n=COARSE?4500:16000;
     if(inFoot(x,z,1.2)||isBed(x,z))continue;if(x>35&&x<55&&z>28&&z<63)continue;if(x>-23&&x<1&&z<33.6)continue;if(x>2.4&&x<9&&z>32.3&&z<37.6)continue;if(x>8.4&&x<18.3&&z>32.7&&z<36.1)continue;
     if(x>-31&&x<-21.5&&z>33&&z<47&&Math.abs((z-33.3)-(-(x+21.9))*1.48)<.6)continue;
     const y=terrainH(x,z);q.setFromAxisAngle(new THREE.Vector3(0,1,0),rr(0,6.28));const w=rr(.7,1.2);m.compose(new THREE.Vector3(x,y-.03,z),q,new THREE.Vector3(w,rr(.3,.55),w));
-    mesh.setMatrixAt(k,m);col.setHSL(rr(.2,.27),rr(.35,.55),rr(.55,.8));mesh.setColorAt(k,col);k++;}
+    mesh.setMatrixAt(k,m);col.setHSL(rr(.18,.24),rr(.35,.5),rr(.62,.82));mesh.setColorAt(k,col);k++;}
   mesh.count=k;mesh.receiveShadow=true;mesh.castShadow=false;mesh.frustumCulled=false;return mesh;}
 function setbackLines(){const g=new THREE.Group();const mat=new THREE.LineDashedMaterial({color:0xd0453b,dashSize:2.2,gapSize:1.4,depthTest:false,transparent:true});
   const line=(pts)=>{const L=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p[0],terrainH(p[0],p[1])+.4,p[1]))),mat);L.computeLineDistances();L.renderOrder=20;g.add(L);};

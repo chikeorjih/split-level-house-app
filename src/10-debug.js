@@ -31,7 +31,7 @@ function dbgPick(cx,cy){const cam=activeCam(),rc=new THREE.Raycaster();rc.setFro
   if(!hit){dbgSelect(null);return;}
   if(hit.object.userData.model){const r=MODELS.find(q=>q.m.id===hit.object.userData.model),b=r.box;
     dbgSelect({id:r.m.id,kind:'imported model',label:r.m.name||r.m.id,loc:null,boxes:[[b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z,r.tag]],mats:new Set([r.m.file])},'assets/models/manifest.json, model "'+r.m.id+'"'+(r.m.credit?'\n'+r.m.credit:''));return;}
-  if(hit.object===TERRAIN){dbgSelect({id:'GROUND',kind:'terrain',label:'ground',loc:srcFind('function terrainH('),mats:new Set(['grass'])});return;}
+  if(hit.object===TERRAIN||hit.object.userData.skirt){dbgSelect({id:'GROUND',kind:'terrain',label:'ground',loc:srcFind('function terrainH('),mats:new Set(['grass'])});return;}
   const fi=hit.object.userData.inst;if(fi){const e=REG.get(fi.okey);if(e){dbgSelect(e);const b=new THREE.Box3().setFromObject(fi.group);dbgHighlight({boxes:[[b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z]]});return;}}
   const p=hit.point,tag=hit.object.userData.tag;let best=null,bv=1e18;
   for(const e of REG.values())for(const b of e.boxes){if(b[6]!==tag)continue;

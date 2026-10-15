@@ -74,7 +74,7 @@ function animate(dt){let busy=false;
   return busy;}
 function addTag(tag,obj){(TAGS[tag]=TAGS[tag]||[]).push(obj);scene.add(obj);}
 function buildScene(){
-  scene=new THREE.Scene();scene.background=null;scene.fog=new THREE.Fog(0xcfd8e2,260,560);
+  scene=new THREE.Scene();scene.background=null;scene.fog=makeFog();
   makeMaterials();
   for(const k in MAT){const m=MAT[k];if(m.clippingPlanes)m.clipShadows=true;}
   buildHouse();buildFurniture();buildSiteHard();
@@ -92,6 +92,7 @@ function buildScene(){
       const mat=MAT[b.mat]||MAT.wall,m=new THREE.Mesh(g,mat);m.userData.baseMat=mat;m.userData.tag=b.tag;m.userData.inst=inst;m.castShadow=!NOSHADOW.has(b.mat);m.receiveShadow=b.mat!=='glass';if(b.mat==='glass')m.renderOrder=2;grp.add(m);}
     addTag(inst.tag,grp);inst.buckets=null;}
   TERRAIN=new THREE.Mesh(buildTerrain(),MAT.grass);TERRAIN.receiveShadow=true;addTag('site',TERRAIN);
+  {const sk=new THREE.Mesh(buildSkirt(),MAT.grass);sk.receiveShadow=true;sk.userData.skirt=true;addTag('site',sk);}
   TREES=buildTrees();addTag('trees',TREES);
   SETBACK=setbackLines();SETBACK.visible=false;scene.add(SETBACK);
   const GR=buildGrass();MAT.grassBlades=GR.material;addTag('grass',GR);
@@ -103,7 +104,7 @@ function buildScene(){
   sun=new THREE.DirectionalLight(0xfff0d8,1.75);sun.position.set(-48,95,62).add(new THREE.Vector3(16,-5,15));sun.target.position.set(16,-5,15);
   sun.castShadow=true;const sz=renderer.capabilities.maxTextureSize>=4096?4096:2048;sun.shadow.mapSize.set(sz,sz);
   Object.assign(sun.shadow.camera,{left:-95,right:95,top:95,bottom:-95,near:10,far:330});sun.shadow.bias=-.0003;sun.shadow.normalBias=.04;
-  scene.add(sun,sun.target);buildSky();buildLamps();
+  scene.add(sun,sun.target);buildSky();buildLamps();buildSkyLights();
   for(const L of [1,2,3,4]){CAPGRP['plan'+L]=caps(L,PLAN_TAGS[L]);CAPGRP['cut'+L]=caps(L,[String(L),'S'],CUT3(L),true);}
 }
 function caps(L,tags,cutY,noSwings){const cut=cutY||CUT[L],grp=new THREE.Group();const acc={};const put=(k,x0,x1,z0,z1,y)=>{const a=acc[k]=acc[k]||[];
@@ -134,7 +135,7 @@ function setVis(instant){const vv0=ST.pending||ST.view;
   const vv=vv0,L=ST.level,cutL=(vv==='plan')?(L==='all'?2:L):(vv==='three'&&L!=='all'?L:null),plan=vv==='plan';
   ST.cutL=cutL;retarget(instant);retargetClip(instant);
   SKYT.from=SKY_MAT.uniforms.pm.value;SKYT.to=plan?1:0;SKYT.t=instant?SKYT.dur:0;if(instant)SKY_MAT.uniforms.pm.value=SKYT.to;
-  SETBACK.visible=ST.site;if(SKY)SKY.visible=true;scene.background=null;scene.fog=plan?null:new THREE.Fog(PRESETS[LOOK.preset].hor,260,560);
+  SETBACK.visible=ST.site;if(SKY)SKY.visible=true;scene.background=null;scene.fog=plan?null:makeFog();updateFog();
   for(const L2 of SETBACK.children)L2.material.depthTest=!plan&&vv!=='three'?true:false;
   fitShadow(true);updateSectionDisplay();shadowDirty=true;dirty=true;updateUI();}
 function setView(v){
@@ -300,6 +301,7 @@ function camSig(c){c.updateMatrixWorld();return c.matrixWorld.elements.map(v=>v.
 function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   animate(dt);
   if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
+  updateFog();
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;}if(dirty){PIPE.n=0;dirty=false;}
   if(PIPE.n<PIPE.max){
     if(LOOK.quality==='high'){try{renderHigh(cam);}catch(e){console.warn(e);setQuality('fast','High quality could not run on this device, so the fast renderer is on.');renderFast(cam);}}
