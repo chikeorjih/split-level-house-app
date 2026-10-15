@@ -8,14 +8,15 @@ An interactive 3D walkthrough of a real split-level house in St. Louis, plus two
 
 ## Commands
 
-- `npm install`: installs three 0.128.0 and Playwright, and copies three into `vendor/` so the app works offline.
+- `npm install`: installs three 0.128.0 and Playwright, and copies three and its `GLTFLoader` into `vendor/` so the app works offline.
 - `npm run dev`: serves the app at http://localhost:5173 with live reload. Saving any file in `src/`, `assets/` or `index.html` reloads the page.
 - `npm test`: Playwright smoke tests (scene builds, walking routes, Debug ID line mapping, single-file build). Run this after every change.
-- `npm run build`: writes `dist/house-walkthrough.html`, a single self-contained file for publishing as a claude.ai artifact.
+- `npm run build`: writes `dist/house-walkthrough.html`, a single self-contained file for publishing as a claude.ai artifact. It embeds the `.glb` models listed in `assets/models/manifest.json`.
+- `npm run sketchfab -- search|info|download …` and `npm run model:check`: find, download and size-check imported furniture models. The `import-model` skill (`.claude/skills/import-model`) is the workflow.
 
 ## Architecture: read this before editing
 
-- **Plain classic scripts sharing one global scope.** `index.html` loads `src/00-boot.js` … `src/12-app.js` in order with ordinary `<script src>` tags. Top-level `const`/`let`/`function` declarations are visible across files. Do **not** convert files to ES modules or add `import` statements unless you are deliberately migrating the whole project. Load order matters only for top-level code that runs immediately; functions are called later from `start()` in `12-app.js`.
+- **Plain classic scripts sharing one global scope.** `index.html` loads `src/00-boot.js` … `src/13-models.js` in order with ordinary `<script src>` tags. Top-level `const`/`let`/`function` declarations are visible across files. Do **not** convert files to ES modules or add `import` statements unless you are deliberately migrating the whole project. Load order matters only for top-level code that runs immediately; functions are called later from `start()` in `12-app.js`.
 - **three.js r128 only.** Use the global `THREE`. APIs are r128-era: `sRGBEncoding`, `outputEncoding`, `BufferGeometry` everywhere, no `ColorManagement`, no `examples/jsm` imports. Check r128 docs before using anything newer.
 - **Units and axes.** Feet. `x` increases toward the northeast lot line (call it east); `z` increases toward Dunwoody Drive (south-east, "toward the street"); `y` is up. Floor elevations live in `E` in `02-spec.js`: lower level `E[1]=-13.5`, family-room level `E[2]=-4.5`, main level `E[3]=0`, bedroom level `E[4]=4.5`. Ceilings are in `CEIL`.
 - **Tags drive visibility.** Every piece of geometry has a tag: `'1'`–`'4'` (level), `'S'` (stair core and shared walls), `'X'` (foundations, chimney), `'roof'`, `'C1'`–`'C4'` (ceilings), `'site'`, `'trees'`, `'grass'`, `'frontOpen'`/`'frontClosed'` (front doors). `setVis()` and `fadeTarget()` in `12-app.js` decide what each view shows; cutaways fade other levels and slide the clipping plane `CLIP_TOP`.
@@ -24,6 +25,7 @@ An interactive 3D walkthrough of a real split-level house in St. Louis, plus two
 - **Walls come from data.** `W({...})` entries in `02-spec.js` describe each wall segment, its openings (`win`, `door`, `slide`, `garage`, `open`, …) and its cladding (`ext:{side, mat}`). `wallBuild()` turns them into geometry, collisions, trim and the plan poché.
 - **Materials.** All in the `MAT` object (`03-textures.js`, `04-textures-living.js`). Textures are generated on canvases at start-up; `addRelief()` derives normal maps from them. Architectural surfaces use world-space UVs in feet. Furniture uses per-face 0–1 UVs.
 - **Rendering.** `09-look-pipeline.js` holds the sky shader, the five light presets, and the high-quality pipeline: scene → AO → bloom → composite (including the zoomed-out "drawing" style) → accumulation → tone map. It needs WebGL 2 and falls back to `renderFast()` automatically.
+- **Imported models.** `13-models.js` loads the models in `assets/models/manifest.json` after start-up. It scales each to its product `spec` (inches), places it on its level's floor, and hides the named `T(...)` piece it `replaces`. `modelReport()` checks its size and fit. Model materials go into `MAT` as `model:<id>:<n>`, so lighting presets reach them. Give any `T(...)` piece a model might replace a name.
 - **Collisions and walking.** `COLS` (boxes) and `WALKS` (floor and stair-tread tops) in `05-geometry.js`, used by `stepWalk()` in `12-app.js`.
 
 ## Working from a Debug ID

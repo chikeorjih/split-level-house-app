@@ -66,3 +66,28 @@ test('single-file build works', async ({ page }) => {
   expect(html).not.toContain('src="src/');
   expect(html.split('\n')[5].startsWith('<title>')).toBeTruthy();
 });
+
+test('imported models are scaled to their product size, placed, and checked', async ({ page }) => {
+  // the fixture is a plain 84" x 38" x 34" box in metres, standing in for the living room sofa
+  await page.addInitScript(() => { window.__MODEL_MANIFEST = { models: [{ id: 'fixture', file: '../../tests/fixtures/box-84x38x34.glb',
+    spec: { w: 84, d: 38, h: 34 }, replaces: 'living room sofa', place: { x: 16.05 } }] }; });
+  const errors = await openApp(page);
+  await page.waitForFunction(() => MODELS_READY, null, { timeout: 60_000 });
+  expect(errors).toEqual([]);
+  const [r] = await page.evaluate(() => modelReport());
+  expect(r.scale).toBe('true to scale in m');
+  expect(r.issues).toEqual([]);
+  expect(r.place).toMatchObject({ lv: 3, ryDeg: 90 });
+  expect(r.room).toBe('Living room');
+  expect(await page.evaluate(() => INSTS.find(i => REG.get(i.okey).label === 'living room sofa').group.visible)).toBe(false);
+});
+
+test('models in assets/models/manifest.json match their product dimensions and fit the plan', async ({ page }) => {
+  const man = fs.existsSync('assets/models/manifest.json') ? JSON.parse(fs.readFileSync('assets/models/manifest.json', 'utf8')) : { models: [] };
+  test.skip(!(man.models || []).some(m => m.enabled !== false), 'no models in the manifest yet');
+  await openApp(page);
+  await page.waitForFunction(() => MODELS_READY, null, { timeout: 90_000 });
+  const report = await page.evaluate(() => modelReport());
+  expect(report.map(r => r.id).sort()).toEqual(man.models.filter(m => m.enabled !== false).map(m => m.id).sort());
+  for (const r of report) expect(r.issues, `${r.id}: run npm run model:check -- ${r.id}`).toEqual([]);
+});

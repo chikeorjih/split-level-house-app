@@ -7,4 +7,5 @@ const src = path.join(root, 'node_modules/three/build/three.min.js');
 if (!fs.existsSync(src)) { console.warn('three not installed yet; the app will load it from the CDN instead.'); process.exit(0); }
 fs.mkdirSync(path.join(root, 'vendor'), { recursive: true });
 fs.copyFileSync(src, path.join(root, 'vendor/three.min.js'));
-console.log('Copied three.js r128 to vendor/three.min.js');
+fs.copyFileSync(path.join(root, 'node_modules/three/examples/js/loaders/GLTFLoader.js'), path.join(root, 'vendor/GLTFLoader.js'));
+console.log('Copied three.js r128 and its GLTFLoader to vendor/');

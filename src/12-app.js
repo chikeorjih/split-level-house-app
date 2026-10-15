@@ -2,8 +2,59 @@
 "use strict";
 // ================= APP =================
 const CUT={1:E[1]+4.3,2:E[2]+3.5,3:E[3]+3.5,4:E[4]+4.3};
+// level cut height: waist height in plan, just under the ceiling in the 3/4 dollhouse view so walls show full height
+const cutH=L=>(ST.pending||ST.view)==='plan'?CUT[L]:CEIL[L]-.02;
+// dollhouse: each W() wall gets a fade value every frame, kept in a one-pixel-high texture (r = how far it has dissolved, g = its stub height).
+// A wall comes down when it faces the camera and a room lies behind it; walls with only outdoors behind them (the far exterior walls) stay up
+// as a backdrop. A wall only flips when it turns nearly edge-on to the camera, where it covers little of the screen, so orbiting never pops.
+// Cut walls keep a low stub so room outlines stay readable. Wall-hung things (art, curtains, mirrors, upper cabinets, sconces) carry their
+// wall's id and dissolve with it. Vertices carry dollW = (wall index + 1, 1 for wall-hung decor); the dissolve is a dithered discard, so
+// depth and AO stay right, and the high-quality accumulation smooths it into a fade.
+const DOLL={on:{value:0},n:{value:0},tex:{value:null},nw:{value:1}},DOLL_STUB=.45,DOLL_OUTDOOR=/deck|patio|porch/i;
+const DOLL_NOATT=new Set(['wall','opening','floor','ceiling','ceiling light','roof','dormer','stair','railing','foundation','fence','site','slab','deck','tub','shower glass','wall infill','beam']);
+function DOLL_OBC(s){s.uniforms.dollOn=DOLL.on;s.uniforms.dollN=DOLL.n;s.uniforms.dollTex=DOLL.tex;s.uniforms.dollNW=DOLL.nw;
+  s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nattribute vec2 dollW;varying vec2 vDollW;varying float vDollY;')
+    .replace('#include <begin_vertex>','#include <begin_vertex>\nvDollW=dollW;vDollY=(modelMatrix*vec4(transformed,1.)).y;');
+  s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform float dollOn,dollN,dollNW;uniform sampler2D dollTex;varying vec2 vDollW;varying float vDollY;')
+    .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(dollOn>0.&&vDollW.x>.5){vec4 dw=texture2D(dollTex,vec2((floor(vDollW.x+.5)-.5)/dollNW,.5));float dk=dollOn*dw.r;'+
+      'if(dk>0.&&(vDollW.y>.5||vDollY>dw.g*63.75-20.)){vec2 dq=gl_FragCoord.xy+dollN*vec2(47.,17.);if(dk>.999||dk>fract(52.9829189*fract(dot(dq,vec2(.06711056,.00583715)))))discard;}}');}
+function dollPatch(m){if(m&&m.isMaterial&&!m.isShaderMaterial)m.onBeforeCompile=DOLL_OBC;}
+// which wall (index into DOLL_WALLS) a thin piece hangs on: within half a foot of its face, mostly within its length, and off the floor
+// (curtains, art, mirrors and shower tile count even when they reach the floor); -1 if none
+function dollAttach(u,kind){if(DOLL_NOATT.has(kind))return -1;const [x0,y0,z0,x1,y1,z1]=u,hang=/curtain|art|mirror|^shower$/.test(kind);
+  const fl=Math.max(-99,...Object.values(E).filter(v=>v<=y0+.1));if(!hang&&y0<fl+.5)return -1;
+  let best=-1,bg=.5;DOLL_WALLS.forEach((w,i)=>{const [p0,p1,q0,q1]=w.ax==='x'?[x0,x1,z0,z1]:[z0,z1,x0,x1];
+    if(q1-q0>1.3||y1<=w.y0+.1||y0>=w.y1-.1||Math.min(p1,w.a1)-Math.max(p0,w.a0)<.6*(p1-p0))return;
+    const g=Math.max(q0-(w.c+w.t/2),(w.c-w.t/2)-q1);if(g<bg&&g>-w.t-.3){bg=g;best=i;}});
+  return best;}
+// a run of bucket vertices: its wall if a wall built it; otherwise the wall its whole build call hangs on, else the wall this one piece hangs on
+function dollIdOf(e,p,s0,s1){if(e.dollWall!==undefined)return e.dollWall;if(DOLL_NOATT.has(e.kind))return -1;
+  if(e.dollAtt===undefined){const u=[1e9,1e9,1e9,-1e9,-1e9,-1e9];for(const b of e.boxes)for(let k=0;k<3;k++){u[k]=Math.min(u[k],b[k]);u[k+3]=Math.max(u[k+3],b[k+3]);}e.dollAtt=dollAttach(u,e.kind);}
+  if(e.dollAtt>=0)return e.dollAtt;
+  const u=[1e9,1e9,1e9,-1e9,-1e9,-1e9];for(let j=s0;j<s1;j+=3)for(let k=0;k<3;k++){u[k]=Math.min(u[k],p[j+k]);u[k+3]=Math.max(u[k+3],p[j+k]);}
+  return dollAttach(u,e.kind);}
+// fade texture, plus for each wall and side the share of its length that has a room (of each level) right behind it
+function dollInit(){const N=Math.max(1,DOLL_WALLS.length),tx=new THREE.DataTexture(new Uint8Array(N*4),N,1,THREE.RGBAFormat);
+  tx.magFilter=tx.minFilter=THREE.NearestFilter;tx.needsUpdate=true;DOLL.tex.value=tx;DOLL.nw.value=N;
+  const inRoom=(x,z,L)=>SPEC.rooms.some(r=>r.lv===L&&!DOLL_OUTDOOR.test(r.name)&&x>=Math.min(r.x0,r.x1)&&x<=Math.max(r.x0,r.x1)&&z>=Math.min(r.z0,r.z1)&&z<=Math.max(r.z0,r.z1));
+  for(const w of DOLL_WALLS){w.v=0;w.cut=0;w.bk={'-1':[0],'1':[0]};
+    for(const sd of [-1,1])for(let L=1;L<=4;L++){let n=0;for(let k=0;k<7;k++){const a=w.a0+(w.a1-w.a0)*(k+.5)/7,q=w.c+sd*(w.t/2+.8);if(w.ax==='x'?inRoom(a,q,L):inRoom(q,a,L))n++;}w.bk[sd][L]=n/7;}}}
+function dollHidden(h){const a=DOLL.on.value>.5&&h.face&&h.object.geometry.attributes.dollW;if(!a)return false;const id=Math.round(a.getX(h.face.a));if(!id)return false;
+  const D=DOLL.tex.value.image.data,k=(id-1)*4;return D[k]>127&&(a.getY(h.face.a)>.5||h.point.y>D[k+1]/4-20);}
+function dollUpdate(dt){const goal=ST.view==='three'&&!ST.pending&&ST.cutL?1:0,o=DOLL.on.value;
+  if(o!==goal){DOLL.on.value=goal>o?Math.min(1,o+dt/.8):Math.max(0,o-dt/.4);dirty=true;}
+  if(!DOLL.on.value||!DOLL.tex.value)return;
+  const cp=camO.position,L=ST.cutL||3,D=DOLL.tex.value.image.data;let ch=false;
+  DOLL_WALLS.forEach((w,i)=>{const lv=typeof w.lv==='number'?w.lv:L,mx=w.ax==='x'?(w.a0+w.a1)/2:w.c,mz=w.ax==='x'?w.c:(w.a0+w.a1)/2,dx=mx-cp.x,dz=mz-cp.z;
+    const f=Math.abs(w.ax==='x'?dz:dx)/(Math.hypot(dx,dz)||1),back=-(Math.sign(w.ax==='x'?cp.z-w.c:cp.x-w.c)||1);
+    w.cut=w.bk[back][lv]>.3&&f>(w.cut?.1:.18)?1:0;
+    const nv=w.cut>w.v?Math.min(1,w.v+dt/.35):Math.max(w.cut,w.v-dt/.35),g=Math.round((E[lv]+DOLL_STUB+20)*4);
+    if(nv!==w.v||D[i*4+1]!==g){w.v=nv;D[i*4]=Math.round(nv*255);D[i*4+1]=g;ch=true;}});
+  if(ch){DOLL.tex.value.needsUpdate=true;dirty=true;}}
 const PLAN_TAGS={1:['1','S'],2:['2','S','X'],3:['3','S'],4:['4','S','X']};
-const ST={view:'three',level:'all',trees:true,labels:true,site:false};
+const ST={view:'three',level:'all',levels:[],trees:true,labels:true,site:false};
+// levels shown solid: every toggled level in the 3/4 view, just the cut level in plan
+const shownLv=()=>((ST.pending||ST.view)==='three'&&ST.levels.length)?ST.levels:(ST.cutL?[ST.cutL]:[]);
 const TWINS=[];let renderer,scene,camO,camW,camP,sun,TAGS={},TREES,SETBACK,TERRAIN,CAPGRP={},dirty=true,shadowDirty=true;
 const $=id=>document.getElementById(id);
 const COARSE=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
@@ -32,23 +83,23 @@ function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
   if(tag==='trees')return ST.trees?1:0;
   if(vv==='walk')return tag==='frontClosed'?0:1;
   if(tag==='frontOpen')return 0;
-  if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv!==undefined&&lv!==L)return FADE_OPACITY;}
+  if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv>L)return 0;if(lv!==undefined&&!shownLv().includes(lv))return FADE_OPACITY;}
   return 1;}
 function setTagOpacity(tag,o){FCUR[tag]=o;
   for(const m of meshesOf(tag)){if(!m.userData.baseMat)m.userData.baseMat=m.material;const b=m.userData.baseMat,wasVis=m.visible;
     if(o<=.003){m.visible=false;m.userData.faded=true;}
     else if(o>=.997){m.visible=true;m.material=b;m.userData.faded=false;}
-    else{const k=tag+'|'+b.uuid;let c=FADE.get(k);if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;FADE.set(k,c);}
+    else{const k=tag+'|'+b.uuid;let c=FADE.get(k);if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;FADE.set(k,c);}
       c.opacity=o*(b.transparent?b.opacity:1);m.material=c;m.visible=true;m.userData.faded=true;}
     if(wasVis!==m.visible)shadowDirty=true;}}
 function refreshFades(){FADE.forEach(c=>c.dispose());FADE.clear();for(const t in FCUR)setTagOpacity(t,FCUR[t]);updateSectionDisplay();}
 function retarget(instant){for(const tag in TAGS){const to=fadeTarget(tag),cur=FCUR[tag]===undefined?to:FCUR[tag];
   if(instant||Math.abs(to-cur)<.003){delete FTW[tag];setTagOpacity(tag,to);}else FTW[tag]={from:cur,to,t:0,dur:.85};}}
-function retargetClip(instant){const tgt=ST.cutL?CUT[ST.cutL]:null,TOP=24,cur=CLIP_TOP.constant>1e4?TOP:CLIP_TOP.constant,to=tgt===null?TOP:tgt;CLIPT.target=tgt;
+function retargetClip(instant){const tgt=ST.cutL?cutH(ST.cutL):null,TOP=24,cur=CLIP_TOP.constant>1e4?TOP:CLIP_TOP.constant,to=tgt===null?TOP:tgt;CLIPT.target=tgt;
   if(instant||Math.abs(cur-to)<.01){CLIPT.t=CLIPT.dur;CLIP_TOP.constant=tgt===null?1e5:tgt;}else{CLIPT.from=cur;CLIPT.to=to;CLIPT.t=0;CLIPT.dur=.6+Math.min(.6,Math.abs(to-cur)/30);CLIP_TOP.constant=cur;}}
 function updateSectionDisplay(){const vv=ST.pending||ST.view,settled=CLIPT.t>=CLIPT.dur,clipping=CLIP_TOP.constant<1e4;
   for(const k in CAPGRP)CAPGRP[k].visible=false;
-  if(settled&&ST.cutL)CAPGRP[(vv==='plan'?'plan':'cut')+ST.cutL].visible=true;
+  if(settled&&ST.cutL&&vv==='plan')CAPGRP['plan'+ST.cutL].visible=true;
   for(const tw of TWINS){const p=tw.userData.twinOf;tw.visible=clipping&&p.visible&&!p.userData.faded;}}
 function snapOrb(){return {th:ORB.th,ph:ORB.ph,d:ORB.d,t:ORB.t.clone(),fov:ORB.fov};}
 function startCam(to,done,dur){if(CT){const d0=CT.done;CT=null;if(d0)d0();}const from=snapOrb();
@@ -77,13 +128,19 @@ function buildScene(){
   for(const b of BUCKETS.values()){if(!b.p.length)continue;const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(b.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(b.n,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(b.u,2));
     let mat=MAT[b.mat];if(!mat){console.warn('missing material',b.mat);mat=MAT.wall;}
+    if(b.er){const w=new Float32Array(b.p.length/3*2);let any=false;
+      for(let i=0;i<b.er.length;i+=3){const e=b.er[i+2],id=dollIdOf(e,b.p,b.er[i],b.er[i+1]);if(id<0)continue;any=true;const dec=e.dollWall===undefined?1:0;
+        for(let j=b.er[i]/3;j<b.er[i+1]/3;j++){w[j*2]=id+1;w[j*2+1]=dec;}}
+      if(any)g.setAttribute('dollW',new THREE.BufferAttribute(w,2));}
     const m=new THREE.Mesh(g,mat);m.userData.baseMat=mat;m.castShadow=!NOSHADOW.has(b.mat);m.receiveShadow=b.mat!=='glass';if(b.mat==='glass')m.renderOrder=2;m.userData.tag=b.tag;addTag(b.tag,m);}
   BUCKETS.clear();
   // each placed furniture piece becomes its own group, pivoting on its footprint centre, so it can be moved and turned
   for(const inst of INSTS){const bb=inst.grp;if(!inst.buckets.size||bb.isEmpty())continue;
     const P0=new THREE.Vector3((bb.min.x+bb.max.x)/2,bb.min.y,(bb.min.z+bb.max.z)/2),grp=new THREE.Group();grp.position.copy(P0);grp.userData.inst=inst;inst.pivot0=P0;inst.group=grp;
+    const ie=REG.get(inst.okey),did=dollAttach([bb.min.x,bb.min.y,bb.min.z,bb.max.x,bb.max.y,bb.max.z],ie?ie.kind:'furniture');
     for(const b of inst.buckets.values()){const pos=new Float32Array(b.p.length);for(let i=0;i<b.p.length;i+=3){pos[i]=b.p[i]-P0.x;pos[i+1]=b.p[i+1]-P0.y;pos[i+2]=b.p[i+2]-P0.z;}
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(b.n,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(b.u,2));
+      if(did>=0){const w=new Float32Array(b.p.length/3*2);for(let j=0;j<w.length;j+=2){w[j]=did+1;w[j+1]=1;}g.setAttribute('dollW',new THREE.BufferAttribute(w,2));}
       const mat=MAT[b.mat]||MAT.wall,m=new THREE.Mesh(g,mat);m.userData.baseMat=mat;m.userData.tag=b.tag;m.userData.inst=inst;m.castShadow=!NOSHADOW.has(b.mat);m.receiveShadow=b.mat!=='glass';if(b.mat==='glass')m.renderOrder=2;grp.add(m);}
     addTag(inst.tag,grp);inst.buckets=null;}
   TERRAIN=new THREE.Mesh(buildTerrain(),MAT.grass);TERRAIN.receiveShadow=true;addTag('site',TERRAIN);
@@ -92,7 +149,7 @@ function buildScene(){
   const GR=buildGrass();MAT.grassBlades=GR.material;addTag('grass',GR);
   LOOK.hemi=new THREE.HemisphereLight(0xe3edf7,0x5e5444,.12);LOOK.amb=new THREE.AmbientLight(0xfff6ea,.05);scene.add(LOOK.hemi,LOOK.amb);
   // cut-section fill: back faces show as solid dark wherever the cutaway slices through something
-  const TWM=new THREE.MeshBasicMaterial({color:0x353a40,side:THREE.BackSide,clippingPlanes:CLIPS});const NOTWIN=new Set(['glass','frost','light','flame','shade','curtain','plantGreen','chain','mirror']);
+  const TWM=new THREE.MeshBasicMaterial({color:0x353a40,side:THREE.BackSide,clippingPlanes:CLIPS});dollPatch(TWM);for(const k in MAT)dollPatch(MAT[k]);dollInit();const NOTWIN=new Set(['glass','frost','light','flame','shade','curtain','plantGreen','chain','mirror']);
   for(const tag in TAGS){if(tag==='roof'||tag[0]==='C'||tag==='site'||tag==='trees'||tag==='grass')continue;for(const m of meshesOf(tag)){if(NOTWIN.has(Object.keys(MAT).find(k=>MAT[k]===m.material)))continue;
       const tw=new THREE.Mesh(m.geometry,TWM);tw.userData.twinOf=m;tw.userData.isTwin=true;tw.visible=false;TWINS.push(tw);(m.parent&&m.parent!==scene?m.parent:scene).add(tw);}}
   sun=new THREE.DirectionalLight(0xfff0d8,1.75);sun.position.set(-48,95,62).add(new THREE.Vector3(16,-5,15));sun.target.position.set(16,-5,15);
@@ -124,7 +181,9 @@ function caps(L,tags){const cut=CUT[L],grp=new THREE.Group();const acc={};const 
 const ORB={t:new THREE.Vector3(14,-4,17),th:Math.atan2(.18,1),ph:1.08,d:135,fov:38};
 const PLN={x:16,z:15,span:78};
 const WLK={x:22.3,z:34.6,f:-.5,yaw:0,pitch:-.05,vy:0,ground:true,inited:false};
-function setVis(instant){const vv=ST.pending||ST.view,L=ST.level,cutL=(vv==='plan')?(L==='all'?2:L):(vv==='three'&&L!=='all'?L:null),plan=vv==='plan';
+function setVis(instant){const vv0=ST.pending||ST.view;
+  if(vv0==='three'){if(ST.level==='all')ST.levels=[];else if(!ST.levels.includes(ST.level))ST.levels=[ST.level];if(ST.levels.length)ST.level=Math.max(...ST.levels);}
+  const vv=vv0,L=ST.level,cutL=(vv==='plan')?(L==='all'?2:L):(vv==='three'&&L!=='all'?L:null),plan=vv==='plan';
   ST.cutL=cutL;retarget(instant);retargetClip(instant);
   SKYT.from=SKY_MAT.uniforms.pm.value;SKYT.to=plan?1:0;SKYT.t=instant?SKYT.dur:0;if(instant)SKY_MAT.uniforms.pm.value=SKYT.to;
   SETBACK.visible=ST.site;if(SKY)SKY.visible=true;scene.background=null;scene.fog=plan?null:new THREE.Fog(PRESETS[LOOK.preset].hor,260,560);
@@ -146,8 +205,11 @@ function setLevel(L){if(ST.view==='walk'){if(L==='all'){setView('three');return;
     const r=SPEC.rooms.find(q=>q.lv===L&&q.name===n);teleportRoom(r);return;}
   if((ST.view==='plan'||ST.pending==='plan')&&L==='all'){ST.level='all';setView('three');return;}
   if(ST.pending==='plan'){const d=CT&&CT.done;CT=null;if(d)d();}
-  ST.level=L;
-  if(ST.view==='three'){const to=snapOrb();to.t.y=L==='all'?-5:E[L];startCam(to,null,1.0);}
+  // in the 3/4 view the level buttons are toggles, so several levels can be highlighted at once
+  if(ST.view==='three'){if(L==='all')ST.levels=[];else{const i=ST.levels.indexOf(L);if(i>=0)ST.levels.splice(i,1);else ST.levels.push(L);ST.levels.sort();}
+    ST.level=ST.levels.length?Math.max(...ST.levels):'all';
+    const to=snapOrb();to.t.y=ST.levels.length?ST.levels.reduce((a,l)=>a+E[l],0)/ST.levels.length:-5;startCam(to,null,1.0);}
+  else ST.level=L;
   if(ST.view==='plan'){const from={x:PLN.x,z:PLN.z,span:PLN.span};fitPlan();const to={x:PLN.x,z:PLN.z,span:PLN.span};Object.assign(PLN,from);PT={from,to,t:0,dur:1.0};}
   setVis();}
 function fitPlan(){const L=ST.level==='all'?2:ST.level;const r=SPEC.rooms.filter(q=>q.lv===L);let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
@@ -201,24 +263,25 @@ function buildLabels(){const host=$('labels');const seen=new Set();
 const _p=new THREE.Vector3();
 function updateLabels(){const cam=activeCam(),w=innerWidth,h=innerHeight,lvl=ST.cutL;
   for(const L of LBL){let show=false;
-    if(L.site)show=ST.site&&ST.view!=='walk';else show=ST.labels&&ST.view!=='walk'&&lvl&&L.lv===lvl;
+    if(L.site)show=ST.site&&ST.view!=='walk';else show=ST.labels&&ST.view!=='walk'&&lvl&&shownLv().includes(L.lv);
     if(show){_p.set(L.x,ST.view==='plan'?CUT[lvl]:L.y+.2,L.z).project(cam);if(_p.z>1||_p.x<-1.1||_p.x>1.1||_p.y<-1.1||_p.y>1.1)show=false;
       else{L.el.style.left=((_p.x+1)/2*w)+'px';L.el.style.top=((1-_p.y)/2*h)+'px';}}
     L.el.style.display=show?'block':'none';}}
 // ---------------- UI ----------------
 const HELP={walk:COARSE?'Use the pad to move and drag anywhere else to look. Pick a level or a room to jump there.':'Drag to look. W A S D or the arrow keys to move, Shift to hurry. Stairs climb as you walk into them.',
-  three:COARSE?'Drag to orbit, pinch to zoom, two fingers to pan. Pick a level to cut the house open there.':'Drag to orbit, right-drag to pan, scroll to zoom. Pick a level to cut the house open there.',
+  three:COARSE?'Drag to orbit, pinch to zoom, two fingers to pan. Tap levels to toggle them for a dollhouse view; walls facing you dissolve away.':'Drag to orbit, right-drag to pan, scroll to zoom. Click levels to toggle them for a dollhouse view; walls facing you dissolve away.',
   plan:'Drag to pan, scroll or pinch to zoom. Dunwoody Drive is at the bottom, the rear yard at the top. Blue is new.'};
 function whereText(){if(ST.view==='walk'){let best=null;for(const r of SPEC.rooms){const e=r.lv?E[r.lv]:0;if(WLK.x>=r.x0&&WLK.x<=r.x1&&WLK.z>=r.z0&&WLK.z<=r.z1&&Math.abs(WLK.f-e)<2.8){if(!best||Math.abs(WLK.f-e)<Math.abs(WLK.f-(best.lv?E[best.lv]:0)))best=r;}}
     if(best)return best.name+(best.isNew?' (new)':'')+', '+LEVEL_NAMES[best.lv].toLowerCase();
     for(const s of SPEC.stairs)if(WLK.x>=s.x0&&WLK.x<=s.x1&&WLK.z>=s.z0-.3&&WLK.z<=s.z1+.3&&WLK.f>s.yLow-.5&&WLK.f<s.yHigh+.5)return 'On the stairs';
     if(inFoot(WLK.x,WLK.z))return 'Inside the house';return WLK.z>SITE.street0-.5?(WLK.z<SITE.street1+.6?'On Dunwoody Drive':'Across the street'):WLK.z>31.6?'Front yard':(WLK.z<0?'Rear yard':'Side yard');}
   if(ST.view==='plan')return LEVEL_NAMES[ST.cutL]+' plan';
+  if(ST.levels.length>1)return ST.levels.slice().reverse().map(l=>LEVEL_NAMES[l].replace(/ level$/,'')).join(' + ')+' levels, cut open';
   return ST.cutL?LEVEL_NAMES[ST.cutL]+', cut open':'Whole house';}
 let lastWhere='';
 function updateUI(){document.querySelectorAll('.seg button[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===(ST.pending||ST.view))));
   const active=ST.view==='walk'?null:(ST.view==='plan'?ST.cutL:ST.level);
-  document.querySelectorAll('#section .lvl').forEach(b=>b.setAttribute('aria-pressed',String(String(active)===b.dataset.lv)));
+  document.querySelectorAll('#section .lvl').forEach(b=>b.setAttribute('aria-pressed',String(ST.view==='three'?ST.levels.includes(+b.dataset.lv):String(active)===b.dataset.lv)));
   $('allbtn').setAttribute('aria-pressed',String(ST.view==='three'&&ST.level==='all'));
   $('help').textContent=ARR.on?'Arrange: tap a piece of furniture, drag it to move it, drag the pink ring to turn it. Hold Shift to snap; Q and E turn 15°. Moves are saved in this browser.':DBG.on?'Debug mode: tap any surface or ID label to inspect it, then copy it into your message. Pick a level or walk into a room to label everything there. IDs match this published version.':HELP[ST.view];$('joy').style.display=(ST.view==='walk'&&COARSE)?'block':'none';
   $('tSite').setAttribute('aria-pressed',String(ST.site));$('tTrees').setAttribute('aria-pressed',String(ST.trees));$('tLabels').setAttribute('aria-pressed',String(ST.labels));
@@ -230,6 +293,11 @@ function buildUI(){
   mk(4,'Bedrooms','level 4',31,40,yOf(E[4]));mk(3,'Main','level 3',62,38,yOf(E[3]));mk(2,'Family rm','level 2',31,40,yOf(E[2]));
   mk(2,'Addition','new',0,29,yOf(E[2]),'new','Four-seasons room');mk(1,'Lower','level 1',31,69,yOf(E[1]));
   $('allbtn').addEventListener('click',()=>{if(ST.view==='three'&&!ST.pending){setLevel('all');}else{ST.level='all';setView('three');}});
+  // minimise buttons: each panel collapses to a small labelled pill; remembered in this browser
+  let mins={};try{mins=JSON.parse(localStorage.getItem('panelMin')||'{}')||{};}catch(e){}
+  for(const [id,name] of [['top','Controls'],['levels','Levels'],['hud','Help']]){const pnl=$(id),b=document.createElement('button');b.className='pmin';pnl.prepend(b);
+    const set=on=>{pnl.classList.toggle('min',on);b.textContent=on?name:'−';b.title=b.ariaLabel=(on?'Show ':'Minimise ')+name.toLowerCase();b.setAttribute('aria-expanded',String(!on));mins[id]=on;try{localStorage.setItem('panelMin',JSON.stringify(mins));}catch(e){}};
+    b.addEventListener('click',()=>set(!pnl.classList.contains('min')));set(!!mins[id]);}
   document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
   const tod=$('tod');for(const k in PRESETS){const o=document.createElement('option');o.value=k;o.textContent=PRESETS[k].label;tod.appendChild(o);}tod.value=LOOK.preset;
   tod.addEventListener('change',()=>{applyPreset(tod.value);tod.blur();});
@@ -284,7 +352,7 @@ function camSig(c){c.updateMatrixWorld();return c.matrixWorld.elements.map(v=>v.
 function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   animate(dt);
   if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
-  const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;}if(dirty){PIPE.n=0;dirty=false;}
+  dollUpdate(dt);const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;}if(dirty){PIPE.n=0;dirty=false;}DOLL.n.value=PIPE.n%61;
   if(PIPE.n<PIPE.max){
     if(LOOK.quality==='high'){try{renderHigh(cam);}catch(e){console.warn(e);setQuality('fast','High quality could not run on this device, so the fast renderer is on.');renderFast(cam);}}
     else renderFast(cam);
@@ -304,6 +372,6 @@ function start(){
   camO=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.5,1600);camW=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.25,650);
   camP=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);
   buildUI();buildLabels();bindInput();
-  setQuality(COARSE?'fast':'high',COARSE?'':undefined);applyPreset('afternoon');resize();setVis(true);updateOrbitCam();arrLoad();loadTextureOverrides();
+  setQuality(COARSE?'fast':'high',COARSE?'':undefined);applyPreset('afternoon');resize();setVis(true);updateOrbitCam();arrLoad();loadTextureOverrides();loadModels();
   requestAnimationFrame(t=>{last=t;frame(t);$('loading').style.display='none';});}
 requestAnimationFrame(()=>setTimeout(start,30));

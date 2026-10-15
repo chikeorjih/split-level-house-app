@@ -26,7 +26,7 @@ function floorPt(rc,y){const p=new THREE.Vector3();return rc.ray.intersectPlane(
 function arrDown(e){const rc=arrRay(e),clip=CLIP_TOP.constant;
   if(ARR.sel&&ARR.ring){const h=rc.intersectObject(ARR.ring,true).find(x=>x.object.userData.ringHit);
     if(h){const inst=ARR.sel,c=floorPt(rc,inst.pivot0.y);if(c){ARR.drag={mode:'rot',a0:Math.atan2(c.x-(inst.pivot0.x+inst.dx),c.z-(inst.pivot0.z+inst.dz)),r0:inst.ry};return true;}}}
-  const objs=[];for(const inst of INSTS)if(inst.group)inst.group.traverse(o=>{if(o.isMesh&&!o.userData.isTwin&&o.visible&&!o.userData.faded)objs.push(o);});
+  const objs=[];for(const inst of INSTS)if(inst.group&&!inst.hiddenByModel)inst.group.traverse(o=>{if(o.isMesh&&!o.userData.isTwin&&o.visible&&!o.userData.faded)objs.push(o);});
   const h=rc.intersectObjects(objs,false).find(x=>x.point.y<=clip+.02);if(!h)return false;
   const others=[];for(const tag in TAGS){if(tag==='trees'||tag==='grass')continue;for(const m of meshesOf(tag))if(!m.userData.inst&&m.visible&&!m.userData.faded)others.push(m);}
   const o=rc.intersectObjects(others,false).find(x=>x.point.y<=clip+.02);if(o&&o.distance<h.distance-.05)return false;

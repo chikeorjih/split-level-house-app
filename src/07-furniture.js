@@ -169,7 +169,7 @@ function legTo(p,mat,a,b,r0,r1){const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[
 function buildFurniture(){
   const e1=E[1],e2=E[2],e3=E[3],e4=E[4];
   const T=(tag,x,y,z,ry,name)=>{const p=P(tag,x,y,z,ry);p._tag=tag;p._grp=new THREE.Box3();FURN.push(p._grp);const h=here();p._owner={key:'FU@'+locKey(h),kind:'furniture',fn:'T',loc:h,label:name||''};
-    const k=p._owner.key;INST_N[k]=(INST_N[k]||0)+1;p._inst={key:k+'#'+INST_N[k],n:INST_N[k],okey:k,tag,buckets:new Map(),cols:[],lights:[],grp:p._grp,dx:0,dz:0,ry:0};INSTS.push(p._inst);return p;};
+    const k=p._owner.key;INST_N[k]=(INST_N[k]||0)+1;p._inst={key:k+'#'+INST_N[k],n:INST_N[k],okey:k,tag,buckets:new Map(),cols:[],lights:[],grp:p._grp,dx:0,dz:0,ry:0,ry0:ry||0};INSTS.push(p._inst);return p;};
   // ================= FAMILY ROOM (level 2), styled after the reference photo =================
   const SB=(p,mat,x,y,z,w,h,d,e,ez,o)=>{o=o||{};const [rx,ry,rz]=o.rot||[o.rx||0,0,0];p.g(mat,superBox(w,h,d,e,ez,o.pinch||0,o.seg||26,o.unit?false:true),x,y,z,rx,ry,rz);};
   const pillowAt=(p,mat,x,y,z,ry,s,lean,roll)=>SB(p,mat,x,y,z,s,s,.5,.38,.85,{pinch:.6,seg:30,unit:/Stripe|Chevron/.test(mat),rot:rotE(ry,lean,roll)});
@@ -236,7 +236,7 @@ function buildFurniture(){
   showerHead('2',16,e2+6.6,31.05,0,-1);
   // ================= MAIN LEVEL: living room =================
   rug('3','rugLiving',22.4,e3,6.4,11.8,8.6);
-  {const p=T('3',15.85,e3,7.0,Math.PI/2);sofa(p,7.6,2.95,{pillows:['pillowOchre','pillowBlue','pillowCream']});}
+  {const p=T('3',15.85,e3,7.0,Math.PI/2,'living room sofa');sofa(p,7.6,2.95,{pillows:['pillowOchre','pillowBlue','pillowCream']});}
   {const p=T('3',17.25,e3,2.25,Math.PI/2);ottoman(p,2.6,5.6);}
   {const p=T('3',28.2,e3,3.4,-Math.PI/2+.45);clubChair(p);}
   {const p=T('3',28.5,e3,6.6,-Math.PI/2+.15);clubChair(p);}
@@ -302,7 +302,7 @@ function buildFurniture(){
   schoolhouse('C3',21.0,28.8,CEIL[3]);schoolhouse('C3',21.3,16.0,CEIL[3]);
   // ================= FOUR-SEASONS ROOM, gallery, suite (level 2, new) =================
   rug('2','rugLiving',-11.4,e2,5.9,11,8.2);
-  {const p=T('2',-11.4,e2,9.7,Math.PI);sofa(p,8.2,3.0,{mat:'fabricGrey',pillows:['pillowBlue','pillowOchre','pillowCream']});}
+  {const p=T('2',-11.4,e2,9.7,Math.PI,'four-seasons sofa');sofa(p,8.2,3.0,{mat:'fabricGrey',pillows:['pillowBlue','pillowOchre','pillowCream']});}
   {const p=T('2',-14.3,e2,2.6,.25);loungeChair(p,'fabricCream');} {const p=T('2',-8.5,e2,2.6,-.25);loungeChair(p,'fabricCream');}
   coffeeTable(T('2',-11.4,e2,6.1,0),4.2,2.2);
   {const p=T('2',-20.1,e2,-.4,0);plant(p,0,0,0,'tall');} {const p=T('2',-2.8,e2,-.3,0);plant(p,0,0,0,'tall');}

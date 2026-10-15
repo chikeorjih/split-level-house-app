@@ -27,8 +27,10 @@ function dbgSelect(e,extra){DBG.sel=e;dbgHighlight(e&&e.boxes?e:null);const box=
   $('dbgMats').textContent=e.mats?[...e.mats].join(', '):'';$('dbgCopy').textContent='Copy for Claude';box.style.display='block';}
 function dbgPick(cx,cy){const cam=activeCam(),rc=new THREE.Raycaster();rc.setFromCamera(new THREE.Vector2(cx/innerWidth*2-1,-(cy/innerHeight)*2+1),cam);
   const objs=[];for(const tag in TAGS){if(tag==='trees'||tag==='grass')continue;for(const o of meshesOf(tag))if(o.visible&&!o.userData.faded)objs.push(o);}
-  const hits=rc.intersectObjects(objs,false),clip=CLIP_TOP.constant,hit=hits.find(h=>h.point.y<=clip+.02);
+  const hits=rc.intersectObjects(objs,false),clip=CLIP_TOP.constant,hit=hits.find(h=>h.point.y<=clip+.02&&!dollHidden(h));
   if(!hit){dbgSelect(null);return;}
+  if(hit.object.userData.model){const r=MODELS.find(q=>q.m.id===hit.object.userData.model),b=r.box;
+    dbgSelect({id:r.m.id,kind:'imported model',label:r.m.name||r.m.id,loc:null,boxes:[[b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z,r.tag]],mats:new Set([r.m.file])},'assets/models/manifest.json, model "'+r.m.id+'"'+(r.m.credit?'\n'+r.m.credit:''));return;}
   if(hit.object===TERRAIN){dbgSelect({id:'GROUND',kind:'terrain',label:'ground',loc:srcFind('function terrainH('),mats:new Set(['grass'])});return;}
   const fi=hit.object.userData.inst;if(fi){const e=REG.get(fi.okey);if(e){dbgSelect(e);const b=new THREE.Box3().setFromObject(fi.group);dbgHighlight({boxes:[[b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z]]});return;}}
   const p=hit.point,tag=hit.object.userData.tag;let best=null,bv=1e18;
@@ -42,9 +44,9 @@ function dbgScope(){const out=[],v=ST.pending||ST.view;
       if(r){if(u[3]<r.x0-ex||u[0]>r.x1+ex||u[5]<r.z0-ex||u[2]>r.z1+ex)continue;if(u[4]<E[lv]-.6||u[1]>CEIL[lv]+.4)continue;}
       else{const cx=(u[0]+u[3])/2,cz=(u[2]+u[5])/2;if(Math.hypot(cx-WLK.x,cz-WLK.z)>22||Math.abs((u[1]+u[4])/2-WLK.f-3)>9)continue;}
       out.push(e);}}
-  else if(ST.cutL){const L=ST.cutL,cut=CUT[L];
+  else if(ST.cutL){const L=ST.cutL,cut=cutH(L);
     for(const e of REG.values()){if(!e.boxes.length||e.kind==='ceiling'||e.kind==='ceiling light')continue;const tg=elTags(e),u=elUnion(e);
-      if(tg.has(String(L))||(tg.has('S')&&u[1]<=cut&&u[4]>=E[L]-.5))out.push(e);}}
+      if(shownLv().some(l=>tg.has(String(l)))||(tg.has('S')&&u[1]<=cut&&u[4]>=E[L]-.5))out.push(e);}}
   return out.slice(0,260);}
 function dbgAnchor(e){const u=elUnion(e),cx=(u[0]+u[3])/2,cz=(u[2]+u[5])/2,top=Math.min(u[4],CLIP_TOP.constant-.25);
   if(e.kind==='floor')return [cx,u[4]+.06,cz];if(e.kind==='ceiling')return [cx,u[1]-.08,cz];
