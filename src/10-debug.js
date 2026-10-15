@@ -17,7 +17,7 @@ function dbgHighlight(e){if(DBG.hl){scene.remove(DBG.hl);DBG.hl.geometry.dispose
     for(const [i,j] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]])P.push(...c[i],...c[j]);}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));
   DBG.hl=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0xff2d6f,depthTest:false,transparent:true}));DBG.hl.renderOrder=60;DBG.hl.frustumCulled=false;scene.add(DBG.hl);dirty=true;}
-function dbgSelect(e,extra){DBG.sel=e;dbgHighlight(e&&e.boxes?e:null);const box=$('dbg');if(!e){box.style.display='none';return;}
+function dbgSelect(e,extra){DBG.sel=e;$('dbgConfirm').style.display='none';dbgHighlight(e&&e.boxes?e:null);const box=$('dbg');if(!e){box.style.display='none';return;}
   const lv=e.boxes?elLevel(e):null,u=e.boxes?elUnion(e):null,f=v=>(Math.round(v*10)/10).toFixed(1);
   $('dbgId').textContent=e.id;$('dbgKind').textContent=elDesc(e)+(e.parent?' in '+e.parent:'');
   $('dbgLevel').textContent=lv?LEVEL_NAMES[lv]:(e.boxes&&elTags(e).has('S')?'Stair core, spans levels':(e.boxes&&elTags(e).has('roof')?'Roof':'Site and outdoors'));
@@ -27,7 +27,7 @@ function dbgSelect(e,extra){DBG.sel=e;dbgHighlight(e&&e.boxes?e:null);const box=
   $('dbgMats').textContent=e.mats?[...e.mats].join(', '):'';$('dbgCopy').textContent='Copy for Claude';box.style.display='block';}
 function dbgPick(cx,cy){const cam=activeCam(),rc=new THREE.Raycaster();rc.setFromCamera(new THREE.Vector2(cx/innerWidth*2-1,-(cy/innerHeight)*2+1),cam);
   const objs=[];for(const tag in TAGS){if(tag==='trees'||tag==='grass')continue;for(const o of meshesOf(tag))if(o.visible&&!o.userData.faded)objs.push(o);}
-  const hits=rc.intersectObjects(objs,false),clip=CLIP_TOP.constant,hit=hits.find(h=>h.point.y<=clip+.02&&!dollHidden(h));
+  const hits=rc.intersectObjects(objs,false),clip=CLIP_TOP.constant,hit=hits.find(h=>h.point.y<=clip+.02);
   if(!hit){dbgSelect(null);return;}
   if(hit.object.userData.model){const r=MODELS.find(q=>q.m.id===hit.object.userData.model),b=r.box;
     dbgSelect({id:r.m.id,kind:'imported model',label:r.m.name||r.m.id,loc:null,boxes:[[b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z,r.tag]],mats:new Set([r.m.file])},'assets/models/manifest.json, model "'+r.m.id+'"'+(r.m.credit?'\n'+r.m.credit:''));return;}
@@ -69,3 +69,45 @@ function dbgCopy(){if(!DBG.sel)return;const t=copyText(DBG.sel),btn=$('dbgCopy')
   const fallback=()=>{const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
     let ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok)done();else{$('dbgSrc').textContent=t;btn.textContent='Select the text above to copy';}};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fallback);else fallback();}
+// ---------- Delete: removes the selected element's build code for good (through the dev server), with an undo after the reload ----------
+let EDIT_OK=null;
+async function editOk(){if(EDIT_OK===null){try{EDIT_OK=(await fetch('/__edit/status',{cache:'no-store'})).ok;}catch(e){EDIT_OK=false;}}return EDIT_OK;}
+async function editPost(p,b){const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});const j=await r.json().catch(()=>({error:'the dev server did not answer'}));
+  if(!r.ok||j.error)throw new Error(j.error||r.statusText);return j;}
+// what to remove: the build call at the element's source line; an opening is one entry of its wall's ops list; a model is its manifest entry
+function delTarget(e){if(e.kind==='imported model')return {model:e.id};if(!e.loc||!/^src\//.test(e.loc.file))return null;
+  const t={file:e.loc.file,line:e.loc.line,col:e.loc.col};
+  if(e.kind==='opening'){const k=e.key.lastIndexOf('.o'),wk=e.key.slice(0,k),i=+e.key.slice(k+2),w=SPEC.walls.find(q=>q.loc&&'W@'+locKey(q.loc)===wk);if(!w)return null;
+    t.op=w.ops.indexOf(w.ops.slice().sort((p,q)=>p.c-q.c)[i]);}
+  return t;}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+function delBox(html,btns){const b=$('dbgConfirm');b.innerHTML=html;b.style.display='block';const row=document.createElement('div');row.className='row';
+  for(const [txt,cls,fn] of btns||[]){const x=document.createElement('button');x.className='chip'+(cls?' '+cls:'');x.textContent=txt;x.addEventListener('click',fn);row.appendChild(x);}b.appendChild(row);}
+async function dbgDelete(){const e=DBG.sel;if(!e)return;const t=delTarget(e),close=()=>{$('dbgConfirm').style.display='none';};
+  if(!t)return delBox("<p>This isn't built by a single line of code, so it can't be deleted from here. Ask Claude to remove it.</p>",[['OK','',close]]);
+  if(!await editOk()){const req='Please delete '+copyText(e);
+    const hide=()=>{for(const i of INSTS)if(i.okey===e.key&&i.group){i.group.visible=false;i.hiddenByModel=true;}dirty=true;shadowDirty=true;};
+    return delBox('<p>Deleting for good needs the dev server (<code>npm run dev</code>). You can hide it for now and send Claude a delete request instead.</p>',
+      [['Hide and copy request','danger',()=>{hide();if(navigator.clipboard)navigator.clipboard.writeText(req).catch(()=>{});
+        delBox('<p>Hidden until you reload. The delete request is on your clipboard:</p><pre>'+esc(req)+'</pre>',[['OK','',close]]);}],['Cancel','',close]]);}
+  let d;try{d=await editPost('/__edit/delete',Object.assign({dry:true},t));}catch(err){return delBox("<p>Can't delete this automatically: "+esc(err.message)+'</p>',[['OK','',close]]);}
+  const n=e.kind==='furniture'?(INST_N[e.key]||1):1,where=t.model?'assets/models/manifest.json':`${d.file}, line ${d.line}`;
+  delBox(`<p><b>Delete ${esc(e.id)} for good?</b> This removes from ${esc(where)}:</p><pre>${esc(d.removed.length>600?d.removed.slice(0,600)+'…':d.removed)}</pre>`+
+    (n>1?`<p>That code builds <b>${n}</b> of these, so all ${n} go.</p>`:''),
+    [['Delete permanently','danger',async()=>{try{await editPost('/__edit/delete',t);}catch(err){return delBox('<p>Delete failed: '+esc(err.message)+'</p>',[['OK','',close]]);}
+      try{sessionStorage.setItem('dbgDeleted',JSON.stringify({what:e.id+' ('+elDesc(e)+')',where,view:dbgSaveView()}));}catch(x){}
+      delBox('<p>Deleted. Reloading…</p>');setTimeout(()=>location.reload(),900);}],['Cancel','',close]]);}
+// keep the view (and Debug mode) across the reload a delete causes, then offer an undo
+function dbgSaveView(){return {view:ST.view,level:ST.level,levels:ST.levels,orb:{th:ORB.th,ph:ORB.ph,d:ORB.d,t:ORB.t.toArray(),fov:ORB.fov},pln:{x:PLN.x,z:PLN.z,span:PLN.span},
+  wlk:{x:WLK.x,z:WLK.z,f:WLK.f,yaw:WLK.yaw,pitch:WLK.pitch},dbg:DBG.on};}
+function dbgAfterReload(){let s=null;try{s=JSON.parse(sessionStorage.getItem('dbgDeleted')||'null');sessionStorage.removeItem('dbgDeleted');}catch(e){}if(!s)return;
+  const v=s.view;
+  if(v){Object.assign(ORB,{th:v.orb.th,ph:v.orb.ph,d:v.orb.d,fov:v.orb.fov});ORB.t.fromArray(v.orb.t);
+    if(v.view==='plan'){ST.level=v.level;ST.view='plan';fitPlan();Object.assign(PLN,v.pln);resize();setVis(true);}
+    else if(v.view==='walk'){Object.assign(WLK,v.wlk,{inited:true});setView('walk');}
+    else{ST.levels=v.levels||[];ST.level=v.level;setVis(true);}
+    if(v.dbg&&!DBG.on)dbgToggle();}
+  const t=document.createElement('div');t.id='toast';t.className='panel';const msg=document.createElement('span');msg.textContent='Deleted '+s.what+' from '+s.where+'.';
+  const u=document.createElement('button');u.className='chip';u.textContent='Undo';const x=document.createElement('button');x.className='chip';x.textContent='Close';
+  u.addEventListener('click',async()=>{try{await editPost('/__edit/undo');msg.textContent='Restored. Reloading…';setTimeout(()=>location.reload(),900);}catch(err){msg.textContent='Undo failed: '+err.message;}});
+  x.addEventListener('click',()=>t.remove());t.append(msg,u,x);document.body.appendChild(t);setTimeout(()=>{if(t.isConnected)t.remove();},30000);}

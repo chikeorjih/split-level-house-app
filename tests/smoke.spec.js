@@ -91,3 +91,27 @@ test('models in assets/models/manifest.json match their product dimensions and f
   expect(report.map(r => r.id).sort()).toEqual(man.models.filter(m => m.enabled !== false).map(m => m.id).sort());
   for (const r of report) expect(r.issues, `${r.id}: run npm run model:check -- ${r.id}`).toEqual([]);
 });
+
+test('Debug Delete removes exactly the code that builds an element', async () => {
+  const { removeElement, removeOpening } = await import('../scripts/src-edit.mjs');
+  const src = [
+    'function buildFurniture(){',
+    "  // dining",
+    "  rug('3','rugDining',37.6,e3,5.4,10.2,7.6);",
+    "  {const p=T('3',1,e3,2,0,'a');chair(p);} {const p=T('3',3,e3,4,0,'b');chair(p);}",
+    "  for(const x of [1,2]){for(const z of [3,4]){const p=T('3',x,e3,z,0);stool(p);}}",
+    "  table(T('3',5,e3,6,0),6.8,3.3);",
+    "  W({lv:2,x0:0,z0:0,x1:14,z1:0,ops:[win(7,8,E2,1,7,5),door(2,3,E2)]});",
+    '}'].join('\n');
+  const col = (line, s) => src.split('\n')[line - 1].indexOf(s) + 1;
+  expect(removeElement(src, 3, col(3, 'rug(')).text).not.toContain('rug(');
+  expect(removeElement(src, 3, col(3, 'rug(')).text).toContain('// dining');
+  const b = removeElement(src, 4, col(4, "T('3',3"));
+  expect(b.removed).toBe("{const p=T('3',3,e3,4,0,'b');chair(p);}");
+  expect(b.text.split('\n')[3]).toBe("  {const p=T('3',1,e3,2,0,'a');chair(p);}");
+  expect(removeElement(src, 5, col(5, 'T(')).removed).toBe("for(const x of [1,2]){for(const z of [3,4]){const p=T('3',x,e3,z,0);stool(p);}}");
+  expect(removeElement(src, 6, col(6, 'T(')).removed).toBe("table(T('3',5,e3,6,0),6.8,3.3);");
+  expect(removeOpening(src, 7, col(7, 'W('), 1).text).toContain('ops:[win(7,8,E2,1,7,5)]');
+  expect(removeOpening(src, 7, col(7, 'W('), 0).text).toContain('ops:[door(2,3,E2)]');
+  expect(() => removeElement('const p=T(1);\nuse(p);', 1, 9)).toThrow(/outside a block/);
+});

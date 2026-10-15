@@ -32,6 +32,6 @@ const OPEN_LABEL={win:'window',frost:'frosted window',door:'door',door2:'double 
 function kindFor(fn,tag){if(tag==='roof')return fn==='dormer'?'dormer':'roof';if(tag&&tag[0]==='C')return 'ceiling light';return KIND_BY_FN[fn]||(tag==='site'?'site':'part');}
 function nextId(kind){const p=kind==='wall'?'W':kind==='floor'?'F':kind==='ceiling'?'C':kind==='furniture'?'FU':(kind==='roof'||kind==='dormer')?'R':(kind==='stair'||kind==='railing')?'ST':'X';REGC[p]=(REGC[p]||0)+1;return p+REGC[p];}
 function ensureEl(o){let e=REG.get(o.key);if(!e){e={key:o.key,kind:o.kind,fn:o.fn||'',label:o.label||'',loc:o.loc||null,parent:o.parent||null,boxes:[],mats:new Set(),id:o.id||nextId(o.kind)};REG.set(o.key,e);}return e;}
-function regPiece(tag,mat,x0,y0,z0,x1,y1,z1){LAST_EL=null;if(tag==='trees'||tag==='grass')return;if(!(x1>=x0&&y1>=y0&&z1>=z0))return;
+function regPiece(tag,mat,x0,y0,z0,x1,y1,z1){if(tag==='trees'||tag==='grass')return;if(!(x1>=x0&&y1>=y0&&z1>=z0))return;
   let e;if(OWNER)e=ensureEl(OWNER);else{const h=here();if(!h)return;e=ensureEl({key:'@'+locKey(h),kind:kindFor(h.fn,tag),fn:h.fn,loc:h});}
-  e.boxes.push([x0,y0,z0,x1,y1,z1,tag]);e.mats.add(mat);LAST_EL=e;if(DOLL_WCUR>=0&&e.dollWall===undefined)e.dollWall=DOLL_WCUR;}
+  e.boxes.push([x0,y0,z0,x1,y1,z1,tag]);e.mats.add(mat);}

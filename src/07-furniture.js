@@ -247,7 +247,6 @@ function buildFurniture(){
   rod('3',16.3,27.8,'x',0.62,7.65);drape('3',16.4,17.9,'x',0.62,0.05,7.6);drape('3',26.2,27.7,'x',0.62,0.05,7.6);
   // ================= dining =================
   rug('3','rugDining',37.6,e3,5.4,10.2,7.6);
-  diningTable(T('3',37.6,e3,5.4,0),6.8,3.3);
   {const p=T('3',33.85,e3,5.4,Math.PI/2);hostChair(p);} {const p=T('3',41.35,e3,5.4,-Math.PI/2);hostChair(p);}
   for(const x of [36.4,38.8]){for(const [z,r] of [[3.05,0],[7.75,Math.PI]]){const p=T('3',x,e3,z,r);p._tag='3';bistroChair(p);}}
   chandelier('C3',37.6,5.4,CEIL[3]);

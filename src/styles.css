@@ -100,3 +100,7 @@ body.nodims .rl small{display:none}
 .panel.min{padding:0!important;width:auto!important}
 .panel.min>*:not(.pmin){display:none!important}
 .panel.min .pmin{position:static;height:auto;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--ink)}
+/* Debug delete */
+.chip.danger{border-color:#c2412d;color:#c2412d}
+#dbgConfirm{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}#dbgConfirm p{margin:0 0 6px}#dbgConfirm pre{max-height:140px;overflow:auto;margin:0 0 8px;padding:6px 8px;background:rgba(127,127,127,.12);border-radius:6px;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+#toast{left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:8px 10px;font-size:12.5px;display:flex;gap:8px;align-items:center;z-index:12;max-width:calc(100vw - 24px)}

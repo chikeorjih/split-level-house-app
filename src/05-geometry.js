@@ -2,9 +2,6 @@
 "use strict";
 // ================= GEOMETRY ENGINE =================
 const BUCKETS=new Map(); const COLS=[]; const WALKS=[]; const PIECES=[];
-// dollhouse bookkeeping: every W() wall, the wall being built right now, and per bucket the vertex runs [start,end,element] each build call added
-const DOLL_WALLS=[];let DOLL_WCUR=-1,LAST_EL=null;
-function elRange(b,s0){if(LAST_EL&&b.p.length>s0)(b.er=b.er||[]).push(s0,b.p.length,LAST_EL);}
 function bucket(tag,mat,flags){const k=tag+'|'+mat+'|'+(flags||'');let b=BUCKETS.get(k);
   if(!b){b={tag,mat,flags:flags||'',p:[],n:[],u:[]};BUCKETS.set(k,b);}return b;}
 function addCol(x0,x1,z0,z1,y0,y1){const c={x0:Math.min(x0,x1),x1:Math.max(x0,x1),z0:Math.min(z0,z1),z1:Math.max(z0,z1),y0,y1};COLS.push(c);return c;}
@@ -16,7 +13,7 @@ function box(tag,mat,x0,x1,y0,y1,z0,z1,flags){
   if(x0>x1)[x0,x1]=[x1,x0]; if(y0>y1)[y0,y1]=[y1,y0]; if(z0>z1)[z0,z1]=[z1,z0];
   if(x1-x0<1e-4||y1-y0<1e-4||z1-z0<1e-4)return;
   regPiece(tag,mat,x0,y0,z0,x1,y1,z1);
-  const b=bucket(tag,mat,flags),P=b.p,N=b.n,U=b.u,s0=P.length;
+  const b=bucket(tag,mat,flags),P=b.p,N=b.n,U=b.u;
   const q=(a,bb,c,d,n,uv)=>{for(const v of [a,bb,c,a,c,d]){P.push(v[0],v[1],v[2]);N.push(n[0],n[1],n[2]);U.push(uv(v)[0],uv(v)[1]);}};
   const ux=v=>[v[2],v[1]],uy=v=>[v[0],v[2]],uz=v=>[v[0],v[1]];
   q([x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[1,0,0],v=>[-v[2],v[1]]);
@@ -25,18 +22,17 @@ function box(tag,mat,x0,x1,y0,y1,z0,z1,flags){
   q([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[0,-1,0],uy);
   q([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1],uz);
   q([x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[0,0,-1],v=>[-v[0],v[1]]);
-  elRange(b,s0);
 }
 const _m=new THREE.Matrix4(),_v=new THREE.Vector3();
 const ADDGEO=(...a)=>addGeo(...a);
 function addGeo(tag,mat,geo,matrix,flags){
   let g=geo.index?geo.toNonIndexed():geo.clone(); if(matrix)g.applyMatrix4(matrix);
-  const b=INST_TARGET?instBucket(INST_TARGET,tag,mat):bucket(tag,mat,flags),p=g.attributes.position.array,n=g.attributes.normal?g.attributes.normal.array:null,u=g.attributes.uv?g.attributes.uv.array:null,s0=b.p.length;
+  const b=INST_TARGET?instBucket(INST_TARGET,tag,mat):bucket(tag,mat,flags),p=g.attributes.position.array,n=g.attributes.normal?g.attributes.normal.array:null,u=g.attributes.uv?g.attributes.uv.array:null;
   let a0=1e9,a1=1e9,a2=1e9,b0=-1e9,b1=-1e9,b2=-1e9;
   for(let i=0;i<p.length/3;i++){const X=p[i*3],Y=p[i*3+1],Z=p[i*3+2];b.p.push(X,Y,Z);if(X<a0)a0=X;if(Y<a1)a1=Y;if(Z<a2)a2=Z;if(X>b0)b0=X;if(Y>b1)b1=Y;if(Z>b2)b2=Z;
     if(n)b.n.push(n[i*3],n[i*3+1],n[i*3+2]);else b.n.push(0,1,0);
     if(u)b.u.push(u[i*2],u[i*2+1]);else b.u.push(0,0);}
-  regPiece(tag,mat,a0,a1,a2,b0,b1,b2);if(!INST_TARGET)elRange(b,s0);
+  regPiece(tag,mat,a0,a1,a2,b0,b1,b2);
   g.dispose();
 }
 function M(x,y,z,ry,sx,sy,sz){_m.makeRotationY(ry||0);_m.scale(_v.set(sx||1,sy||1,sz||1));_m.setPosition(x,y,z);return _m.clone();}
@@ -45,14 +41,13 @@ function quadSlab(tag,mat,pts,th,flags){
   {const a=pts[0],b=pts[1],c=pts[2];const ux=b[0]-a[0],uz=b[2]-a[2],vx=c[0]-a[0],vz=c[2]-a[2];if(uz*vx-ux*vz<0)pts=pts.slice().reverse();}
   regPiece(tag,mat,Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1]))-th,Math.min(...pts.map(p=>p[2])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[2])));
   const top=pts.map(p=>new THREE.Vector3(...p)),bot=top.map(v=>v.clone().add(new THREE.Vector3(0,-th,0)));
-  const b=bucket(tag,mat,flags),s0=b.p.length;
+  const b=bucket(tag,mat,flags);
   const tri=(a,c,d)=>{const n=new THREE.Vector3().subVectors(c,a).cross(new THREE.Vector3().subVectors(d,a)).normalize();
     const ax=Math.abs(n.x),ay=Math.abs(n.y);for(const v of [a,c,d]){b.p.push(v.x,v.y,v.z);b.n.push(n.x,n.y,n.z);
       if(ay>.5)b.u.push(v.x,v.z);else if(ax>.5)b.u.push(v.z,v.y);else b.u.push(v.x,v.y);}};
   const quad=(a,c,d,e)=>{tri(a,c,d);tri(a,d,e);};
   quad(top[0],top[1],top[2],top[3]);quad(bot[3],bot[2],bot[1],bot[0]);
   for(let i=0;i<4;i++){const j=(i+1)%4;quad(bot[i],bot[j],top[j],top[i]);}
-  elRange(b,s0);
 }
 // beam between two points
 function beam(tag,mat,a,b,w,h,flags){const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b);const d=B.clone().sub(A);const L=d.length();d.normalize();
@@ -72,7 +67,6 @@ function wallBuild(w){
   const ax=(w.z0===w.z1)?'x':'z';const a0=Math.min(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1),a1=Math.max(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1);
   const c=ax==='x'?w.z0:w.x0,t=w.t,tag=String(w.lv);
   const wloc=w.loc||here(),wkey='W@'+locKey(wloc),WOWN={key:wkey,kind:'wall',fn:'W',loc:wloc,label:(w.isNew?'new ':'')+(w.ext?'exterior wall':'interior wall')};
-  DOLL_WCUR=DOLL_WALLS.push({ax,a0,a1,c,t,lv:w.lv,y0:w.y0,y1:w.y1})-1;
   const wel=ensureEl(WOWN);OWNER=WOWN;
   const B=(mat,pa0,pa1,c0,c1,y0,y1,fl)=>{if(ax==='x')box(tag,mat,pa0,pa1,y0,y1,c0,c1,fl);else box(tag,mat,c0,c1,y0,y1,pa0,pa1,fl);};
   const ops=w.ops.slice().sort((p,q)=>p.c-q.c);
@@ -104,7 +98,7 @@ function wallBuild(w){
   if(w.bb)for(const [y,side] of w.bb){for(const sd of (side?[side]:[-1,1])){const f=c+sd*t/2;
       for(const p of pieces){if(p[2]<=y+.05&&p[3]>=y+.4)B('trim',p[0],p[1],f,f+sd*.05,y,y+.36);}}}
   ops.forEach((o,i)=>{OWNER={key:wkey+'.o'+i,kind:'opening',fn:'op',loc:wloc,label:OPEN_LABEL[o.k]||o.k,parent:wel.id,id:wel.id+'.'+(i+1)};openingBuild(w,o,ax,c,t,tag,B);});
-  OWNER=null;DOLL_WCUR=-1;
+  OWNER=null;
 }
 function openingBuild(w,o,ax,c,t,tag,B){const B0=B;
   const oa0=o.c-o.w/2,oa1=o.c+o.w/2,y0=o.y0,y1=o.y1,ext=w.ext?w.ext.side:1,J=0.16;

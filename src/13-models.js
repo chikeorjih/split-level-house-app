@@ -40,7 +40,7 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   const ry=pl.ry!==undefined?pl.ry*D:(rep?rep.ry0+rep.ry:0)+(pl.turn||0)*D,y=pl.y!==undefined?pl.y:E[lv]+(pl.dy||0),tag=m.tag||String(lv);
   const outer=new THREE.Group();outer.position.set(x,y,z);outer.rotation.y=ry;outer.add(inner);outer.userData.model=m.id;
   const P=PRESETS[LOOK.preset];let n=0;
-  const fix=mt=>{mt.clippingPlanes=CLIPS;mt.clipShadows=true;dollPatch(mt);if(mt.isMeshStandardMaterial){mt.envMap=ROOM_ENV;mt.envMapIntensity=P.envI;}MAT['model:'+m.id+':'+(n++)]=mt;mt.needsUpdate=true;return mt;};
+  const fix=mt=>{mt.clippingPlanes=CLIPS;mt.clipShadows=true;if(mt.isMeshStandardMaterial){mt.envMap=ROOM_ENV;mt.envMapIntensity=P.envI;}MAT['model:'+m.id+':'+(n++)]=mt;mt.needsUpdate=true;return mt;};
   outer.traverse(c=>{if(!c.isMesh)return;c.castShadow=c.receiveShadow=true;c.userData.tag=tag;c.userData.model=m.id;
     c.material=Array.isArray(c.material)?c.material.map(fix):fix(c.material);c.userData.baseMat=c.material;});
   if(rep){rep.group.visible=false;rep.hiddenByModel=true;for(const q of rep.cols){const i=COLS.indexOf(q.c);if(i>=0)COLS.splice(i,1);}}

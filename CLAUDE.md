@@ -36,6 +36,8 @@ The user will often paste something like:
 
 Go straight to that file, line and column; the snippet confirms you are in the right place. ID prefixes: `W` walls (`W46.1` is the first opening in wall W46), `F` floors, `C` ceilings, `FU` furniture, `R` roofs and dormers, `ST` stairs and railings, `X` other parts. IDs are assigned in build order, so they can change after edits. Line numbers always reflect the current files.
 
+Debug mode's **Delete** button removes an element for good. Under `npm run dev`, the dev server deletes the build statement from `src/` (`scripts/src-edit.mjs`), or for an opening, its entry in the wall's `ops` list. The deletion is syntax-checked and can be undone once from the page. A request like "Please delete FU21 …" means the user wasn't on the dev server: remove that piece's code yourself.
+
 Arrange mode's "Copy move for Claude" gives a move in feet along x and z and a rotation in degrees, counterclockwise in plan, around the piece's footprint centre. To bake it in, adjust that `T(...)` call's position (and its `ry`, or the coordinates inside it) so the piece lands there. The user can then press "Reset all" in Arrange mode, since saved moves live in their browser's localStorage.
 
 ## Conventions
