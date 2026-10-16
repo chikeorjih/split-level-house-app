@@ -15,7 +15,7 @@ They load from the dev server (`npm run dev`) and in the single-file build, whic
       "file": "westelm-harmony-sofa.glb",
       "spec": { "w": 82, "d": 39, "h": 34 },
       "specSource": "https://www.westelm.com/products/harmony-sofa-82-h2183/",
-      "replaces": "living room sofa",
+      "replaces": "four-seasons sofa",
       "place": { "turn": 0 },
       "orient": { "x": 0, "y": 0, "z": 0 },
       "credit": "\"Harmony Sofa\" by someone on Sketchfab, CC Attribution",

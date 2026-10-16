@@ -106,8 +106,8 @@ function dbgAfterReload(){let s=null;try{s=JSON.parse(sessionStorage.getItem('db
     if(v.view==='plan'){ST.level=v.level;ST.view='plan';fitPlan();Object.assign(PLN,v.pln);resize();setVis(true);}
     else if(v.view==='walk'){Object.assign(WLK,v.wlk,{inited:true});setView('walk');}
     else{ST.levels=v.levels||[];ST.level=v.level;setVis(true);}
-    if(v.dbg&&!DBG.on)dbgToggle();}
-  const t=document.createElement('div');t.id='toast';t.className='panel';const msg=document.createElement('span');msg.textContent='Deleted '+s.what+' from '+s.where+'.';
+    if(v.dbg&&!DBG.on)dbgToggle();if(v.arr&&!ARR.on)arrToggle();}
+  const t=document.createElement('div');t.id='toast';t.className='panel';const msg=document.createElement('span');msg.textContent=s.msg||('Deleted '+s.what+' from '+s.where+'.');
   const u=document.createElement('button');u.className='chip';u.textContent='Undo';const x=document.createElement('button');x.className='chip';x.textContent='Close';
   u.addEventListener('click',async()=>{try{await editPost('/__edit/undo');msg.textContent='Restored. Reloading…';setTimeout(()=>location.reload(),900);}catch(err){msg.textContent='Undo failed: '+err.message;}});
-  x.addEventListener('click',()=>t.remove());t.append(msg,u,x);document.body.appendChild(t);setTimeout(()=>{if(t.isConnected)t.remove();},30000);}
+  x.addEventListener('click',()=>t.remove());t.append(msg,u,x);document.body.appendChild(t);}

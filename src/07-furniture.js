@@ -1,7 +1,7 @@
 // 07-furniture.js: furniture, fixtures, appliances and decor (each T() call is a movable piece)
 "use strict";
 // ================= FURNITURE, FIXTURES, APPLIANCES =================
-const DOORS=[];const CAPS=[];const cap=(tag,x0,x1,z0,z1,y0,y1)=>CAPS.push({tag,x0,x1,z0,z1,y0,y1});
+const KITCHEN_LIGHTS={cans:[[25,20],[25,25],[32,25],[25,30],[28.5,30],[32,30]],drum:null};const DOORS=[];const CAPS=[];const cap=(tag,x0,x1,z0,z1,y0,y1)=>CAPS.push({tag,x0,x1,z0,z1,y0,y1});
 function roundedGeo(w,h,d,r){r=Math.max(.01,Math.min(r,w/2-.02,h/2-.02,d/2-.02));
   const iw=w-2*r,ih=h-2*r,cr=Math.min(r*.6,iw/2-.001,ih/2-.001),s=new THREE.Shape();
   const x=-iw/2,y=-ih/2;s.moveTo(x+cr,y);s.lineTo(x+iw-cr,y);s.quadraticCurveTo(x+iw,y,x+iw,y+cr);s.lineTo(x+iw,y+ih-cr);
@@ -135,9 +135,14 @@ function showerHead(tag,x,y,z,dx,dz){const p=P(tag,x,y,z,0);p.c('steel',0,0,0,.0
 function glassPanel(tag,ax,c,a0,a1,y0,y1){PIECES.push({tag,ax,a0,a1,c,t:.1,y0,y1,glass:true});if(ax==='x'){box(tag,'glass',a0,a1,y0,y1,c-.03,c+.03);box(tag,'steel',a0,a1,y1-.05,y1,c-.05,c+.05);addCol(a0,a1,c-.1,c+.1,y0,y1);}
   else{box(tag,'glass',c-.03,c+.03,y0,y1,a0,a1);box(tag,'steel',c-.05,c+.05,y1-.05,y1,a0,a1);addCol(c-.1,c+.1,a0,a1,y0,y1);}}
 // ----- appliances -----
-function fridge(p){p.b('steel',0,0,0,3.0,6.0,2.5);p.b('black',0,0,1.25,2.9,.35,.04);
-  for(const s of [-1,1]){p.b('steel',s*.74,1.9,1.27,1.46,4.0,.05);p.c('steel',s*.12,3.0,1.55,.04,.04,2.4,10);for(const yy of [1.85,4.15])p.b('steel',s*.12,yy,1.35,.06,.06,.2);}
-  p.b('steel',0,.4,1.27,2.9,1.45,.05);p.c('steel',0,1.4,1.55,.04,.04,2.0,10,0,Math.PI/2);p.col(0,0,3,2.5,0,6);}
+// French-door fridge: two doors over a freezer drawer; long bar handles at the doors' inner edges and across the drawer, each on two
+// standoffs that run from the door face to the bar
+function fridge(p){p.b('steel',0,0,0,3.0,6.0,2.5);p.b('black',0,0,1.25,2.9,.35,.04);p.b('black',0,1.86,1.27,2.92,.04,.04);p.b('black',0,1.9,1.27,.02,4.0,.045);
+  const fz=1.295,bz=1.5;
+  for(const s of [-1,1]){p.b('steel',s*.745,1.9,1.27,1.47,4.0,.05);const hx=s*.2;p.c('steel',hx,2.45,bz,.045,.045,2.75,12);
+    for(const yy of [2.6,5.05])p.b('steel',hx,yy,(fz+bz)/2,.07,.08,bz-fz+.02);}
+  p.b('steel',0,.4,1.27,2.9,1.44,.05);p.g('steel',new THREE.CylinderGeometry(.045,.045,2.3,12),0,1.6,bz,0,0,Math.PI/2);
+  for(const x of [-1.05,1.05])p.b('steel',x,1.56,(fz+bz)/2,.08,.08,bz-fz+.02);p.col(0,0,3,2.5,0,6);}
 function washer(p,dryer){p.r('washer',0,0,0,2.25,3.2,2.4,.06);p.b('washer',0,3.05,-.9,2.25,.35,.5);
   p.g('steel',new THREE.TorusGeometry(.62,.08,10,28),0,1.6,1.2);p.c(dryer?'washer':'blackGlass',0,1.6,1.15,.58,.58,.06,24,Math.PI/2);
   p.c('steel',.7,3.2,-.65,.1,.1,.06,12,Math.PI/2);p.b('black',-.4,3.12,-.64,.7,.18,.02);p.col(0,0,2.3,2.5,0,3.4);}
@@ -169,7 +174,7 @@ function legTo(p,mat,a,b,r0,r1){const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[
 function buildFurniture(){
   const e1=E[1],e2=E[2],e3=E[3],e4=E[4];
   const T=(tag,x,y,z,ry,name)=>{const p=P(tag,x,y,z,ry);p._tag=tag;p._grp=new THREE.Box3();FURN.push(p._grp);const h=here();p._owner={key:'FU@'+locKey(h),kind:'furniture',fn:'T',loc:h,label:name||''};
-    const k=p._owner.key;INST_N[k]=(INST_N[k]||0)+1;p._inst={key:k+'#'+INST_N[k],n:INST_N[k],okey:k,tag,buckets:new Map(),cols:[],lights:[],grp:p._grp,dx:0,dz:0,ry:0,ry0:ry||0};INSTS.push(p._inst);return p;};
+    const k=p._owner.key;INST_N[k]=(INST_N[k]||0)+1;p._inst={key:k+'#'+INST_N[k],n:INST_N[k],okey:k,tag,buckets:new Map(),cols:[],lights:[],grp:p._grp,dx:0,dz:0,ry:0,ry0:ry||0,ox:x,oz:z};INSTS.push(p._inst);return p;};
   // ================= FAMILY ROOM (level 2), styled after the reference photo =================
   const SB=(p,mat,x,y,z,w,h,d,e,ez,o)=>{o=o||{};const [rx,ry,rz]=o.rot||[o.rx||0,0,0];p.g(mat,superBox(w,h,d,e,ez,o.pinch||0,o.seg||26,o.unit?false:true),x,y,z,rx,ry,rz);};
   const pillowAt=(p,mat,x,y,z,ry,s,lean,roll)=>SB(p,mat,x,y,z,s,s,.5,.38,.85,{pinch:.6,seg:30,unit:/Stripe|Chevron/.test(mat),rot:rotE(ry,lean,roll)});
@@ -236,63 +241,113 @@ function buildFurniture(){
   showerHead('2',16,e2+6.6,31.05,0,-1);
   // ================= MAIN LEVEL: living room =================
   rug('3','rugLiving',22.4,e3,6.4,11.8,8.6);
-  {const p=T('3',15.85,e3,7.0,Math.PI/2,'living room sofa');sofa(p,7.6,2.95,{pillows:['pillowOchre','pillowBlue','pillowCream']});}
-  {const p=T('3',17.25,e3,2.25,Math.PI/2);ottoman(p,2.6,5.6);}
-  {const p=T('3',28.2,e3,3.4,-Math.PI/2+.45);clubChair(p);}
-  {const p=T('3',28.5,e3,6.6,-Math.PI/2+.15);clubChair(p);}
-  coffeeTable(T('3',22.0,e3,6.6,0),4.2,2.2);
   {const p=T('3',15.9,e3,11.4,0);p.c('walnutDark',0,1.95,0,.75,.75,.08,24);p.c('walnutDark',0,0,0,.08,.08,1.95,10);p.c('walnutDark',0,0,0,.45,.5,.08,18);tableLamp(p,0,2.03,0,'black');}
-  {const p=T('3',30.9,e3,1.3,0);plant(p,0,0,0,'tall');}
   art('3',29.6,e3+5.6,0.32,0,1.3,1.6,'artLandscape','gold');
   rod('3',16.3,27.8,'x',0.62,7.65);drape('3',16.4,17.9,'x',0.62,0.05,7.6);drape('3',26.2,27.7,'x',0.62,0.05,7.6);
   // ================= dining =================
   rug('3','rugDining',37.6,e3,5.4,10.2,7.6);
-  {const p=T('3',33.85,e3,5.4,Math.PI/2);hostChair(p);} {const p=T('3',41.35,e3,5.4,-Math.PI/2);hostChair(p);}
-  for(const x of [36.4,38.8]){for(const [z,r] of [[3.05,0],[7.75,Math.PI]]){const p=T('3',x,e3,z,r);p._tag='3';bistroChair(p);}}
   chandelier('C3',37.6,5.4,CEIL[3]);
-  {const p=T('3',37.4,e3,9.6,Math.PI);p._tag='3';sideboardDemi(p);tableLamp(p,-1.0,2.88,-.35,'stacked');plant(p,.95,2.88,-.25,'orchid');p.col(0,-.05,4.1,1.6,0,2.9);}
-  mirror('3',37.4,e3+7.1,10.3,Math.PI,1.9,2.6);
-  for(let i=0;i<4;i++)art('3',34.2+(i%2)*1.25,e3+(i<2?6.6:5.2),10.33,Math.PI,1.1,1.25,'artBotanical','gold');
-  {const p=T('3',37.6,e3,5.4,0);p._tag='3';plant(p,.2,2.5,0,'gladiolus');}
   rod('3',33.4,40.7,'x',0.62,7.65);drape('3',33.5,35.0,'x',0.62,0.05,7.6);drape('3',39.1,40.6,'x',0.62,0.05,7.6);
   // ================= kitchen =================
   const ct=e3+3.0;
-  // south run under the window
+  // cabinet fronts, after the listing photo: flat slab doors and drawers with even reveals over a dark backer, brass bar pulls on
+  // standoffs, and hollow glass-front cabinets stacked at the top of the uppers. A face runs along x (ax 'x', face at z=f) or along z
+  // (ax 'z', face at x=f); s is the direction the face looks (+1 or -1).
+  const K=(ax,a0,a1,y0,y1,d0,d1,mat)=>ax==='x'?box('3',mat,a0,a1,y0,y1,Math.min(d0,d1),Math.max(d0,d1)):box('3',mat,Math.min(d0,d1),Math.max(d0,d1),y0,y1,a0,a1);
+  const at=(ax,a,y,d)=>ax==='x'?[a,y,d]:[d,y,a];
+  const pull=(ax,f,s,a,y,len,dir)=>{const d=f+s*.06,ends=dir==='v'?[[a,y-len/2+.05],[a,y+len/2-.05]]:[[a-len/2+.05,y],[a+len/2-.05,y]];
+    for(const [aa,yy] of ends)K(ax,aa-.022,aa+.022,yy-.022,yy+.022,d,d+s*.085,'brass');
+    const m=new THREE.Matrix4();if(dir==='h'){if(ax==='x')m.makeRotationZ(Math.PI/2);else m.makeRotationX(Math.PI/2);}
+    m.setPosition(...at(ax,a,y,d+s*.105));addGeo('3','brass',new THREE.CylinderGeometry(.022,.022,len,10),m);};
+  // kind: 'door' | 'drawer' | 'glass'; p: [pull position along the face, pull height, pull length, 'v'|'h'] or null
+  const front=(ax,f,s,a0,a1,y0,y1,kind,p)=>{const g=.022,d0=f+s*.012,d1=f+s*.06;K(ax,a0,a1,y0,y1,f,d0,'cabGap');
+    if(kind==='glass'){const w=.16;K(ax,a0+g,a1-g,y0+g,y0+g+w,d0,d1,'cab');K(ax,a0+g,a1-g,y1-g-w,y1-g,d0,d1,'cab');K(ax,a0+g,a0+g+w,y0+g+w,y1-g-w,d0,d1,'cab');K(ax,a1-g-w,a1-g,y0+g+w,y1-g-w,d0,d1,'cab');
+      K(ax,a0+g+w,a1-g-w,y0+g+w,y1-g-w,f+s*.034,f+s*.04,'cabGlass');}
+    else K(ax,a0+g,a1-g,y0+g,y1-g,d0,d1,'cab');
+    if(p)pull(ax,f,s,p[0],p[1],p[2],p[3]);};
+  // door pull near the opening edge ('l' = a0 side, 'r' = a1 side), high on base doors, low on uppers; drawer pull centred
+  const dp=(a0,a1,side,y,len)=>[side==='l'?a0+.2:a1-.2,y,len||.55,'v'],wp=(a0,a1,y,len)=>[(a0+a1)/2,y,len||Math.min(.75,(a1-a0)*.5),'h'];
+  // hollow glass-front cabinet: shell, back, a shelf and a few white pieces of tableware behind the glass
+  const glassBox=(ax,f,s,a0,a1,y0,y1)=>{const wall=f-s*1.05;K(ax,a0,a1,y0,y1,wall,wall+s*.05,'cabInner');
+    K(ax,a0,a0+.05,y0,y1,wall,f,'cab');K(ax,a1-.05,a1,y0,y1,wall,f,'cab');K(ax,a0,a1,y0,y0+.05,wall,f,'cabInner');K(ax,a0,a1,y1-.05,y1,wall,f,'cab');
+    const dm=(wall+f)/2,n=Math.max(1,Math.round((a1-a0)/.7));
+    for(let i=0;i<n;i++){const a=a0+(a1-a0)*(i+.5)/n;if(i%2)addGeo('3','ceramicWhite',new THREE.CylinderGeometry(.2,.12,.16,16),M(...at(ax,a,y0+.13,dm)));
+      else addGeo('3','ceramicWhite',new THREE.CylinderGeometry(.07,.09,.42,14),M(...at(ax,a,y0+.26,dm)));}};
+  // upper column: a solid door below and a glass cabinet above, to the ceiling; cols doors across
+  const upper=(ax,f,s,a0,a1,y0,yS,y1,cols,pullSide)=>{K(ax,a0,a1,y0,yS,f-s*1.05,f,'cab');glassBox(ax,f,s,a0,a1,yS,y1);
+    for(let i=0;i<cols;i++){const b0=a0+(a1-a0)*i/cols,b1=a0+(a1-a0)*(i+1)/cols,side=cols===2?(i?'l':'r'):pullSide;
+      front(ax,f,s,b0,b1,y0,yS,'door',dp(b0,b1,side,y0+.45,.5));front(ax,f,s,b0,b1,yS,y1,'glass',null);}};
+  const by0=e3+.38,by1=ct-.15,drawers=(ax,f,s,a0,a1,ys)=>{for(let i=0;i<ys.length-1;i++)front(ax,f,s,a0,a1,ys[i],ys[i+1],'drawer',wp(a0,a1,ys[i+1]-.32));};
+  const D3=[by0,e3+1.15,e3+1.98,by1],D2=[by0,e3+1.65,by1],C=CEIL[3];
+
+  // ---- south run under the window (fronts face north, z=29.25)
   box('3','cab',25.7,35.3,e3+.35,ct-.12,29.25,31.3);box('3','black',25.75,35.25,e3,e3+.35,29.4,31.3);
   box('3','quartz',25.7,29.4,ct-.12,ct,29.15,31.3);box('3','quartz',31.0,35.3,ct-.12,ct,29.15,31.3);box('3','quartz',29.4,31.0,ct-.12,ct,29.15,29.6);box('3','quartz',29.4,31.0,ct-.12,ct,30.7,31.3);
-  for(let x=25.8;x<35.2;x+=1.5){if(x>27.5&&x<29.7)continue;box('3','cab',x+.03,x+1.47,e3+.4,ct-.18,29.2,29.24);if(x<30.5||x>31.8)box('3','brass',x+.68,x+.82,ct-.75,ct-.3,29.12,29.18);}
-  box('3','steel',27.75,29.65,e3+.38,ct-.15,29.12,29.28);box('3','steel',27.8,29.6,ct-.55,ct-.45,29.02,29.1);
+  front('x',29.25,-1,25.75,27.72,by0,by1,'door',dp(25.75,27.72,'r',by1-.45));
+  front('x',29.25,-1,29.68,30.75,by0,by1,'door',dp(29.68,30.75,'r',by1-.45));front('x',29.25,-1,30.75,31.82,by0,by1,'door',dp(30.75,31.82,'l',by1-.45));
+  drawers('x',29.25,-1,31.85,33.5,D3);
+  // dishwasher: stainless door, black control strip, bar handle on standoffs
+  box('3','steel',27.75,29.65,e3+.38,ct-.15,29.12,29.28);box('3','blackGlass',27.75,29.65,ct-.42,ct-.15,29.115,29.12);
+  addGeo('3','steel',new THREE.CylinderGeometry(.035,.035,1.6,10),new THREE.Matrix4().makeRotationZ(Math.PI/2).setPosition(28.7,ct-.62,28.97));for(const x of [27.98,29.42])box('3','steel',x-.03,x+.03,ct-.65,ct-.59,28.97,29.12);
+  // undermount sink and faucet
   box('3','steel',29.4,31.0,ct-.75,ct-.11,29.6,30.7);addGeo('3','black',new THREE.CylinderGeometry(.12,.12,.02,14),M(30.2,ct-.1,30.15));
   {const p=T('3',30.2,ct,31.0,0);p.c('black',0,0,0,.09,.11,.15,12);p.c('black',0,.1,0,.05,.05,1.2,8);p.g('black',new THREE.TorusGeometry(.35,.05,8,16,Math.PI),0,1.3,-.35,0,Math.PI/2,0);p.c('black',0,.95,-.7,.05,.05,.35,8);}
-  // east run with the cooktop
+  // ---- east run with the cooktop (fronts face west, x=33.5)
   box('3','cab',33.5,35.3,e3+.35,ct-.12,21.9,29.25);box('3','black',33.6,35.3,e3,e3+.35,22,29.25);box('3','quartz',33.4,35.3,ct-.12,ct,21.9,29.25);
-  for(let z=22;z<29;z+=1.75){box('3','cab',33.46,33.5,e3+.4,ct-.18,z+.03,z+1.72);box('3','brass',33.4,33.46,ct-.75,ct-.3,z+.82,z+.92);}
+  drawers('z',33.5,-1,21.95,23.6,D3);drawers('z',33.5,-1,23.6,25.5,D2);drawers('z',33.5,-1,25.5,27.4,D2);
+  front('z',33.5,-1,27.4,29.2,by0,by1,'door',dp(27.4,29.2,'l',by1-.45));
   box('3','blackGlass',33.7,35.1,ct,ct+.03,24.5,26.6);for(const [z,x] of [[25,34.1],[26.1,34.1],[25,34.75],[26.1,34.75]])addGeo('3','steel',new THREE.TorusGeometry(.22,.015,4,20),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(x,ct+.04,z));
-  box('3','steel',33.6,35.3,e3+5.5,e3+5.75,24.4,26.7);box('3','steel',34.3,35.3,e3+5.75,CEIL[3],25.1,26.0);
-  // uppers
-  for(const [x0,x1] of [[25.7,27.45],[32.35,35.3]])box('3','cab',x0,x1,e3+4.6,e3+7.4,30.25,31.3);
-  for(const [z0,z1] of [[21.9,24.35],[26.75,30.25]])box('3','cab',34.25,35.3,e3+4.6,e3+7.4,z0,z1);
-  // backsplash (white subway)
-  box('3','subway',25.7,27.45,ct,e3+4.6,31.26,31.3);box('3','subway',32.35,35.3,ct,e3+4.6,31.26,31.3);box('3','subway',27.45,32.35,ct,e3+3.45,31.26,31.3);
-  box('3','subway',35.26,35.3,ct,e3+5.5,21.9,31.3);
-  // fridge wall: tall cabinets + fridge
+  // ---- uppers: solid doors below, glass-front cabinets above, all the way to the ceiling
+  upper('x',30.25,-1,25.7,27.15,e3+4.6,e3+6.9,C-.02,1,'r');        // west of the window
+  upper('x',30.25,-1,32.65,35.3,e3+4.6,e3+6.9,C-.02,2);            // east of the window
+  upper('z',34.25,-1,21.9,24.35,e3+4.6,e3+6.9,C-.02,2);            // cooktop wall, by the fridge
+  upper('z',34.25,-1,24.35,26.75,e3+6.0,e3+6.9,C-.02,2);           // over the cooktop (shorter, above the hood)
+  upper('z',34.25,-1,26.75,30.25,e3+4.6,e3+6.9,C-.02,2);           // cooktop wall, by the window
+  // slim under-cabinet hood: stainless body with a front lip and a light strip underneath
+  box('3','hoodSteel',33.95,35.3,e3+5.55,e3+6.0,24.4,26.7);box('3','hoodSteel',33.9,33.98,e3+5.5,e3+5.75,24.4,26.7);box('3','light',34.3,35.1,e3+5.54,e3+5.55,24.7,26.4);
+  // backsplash (white subway): counter to the uppers, under and above the window, and up to the hood
+  box('3','subway',25.7,27.15,ct,e3+4.6,31.26,31.3);box('3','subway',32.65,35.3,ct,e3+4.6,31.26,31.3);box('3','subway',27.15,32.65,ct,e3+3.45,31.26,31.3);
+  box('3','subway',27.15,32.65,e3+7.4,C,31.26,31.3);
+  box('3','subway',35.26,35.3,ct,e3+4.6,21.9,31.3);box('3','subway',35.26,35.3,e3+4.6,e3+5.55,24.35,26.75);
+  // ---- fridge wall: the fridge, a two-door cabinet above it, a filler panel
   {const p=T('3',34.05,e3,19.8,-Math.PI/2);fridge(p);}
-  box('3','cab',32.75,35.3,e3+6.05,e3+7.95,18.25,21.35);box('3','cab',32.75,35.3,e3,e3+7.95,21.35,21.9);
-  // west run: wall ovens + pantry + corner base
-  box('3','cab',23.85,25.75,e3,e3+7.6,20.6,27.35);
+  box('3','cab',32.75,35.3,e3+6.05,C-.02,18.25,21.35);box('3','cab',32.75,35.3,e3,C-.02,21.35,21.9);
+  front('z',32.75,-1,18.25,19.8,e3+6.05,C-.02,'door',dp(18.25,19.8,'r',e3+6.45,.45));front('z',32.75,-1,19.8,21.35,e3+6.05,C-.02,'door',dp(19.8,21.35,'l',e3+6.45,.45));
+  // ---- west tall wall (fronts face east, x=25.75): a full-height pantry door, a stacked pair of pantry doors, and the oven tower with a
+  // door above the double wall oven and a drawer below it
+  box('3','cab',23.85,25.75,e3,C-.02,20.6,27.35);box('3','black',25.73,25.76,e3,e3+.35,20.6,27.35);
+  front('z',25.75,1,20.65,22.85,by0,C-.04,'door',dp(20.65,22.85,'r',e3+3.8,1.6));
+  for(const [a0,a1,side] of [[22.85,24.15,'r'],[24.15,25.45,'l']]){front('z',25.75,1,a0,a1,by0,e3+4.4,'door',dp(a0,a1,side,e3+3.6,.9));front('z',25.75,1,a0,a1,e3+4.4,C-.04,'door',dp(a0,a1,side,e3+4.95,.9));}
+  front('z',25.75,1,25.45,27.35,by0,e3+1.36,'drawer',wp(25.45,27.35,e3+1.04));
+  front('z',25.75,1,25.45,27.35,e3+5.55,C-.04,'door',wp(25.45,27.35,e3+5.9,.7));
   box('3','steel',25.73,25.8,e3+3.4,e3+5.5,25.55,27.2);box('3','blackGlass',25.79,25.83,e3+3.7,e3+5.0,25.75,27.0);box('3','steel',25.8,25.9,e3+5.2,e3+5.28,25.8,26.95);
   box('3','steel',25.73,25.8,e3+1.4,e3+3.35,25.55,27.2);box('3','blackGlass',25.79,25.83,e3+1.6,e3+2.9,25.75,27.0);box('3','steel',25.8,25.9,e3+3.1,e3+3.18,25.8,26.95);
-  box('3','blackGlass',25.79,25.82,e3+5.62,e3+5.95,26.2,26.6);
-  for(const [z0,z1] of [[20.65,22.85],[22.9,25.5]]){box('3','cab',25.75,25.79,e3+.05,e3+7.55,z0,z1);box('3','brass',25.79,25.85,e3+3.0,e3+4.6,z1-.35,z1-.28);box('3','brass',25.79,25.85,e3+4.6,e3+6.0,z1-.35,z1-.28);}
-  box('3','cab',23.85,25.75,e3+.35,ct-.12,27.35,31.3);box('3','quartz',23.85,25.85,ct-.12,ct,27.35,31.3);
+  // corner base beside the tower
+  box('3','cab',23.85,25.75,e3+.35,ct-.12,27.35,31.3);box('3','quartz',23.85,25.85,ct-.12,ct,27.35,31.3);box('3','black',25.6,25.76,e3,e3+.35,27.35,29.25);
+  front('z',25.75,1,27.4,29.2,by0,by1,'door',dp(27.4,29.2,'l',by1-.45));
   addCol(23.85,25.75,20.6,31.3,e3,e3+3);addCol(25.7,35.3,29.15,31.3,e3,e3+3);addCol(33.4,35.3,21.9,29.25,e3,e3+3);addCol(32.75,35.3,18.25,21.9,e3,e3+8);
   // bar peninsula toward the living room
-  box('3','cab',24.0,31.0,e3+.35,ct-.12,12.75,14.6);box('3','quartz',23.95,31.05,ct-.12,ct,12.7,14.65);
-  box('3','wall',24.0,31.0,e3,e3+3.36,12.45,12.75);box('3','barTile',24.0,31.0,e3+.3,e3+3.36,12.42,12.45);box('3','trim',24.0,31.0,e3,e3+.3,12.4,12.45);
-  box('3','barTile',23.97,24.0,e3+.3,e3+3.36,12.45,12.75);box('3','quartz',23.85,31.25,e3+3.36,e3+3.48,11.75,12.95);addCol(23.85,31.25,11.75,14.65,e3,e3+3.6);
-  for(const x of [25.0,26.75,28.5,30.25]){const p=T('3',x,e3,11.05,0);p._tag='3';barStool(p);}
+  box('3','cab',24.0,27.28,e3+.35,ct-.12,12.75,14.6);box('3','cab',28.47,31.6,e3+.35,ct-.12,12.75,14.6);box('3','cab',27.28,28.47,e3+.35,e3+.92,12.75,14.6);box('3','cab',27.28,28.47,ct-.25,ct-.12,12.75,14.6);box('3','quartz',23.95,31.6,ct-.12,ct,12.7,14.65);
+  // kitchen side, after the listing photo (west to east): a drawer over a door, a microwave drawer over a warming drawer, a wine fridge,
+  // then two drawer-over-door stacks; dark toe kick; white tile between the counter and the raised bar ledge, with two outlets
+  {const F=14.6,yd=by1-.55;box('3','black',24.05,31.6,e3,e3+.35,12.8,14.45);
+    for(const [a0,a1,side] of [[24.0,25.25,'r'],[28.5,30.05,'r'],[30.05,31.6,'l']]){front('x',F,1,a0,a1,yd,by1,'drawer',wp(a0,a1,by1-.27,.55));front('x',F,1,a0,a1,by0,yd,'door',dp(a0,a1,side,yd-.4,.5));}
+    // microwave drawer: stainless body, black glass window and touch strip, no handle; warming drawer below with a bar handle
+    const m0=25.28,m1=27.22,yM=ct-1.25;box('3','cabGap',25.25,27.25,by0,by1,F,F+.012);
+    box('3','steel',m0,m1,yM,by1-.02,F,F+.07);box('3','blackGlass',m0+.18,m1-.18,yM+.15,by1-.32,F+.07,F+.075);box('3','blackGlass',m0+.1,m1-.1,by1-.25,by1-.08,F+.07,F+.075);
+    box('3','steel',m0,m1,by0+.02,yM-.04,F,F+.07);addGeo('3','steel',new THREE.CylinderGeometry(.03,.03,1.5,10),new THREE.Matrix4().makeRotationZ(Math.PI/2).setPosition((m0+m1)/2,yM-.32,F+.16));
+    for(const x of [m0+.25,m1-.25])box('3','steel',x-.025,x+.025,yM-.345,yM-.295,F+.07,F+.16);
+    // wine fridge: stainless frame, tinted glass door with racks and bottle ends behind, a drawer below
+    const w0=27.28,w1=28.47,yW=e3+.92;box('3','cabGap',27.25,28.5,by0,by1,F,F+.012);front('x',F,1,27.25,28.5,by0,yW,'drawer',wp(27.25,28.5,yW-.25,.55));
+    box('3','black',w0+.05,w1-.05,yW+.02,by1-.05,F-1.4,F-1.38);box('3','cabGlass',w0+.12,w1-.12,yW+.12,by1-.18,F+.02,F+.06);
+    box('3','steel',w0,w0+.12,yW,by1,F+.02,F+.06);box('3','steel',w1-.12,w1,yW,by1,F+.02,F+.06);box('3','steel',w0,w1,yW,yW+.12,F+.02,F+.06);box('3','steel',w0,w1,by1-.18,by1,F+.02,F+.06);
+    for(let k=0;k<4;k++){const y=yW+.28+k*.38;box('3','walnutDark',w0+.1,w1-.1,y-.02,y,F-1.3,F-.05);for(const x of [w0+.35,w0+.6,w0+.85])addGeo('3',k%2?'blackGlass':'leather',new THREE.CylinderGeometry(.11,.11,.9,10),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(x,y+.12,F-.6));}
+    // tile backsplash up to the bar ledge, and two outlets
+    box('3','subway',24.0,31.6,ct,e3+3.36,12.75,12.79);for(const x of [26.0,29.6])box('3','ceramicWhite',x-.1,x+.1,ct+.12,ct+.3,12.79,12.81);}
+  box('3','wall',24.0,31.6,e3,e3+3.36,12.45,12.75);box('3','barTile',24.0,31.6,e3+.3,e3+3.36,12.42,12.45);box('3','trim',24.0,31.6,e3,e3+.3,12.4,12.45);
+  box('3','wall',23.97,24.0,e3+.3,e3+3.36,12.45,12.75);box('3','trim',23.95,24.0,e3,e3+.3,12.42,12.75);box('3','quartz',23.85,31.6,e3+3.36,e3+3.48,11.75,12.95);addCol(23.85,31.6,11.75,14.65,e3,e3+3.6);
   for(const x of [25.2,27.6,30.0])pendantCone('C3',x,13.3,CEIL[3],e3+5.15);
-  flushDrum('C3',29.7,22.5,CEIL[3],.9);
+  flushDrum('C3',29.7,22.5,CEIL[3],.9);KITCHEN_LIGHTS.drum=new THREE.Vector3(29.7,CEIL[3]-.55,22.5);
   {const p=T('3',26.9,ct,30.85,0);plant(p,0,0,0,'small');}
   {const p=T('3',27.7,ct,30.95,0);p.c('ceramicWhite',0,0,0,.22,.18,.35,12);for(let i=0;i<7;i++)p.s('pillowOchre',.12*Math.cos(i),.45+.06*(i%3),.12*Math.sin(i),.08);}
   // ================= foyer & hall =================

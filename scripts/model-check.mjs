@@ -49,7 +49,7 @@ if (manifest.models.length) {
     await page.waitForFunction(() => document.getElementById('loading')?.style.display === 'none' && MODELS_READY, null, { timeout: 120000 });
     const report = await page.evaluate(() => { setQuality('fast'); for (const p of document.querySelectorAll('#top,#levels,#hud')) p.classList.add('min'); return modelReport(); });
     const outDir = path.join(root, 'test-results/models'); fs.mkdirSync(outDir, { recursive: true });
-    const settle = () => page.waitForFunction(() => !CT && !PT && !ST.pending && !Object.keys(FTW).length && CLIPT.t >= CLIPT.dur, null, { timeout: 60000 }).then(() => page.waitForTimeout(700));
+    const settle = () => page.waitForFunction(() => !CT && !PT && !ST.pending && !Object.keys(FTW).length && CLIPT.t >= CLIPT.dur, null, { timeout: 180000 }).then(() => page.waitForTimeout(700));
     for (const r of report) {
       await page.evaluate(r => { ST.level = r.place.lv; setView('plan'); }, r); await settle();
       await page.evaluate(r => { const f = r.footprint_ft; PLN.x = r.place.x; PLN.z = r.place.z; PLN.span = Math.max(f.x1 - f.x0, f.z1 - f.z0) * 2.5 + 10; dirty = true; }, r); await page.waitForTimeout(900);

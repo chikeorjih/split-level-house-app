@@ -11,6 +11,7 @@
     "test:headed": "playwright test --headed",
     "sketchfab": "node scripts/sketchfab.mjs",
     "model:check": "node scripts/model-check.mjs",
+    "model:shot": "node scripts/model-shot.mjs",
     "postinstall": "node scripts/vendor-three.mjs"
   },
   "dependencies": {

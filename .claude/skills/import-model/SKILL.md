@@ -69,7 +69,7 @@ npm run sketchfab -- download <uid> <slug>
 ## 4. Check it before it goes in the manifest
 
 ```
-npm run model:check -- --file <slug>.glb --spec 82x39x34 --replaces "living room sofa"
+npm run model:check -- --file <slug>.glb --spec 82x39x34 --replaces "four-seasons sofa"
 ```
 
 `--spec` is width x depth x height in inches. Read the report:

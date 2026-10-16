@@ -69,6 +69,8 @@ function polyWall(tag,mat,axis,c,t,pts,flags){const sh=new THREE.Shape();pts.for
   addGeo(tag,mat,g,m,flags);}
 
 // ---------- walls with openings ----------
+// walk-through openings sit on the floor: the wall under them stops just short of it, so its top face does not flicker against the floor
+const DOORISH=new Set(['open','open0','door','door2','gdoor','dbl','slide','closet','garage']);
 function wallBuild(w){
   const ax=(w.z0===w.z1)?'x':'z';const a0=Math.min(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1),a1=Math.max(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1);
   const c=ax==='x'?w.z0:w.x0,t=w.t,tag=String(w.lv);
@@ -79,7 +81,7 @@ function wallBuild(w){
   // solid pieces
   let cur=a0;const pieces=[];
   for(const o of ops){const oa0=o.c-o.w/2,oa1=o.c+o.w/2;if(oa0>cur)pieces.push([cur,oa0,w.y0,w.y1]);
-    if(o.y0>w.y0+.01)pieces.push([oa0,oa1,w.y0,o.y0]);if(o.y1<w.y1-.01)pieces.push([oa0,oa1,o.y1,w.y1]);cur=Math.max(cur,oa1);}
+    if(o.y0>w.y0+.01)pieces.push([oa0,oa1,w.y0,o.y0-(DOORISH.has(o.k)?.03:0)]);if(o.y1<w.y1-.01)pieces.push([oa0,oa1,o.y1,w.y1]);cur=Math.max(cur,oa1);}
   if(cur<a1)pieces.push([cur,a1,w.y0,w.y1]);
   for(const p of pieces){B('wall',p[0],p[1],c-t/2,c+t/2,p[2],p[3]);
     PIECES.push({tag,ax,a0:p[0],a1:p[1],c,t,y0:p[2],y1:p[3],isNew:!!w.isNew});
@@ -140,7 +142,11 @@ function openingBuild(w,o,ax,c,t,tag,B){const B0=B;
         if(y1+.7<=skTop+.01)B('soldier',oa0-.35,oa1+.35,Math.min(f+ext*.12,f+ext*.19),Math.max(f+ext*.12,f+ext*.19),y1+.02,y1+.7);}
       else if(hasExt){const f=c+ext*(t/2);B(XM,oa0-.1,oa1+.1,Math.min(f,f+ext*.2),Math.max(f,f+ext*.2),y0-.08,y0);}
       col(oa0,oa1,y0,y1);break;}
-    case 'door':{DOORS.push({tag,ax,c,t,oa0,oa1,y0,hinge:o.sw[0],side:o.sw[1],isNew:!!o.isNew});casing([-1,1]);leaf(o.sw[0],o.sw[1],o.w-.1,o.dark?'doorGrey':'doorWhite',false);break;}
+    case 'door':{DOORS.push({tag,ax,c,t,oa0,oa1,y0,hinge:o.sw[0],side:o.sw[1],isNew:!!o.isNew});casing([-1,1]);
+      if(o.closed){const mat=o.dark?'doorGrey':'doorWhite',h=y1-y0-.04,k=o.sw[0]<0?oa1-.35:oa0+.35;B(mat,oa0+.05,oa1-.05,c-.07,c+.07,y0,y0+h);
+        for(const [a0,a1] of [[.6,3.1],[3.5,6.2]])B(mat,oa0+.4,oa1-.4,c-.085,c+.085,y0+a0,y0+Math.min(a1,h-.4));for(const sd of [-1,1])B('brass',k-.06,k+.06,Math.min(c+sd*.085,c+sd*.17),Math.max(c+sd*.085,c+sd*.17),y0+3.0,y0+3.12);
+        col(oa0,oa1,y0,y0+h);}
+      else leaf(o.sw[0],o.sw[1],o.w-.1,o.dark?'doorGrey':'doorWhite',false);break;}
     case 'door2':{casing([-1,1]);const h=o.w/2-.05;leaf(-1,1,h,'doorWhite',true);leaf(1,1,h,'doorWhite',true);break;}
     case 'gdoor':{DOORS.push({tag,ax,c,t,oa0,oa1,y0,hinge:o.sw[0],side:o.sw[1],isNew:!!o.isNew});casing([-1,1]);leaf(o.sw[0],o.sw[1],o.w-.1,'doorWhite',true);break;}
     case 'dbl':{casing([-ext]);const h=o.w/2-.05;

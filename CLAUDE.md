@@ -13,6 +13,7 @@ An interactive 3D walkthrough of a real split-level house in St. Louis, plus two
 - `npm test`: Playwright smoke tests (scene builds, walking routes, Debug ID line mapping, single-file build). Run this after every change.
 - `npm run build`: writes `dist/house-walkthrough.html`, a single self-contained file for publishing as a claude.ai artifact. It embeds the `.glb` models listed in `assets/models/manifest.json`.
 - `npm run sketchfab -- search|info|download …` and `npm run model:check`: find, download and size-check imported furniture models. The `import-model` skill (`.claude/skills/import-model`) is the workflow.
+- `npm run model:shot -- --name "<piece name>" [--hq|--ultra] [--in-place]`: renders one furniture piece alone (four views in one sheet, size and triangle count) to `test-results/shots/`. The `model-object` skill (`.claude/skills/model-object`) is the two-pass workflow for modelling an object from scratch.
 
 ## Architecture: read this before editing
 

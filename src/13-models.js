@@ -8,6 +8,9 @@ const MODELS=[],MODEL_TOL={in:.5,pct:.02};let MODELS_READY=false;
 const UNIT_FT={m:3.28084,cm:.0328084,mm:.00328084,in:1/12,ft:1};
 // feet per model unit: an explicit number or unit name, else the standard unit that matches the spec, else a uniform fit to the spec
 function modelScale(m,raw){const sp=m.spec;
+  // fit:"axes" scales width, depth and height separately to the spec, for downloads whose proportions are slightly off the real product
+  if(m.fit==="axes"&&sp){const v={x:sp.w/12/raw.w,y:sp.h/12/raw.h,z:sp.d/12/raw.d},mid=[v.x,v.y,v.z].sort((a,b)=>a-b)[1];
+    return {s:mid,v,how:'fitted to the spec on each axis (×'+[v.x,v.y,v.z].map(k=>(k/mid).toFixed(3)).join(' / ')+' of an even scale)'};}
   if(typeof m.scale==='number')return {s:m.scale,how:'manifest scale'};
   if(typeof m.scale==='string'&&UNIT_FT[m.scale])return {s:UNIT_FT[m.scale],how:'units: '+m.scale};
   if(!sp)return {s:UNIT_FT.m,how:'assumed metres (no spec)'};
@@ -25,12 +28,12 @@ async function loadModels(){
     for(const m of man.models){if(m.enabled===false)continue;
       const url=(window.__MODEL_FILES&&window.__MODEL_FILES[m.file])||('assets/models/'+m.file);
       try{const g=await new Promise((res,rej)=>L.load(url,res,undefined,rej));placeModel(m,g.scene);}catch(e){console.warn('model '+m.id+' failed to load',e);}}
-    if(MODELS.length){retarget(true);updateSectionDisplay();shadowDirty=true;dirty=true;}}
+    if(MODELS.length){retarget(true);updateSectionDisplay();arrLoad();shadowDirty=true;dirty=true;}}
   finally{MODELS_READY=true;}}
 function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   root.rotation.set((o.x||0)*D,(o.y||0)*D,(o.z||0)*D);root.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(root),raw={w:bb.max.x-bb.min.x,d:bb.max.z-bb.min.z,h:bb.max.y-bb.min.y},sc=modelScale(m,raw);
-  const inner=new THREE.Group();inner.add(root);inner.scale.setScalar(sc.s);inner.position.set(-(bb.min.x+bb.max.x)/2*sc.s,-bb.min.y*sc.s,-(bb.min.z+bb.max.z)/2*sc.s);
+  const inner=new THREE.Group();inner.add(root);const sv=sc.v||{x:sc.s,y:sc.s,z:sc.s};inner.scale.set(sv.x,sv.y,sv.z);inner.position.set(-(bb.min.x+bb.max.x)/2*sv.x,-bb.min.y*sv.y,-(bb.min.z+bb.max.z)/2*sv.z);
   // the T() piece it replaces: the nearest piece with that name; it also supplies any position, level or turn the manifest leaves out
   let rep=null;if(m.replaces){const near=new THREE.Vector3(pl.x||0,0,pl.z||0),c=INSTS.filter(i=>{const e=REG.get(i.okey)||{};return i.group&&!i.hiddenByModel&&(e.label===m.replaces||e.id===m.replaces);});
     rep=c.sort((a,b)=>(pl.x===undefined?0:a.group.position.distanceToSquared(near)-b.group.position.distanceToSquared(near)))[0]||null;
@@ -45,14 +48,17 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
     c.material=Array.isArray(c.material)?c.material.map(fix):fix(c.material);c.userData.baseMat=c.material;});
   if(rep){rep.group.visible=false;rep.hiddenByModel=true;for(const q of rep.cols){const i=COLS.indexOf(q.c);if(i>=0)COLS.splice(i,1);}}
   addTag(tag,outer);outer.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(outer);
-  if(m.collide!==false)addCol(box.min.x,box.max.x,box.min.z,box.max.z,box.min.y,box.max.y);
-  MODELS.push({m,outer,raw,sc,box,rep,repBox:rb,lv,tag,ry});}
+  const R={m,outer,raw,sc,box,rep,repBox:rb,lv,tag,ry};MODELS.push(R);
+  // an Arrange piece: the model's group already pivots on its footprint centre at floor level; its base turn stays in rybase
+  const inst={key:'model:'+m.id,okey:'model:'+m.id,n:1,tag,group:outer,pivot0:outer.position.clone(),grp:box.clone(),dx:0,dz:0,ry:0,rybase:ry,cols:[],lights:[],isModel:true,model:R};
+  if(m.collide!==false){const c=addCol(box.min.x,box.max.x,box.min.z,box.max.z,box.min.y,box.max.y);inst.cols.push({c,r:[box.min.x,box.max.x,box.min.z,box.max.z]});}
+  outer.traverse(o=>{if(o.isMesh)o.userData.inst=inst;});outer.userData.inst=inst;INSTS.push(inst);R.inst=inst;}
 // ---------- dimension and fit check ----------
 function modelReport(){const r2=v=>Math.round(v*100)/100,ro=o=>{const q={};for(const k in o)q[k]=r2(o[k]);return q;};
   const ok=(spec,got)=>Math.abs(got-spec)<=Math.max(MODEL_TOL.in,spec*MODEL_TOL.pct);
   const ov=(a0,a1,b0,b1)=>Math.min(a1,b1)-Math.max(a0,b0);
   const gap=(f,g)=>Math.hypot(Math.max(0,g.x0-f.x1,f.x0-g.x1),Math.max(0,g.z0-f.z1,f.z0-g.z1));
-  return MODELS.map(R=>{const {m,raw,sc,box,lv}=R,s=sc.s,dims={w:raw.w*s*12,d:raw.d*s*12,h:raw.h*s*12},sp=m.spec,issues=[],notes=[];
+  return MODELS.map(R=>{const {m,raw,sc,box,lv}=R,s=sc.s,sv=sc.v||{x:s,y:s,z:s},dims={w:raw.w*sv.x*12,d:raw.d*sv.z*12,h:raw.h*sv.y*12},sp=m.spec,issues=[],notes=[];
     const r={id:m.id,name:m.name||m.id,file:m.file,scale:sc.how,ftPerUnit:+s.toPrecision(5),rawUnits:ro(raw),dims_in:ro(dims),issues,notes};
     if(sp){r.spec_in={w:sp.w,d:sp.d,h:sp.h};r.diff_in={};
       for(const k of ['w','d','h']){const d=dims[k]-sp[k];r.diff_in[k]=r2(d);
@@ -80,7 +86,7 @@ function modelReport(){const r2=v=>Math.round(v*100)/100,ro=o=>{const q={};for(c
       const g=d.ax==='x'?{x0:d.oa0,x1:d.oa1,z0:Math.min(f0,f1),z1:Math.max(f0,f1)}:{x0:Math.min(f0,f1),x1:Math.max(f0,f1),z0:d.oa0,z1:d.oa1};
       if(ov(f.x0,f.x1,g.x0,g.x1)>.05&&ov(f.z0,f.z1,g.z0,g.z1)>.05)issues.push(`blocks the swing of a door at ${d.ax==='x'?'x':'z'} ${r2(d.oa0)} to ${r2(d.oa1)}`);}
     // other furniture and models (ignores rugs and anything barely overlapping)
-    const others=[...INSTS.filter(i=>i.group&&!i.hiddenByModel).map(i=>({n:(REG.get(i.okey)||{}).label||'furniture',b:new THREE.Box3().setFromObject(i.group)})),
+    const others=[...INSTS.filter(i=>i.group&&!i.hiddenByModel&&!i.isModel).map(i=>({n:(REG.get(i.okey)||{}).label||'furniture',b:new THREE.Box3().setFromObject(i.group)})),
       ...MODELS.filter(q=>q!==R).map(q=>({n:'model '+q.m.id,b:q.box}))];
     for(const q of others){const b=q.b;if(b.isEmpty()||ov(f.y0,f.y1,b.min.y,b.max.y)<.2)continue;
       const px=ov(f.x0,f.x1,b.min.x,b.max.x),pz=ov(f.z0,f.z1,b.min.z,b.max.z);if(px>.08&&pz>.08)issues.push(`overlaps ${q.n} by ${(Math.min(px,pz)*12).toFixed(1)}"`);}

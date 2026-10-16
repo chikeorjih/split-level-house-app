@@ -136,3 +136,32 @@ export function removeOpening(text, line, col, index, file) {
   check(out, file);
   return { text: out, removed, line: lineOf(text, items[index][0]) };
 }
+
+// Arrange mode's Save to code: rewrite the position (x, z) and turn (ry) arguments of the T(tag,x,y,z,ry,name) call at line:col.
+// x and z must be plain numbers in the source (a piece placed by a loop variable can't be moved on its own); ry may be any expression.
+const NUM = /^\s*-?(\d+\.?\d*|\.\d+)\s*$/;
+export function fmtNum(v) { const r = Math.round(v * 100) / 100; return String(r === 0 ? 0 : r).replace(/^(-?)0\./, '$1.'); }
+// an angle as source text: a multiple of 15 degrees reads as a fraction of Math.PI, anything else as radians
+export function fmtAngle(a) {
+  const k = Math.round(a / (Math.PI / 12)), w = ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI, kk = Math.round(w / (Math.PI / 12));
+  if (Math.abs(a - k * Math.PI / 12) > 1e-4) return w.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  if (kk === 0) return '0';
+  const g = (p, q) => q ? g(q, p % q) : p, d = g(Math.abs(kk), 12), n = kk / d, m = 12 / d;
+  return (n < 0 ? '-' : '') + 'Math.PI' + (Math.abs(n) !== 1 ? '*' + Math.abs(n) : '') + (m !== 1 ? '/' + m : '');
+}
+export function moveT(text, line, col, x, z, ry, file) {
+  const m = brackets(text), p = offsetOf(text, line, col), par = text.indexOf('(', p);
+  if (!/^T\s*\(/.test(text.slice(p, par + 1)) || m[par] < 0) throw new Error('the code at line ' + line + ' is not a T(...) furniture call');
+  const args = []; let i = par + 1, s = i;
+  while (i < m[par]) { const c = text[i]; if ('([{'.includes(c) && m[i] >= 0) { i = m[i] + 1; continue; } if (c === ',') { args.push([s, i]); s = i + 1; } i++; }
+  args.push([s, m[par]]);
+  if (args.length < 4) throw new Error('the T(...) call at line ' + line + ' has fewer than four arguments');
+  for (const k of [1, 3]) if (!NUM.test(text.slice(...args[k]))) throw new Error('its position is set by code (' + text.slice(...args[k]).trim() + '), not a number, so it has to be moved by hand');
+  const rep = [[1, fmtNum(x)], [3, fmtNum(z)]];
+  let out = text;
+  if (args.length >= 5) rep.push([4, fmtAngle(ry)]);
+  else if (Math.abs(ry) > 1e-6) out = out.slice(0, args[3][1]) + ',' + fmtAngle(ry) + out.slice(args[3][1]);
+  for (const [k, v] of rep.sort((a, b) => b[0] - a[0])) { const [a0, a1] = args[k], lead = text.slice(a0, a1).match(/^\s*/)[0]; out = out.slice(0, a0) + lead + v + out.slice(a1); }
+  check(out, file);
+  return { text: out, line };
+}

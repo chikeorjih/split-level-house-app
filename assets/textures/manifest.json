@@ -49,6 +49,17 @@
       "repeatFt": 9.16,
       "note": "the mansard and dormer roofs",
       "cropTop": 0.069
+    },
+    {
+      "material": "oak",
+      "map": "wooden_floor_02_diff_2k.jpg",
+      "normal": "wooden_floor_02_nor_gl_2k.jpg",
+      "roughness": "wooden_floor_02_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 6.37,
+      "source": "Wooden Floor 02 by Charlotte Baglioni and Rico Cilliers, Poly Haven (CC0), https://polyhaven.com/a/wooden_floor_02; 1.94 m square",
+      "note": "every wood floor in the house",
+      "rotateDeg": 90
     }
   ]
 }

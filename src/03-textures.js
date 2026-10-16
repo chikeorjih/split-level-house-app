@@ -68,6 +68,10 @@ function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#6a7f33';g.fillRe
     g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.sin(a)*l,y-Math.cos(a)*l);g.stroke();}
   g.filter='blur('+(.6*TEXQ)+'px)';g.drawImage(c,0,0);g.filter='none';
   return tex(c,10,10);}
+// brushed stainless: fine streaks of slightly varying brightness
+function brushedTex(){const S=TX(256),[c,g]=cv(S,S);g.fillStyle='#e9eaeb';g.fillRect(0,0,S,S);
+  for(let i=0;i<S*2.5;i++){const y=rr(0,S);g.fillStyle=`rgba(${rnd()<.5?'255,255,255':'120,124,128'},${rr(.015,.05)})`;g.fillRect(0,y,S,rr(.3,.8));}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,4);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
 function plainNoise(col,ft,amt){const S=TX(256),[c,g]=cv(S,S);g.fillStyle=col;g.fillRect(0,0,S,S);noise(g,S,S,amt);return tex(c,ft,ft);}
 function deckTex(h,s,l){const S=TX(512),[c,g]=cv(S,S);const ppf=S/4,bw=0.46*ppf;g.fillStyle='#1a1410';g.fillRect(0,0,S,S);
   for(let y=0;y<S;y+=bw){g.fillStyle=hsl(h+rr(-4,4),s+rr(-6,6),l+rr(-5,5));g.fillRect(0,y+2,S,bw-4);
@@ -173,10 +177,11 @@ function makeMaterials(){
   MAT.grass=std({map:grassTex(),vertexColors:true,roughness:1});
   MAT.glass=std({color:0xbfd6df,transparent:true,opacity:.2,roughness:.05,metalness:0,depthWrite:false,envMapIntensity:1.4});
   MAT.frost=std({color:0xf2f4f4,transparent:true,opacity:.82,roughness:.4});
-  MAT.cab=std({color:0x6f7479,roughness:.55});
+  MAT.cab=std({color:0x2e3134,roughness:.42});
+  MAT.cabGap=std({color:0x131415,roughness:.8});MAT.cabGlass=std({color:0x2b3034,transparent:true,opacity:.32,roughness:.04,metalness:.1,depthWrite:false});MAT.hoodSteel=std({map:brushedTex(),color:0x6f7377,metalness:.55,roughness:.5});MAT.cabInner=std({color:0x4a4d51,roughness:.5});
   MAT.cabDark=std({color:0x5a5f64,roughness:.55});
   MAT.quartz=std({color:0xefeeea,roughness:.25});
-  MAT.steel=std({color:0xc8cbcd,metalness:.75,roughness:.28});
+  MAT.steel=std({map:brushedTex(),color:0xc4c7ca,metalness:.88,roughness:.3});
   MAT.blackGlass=std({color:0x111214,roughness:.1,metalness:.3});
   MAT.black=std({color:0x1e1f21,roughness:.5});
   MAT.blackMetal=std({color:0x222325,metalness:.6,roughness:.4});

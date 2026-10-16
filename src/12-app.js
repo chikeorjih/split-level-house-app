@@ -32,21 +32,40 @@ const FCUR={},FTW={},CLIPT={from:0,to:0,t:1,dur:1,target:null},SKYT={from:0,to:0
 let CT=null,PT=null,ORB_SAVED=null;
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function meshesOf(tag){const out=[];for(const o of TAGS[tag]||[]){if(o.isMesh)out.push(o);else if(o.traverse)o.traverse(c=>{if(c.isMesh&&!c.userData.isTwin)out.push(c);});}return out;}
+// ---------- level presentation in the 3/4 view: when levels are picked, the site, lawn and trees wash out to a pale, low-saturation tone
+// (WASH, animated 0..1, shared by every site material through a shader patch on per-material clones), trees and shrubs fade to TREE_FADE,
+// and the other levels show as pale massing (GHOST) instead of see-through copies of their real materials
+const WASH={value:0},WASH_TAGS=['site','grass','trees'],WASHED=new Map(),TREE_FADE=.3,GHOST_OPACITY=.32,GHOST=new Map();
+const presenting=()=>(ST.pending||ST.view)==='three'&&!!ST.cutL;
+// wash: toward a pale tone (the material's own washCol: near-white for paving and buildings, soft sage for the soil under the lawn)
+function washPatch(sh,col){sh.uniforms.washAmt=WASH;sh.uniforms.washCol=col;sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float washAmt;uniform vec3 washCol;')
+  .replace('#include <color_fragment>','#include <color_fragment>\n  if(washAmt>0.){float wl=dot(diffuseColor.rgb,vec3(.3,.59,.11));diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(wl),washCol,.62),washAmt*.85);}');}
+// calm: the lawn's blades keep their green, a little softer (less saturation and contrast), after the grass shader's own colouring
+function calmPatch(sh){sh.uniforms.washAmt=WASH;sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float washAmt;')
+  .replace('#include <emissivemap_fragment>','  if(washAmt>0.){float cl=dot(diffuseColor.rgb,vec3(.3,.59,.11));diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(cl),diffuseColor.rgb,.72)*.88+cl*.14,washAmt);}\n#include <emissivemap_fragment>');}
+const WASH_PALE=new THREE.Color(.74,.73,.7),WASH_SAGE=new THREE.Color(0xa9b39a).convertSRGBToLinear();
+// a washable clone of a site material (or, for the lawn blades, a calmed one); its maps follow the original's (photo textures load later)
+function washOf(b,mode){let w=WASHED.get(b);if(w)return w;w=b.clone();const o=b.onBeforeCompile,key=o?String(o):'',col={value:mode==='sage'?WASH_SAGE:WASH_PALE};
+  w.onBeforeCompile=sh=>{if(o)o(sh);if(mode==='calm')calmPatch(sh);else washPatch(sh,col);};w.customProgramCacheKey=()=>(mode==='calm'?'calm|':'wash|')+key;WASHED.set(b,w);return w;}
+function syncWashed(){WASHED.forEach((w,b)=>{for(const k of ['map','normalMap','roughnessMap','color','roughness']){if(k==='color'){if(b.color&&w.color)w.color.copy(b.color);}else if(w[k]!==b[k])w[k]=b[k];}w.needsUpdate=true;});}
+function ghostOf(tag){let g=GHOST.get(tag);if(!g){g=new THREE.MeshStandardMaterial({color:0xf3f1ec,roughness:1,transparent:true,depthWrite:false,side:THREE.DoubleSide,clippingPlanes:CLIPS,clipShadows:true});GHOST.set(tag,g);}return g;}
 function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
   if(vv==='plan')return PLAN_TAGS[L].includes(tag)&&tag!=='X'?1:0;
-  if(tag==='trees')return ST.trees?1:0;
+  if(tag==='trees')return ST.trees?(presenting()?TREE_FADE:1):0;
   if(vv==='walk')return tag==='frontClosed'?0:1;
   if(tag==='frontOpen')return 0;
   if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv>L)return 0;if(lv!==undefined&&!shownLv().includes(lv))return FADE_OPACITY;}
   return 1;}
-function setTagOpacity(tag,o){FCUR[tag]=o;
+function setTagOpacity(tag,o){FCUR[tag]=o;const ghost=presenting()&&fadeTarget(tag)===FADE_OPACITY;
   for(const m of meshesOf(tag)){if(!m.userData.baseMat)m.userData.baseMat=m.material;const b=m.userData.baseMat,wasVis=m.visible;
     if(o<=.003){m.visible=false;m.userData.faded=true;}
     else if(o>=.997){m.visible=true;m.material=b;m.userData.faded=false;}
-    else{const k=tag+'|'+b.uuid;let c=FADE.get(k);if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;FADE.set(k,c);}
+    else if(ghost){const g=ghostOf(tag);g.opacity=Math.min(1,o/FADE_OPACITY*GHOST_OPACITY);m.material=g;m.visible=true;m.userData.faded=true;}
+    else{const k=tag+'|'+b.uuid;let c=FADE.get(k);if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
+        if(b.customProgramCacheKey!==THREE.Material.prototype.customProgramCacheKey)c.customProgramCacheKey=b.customProgramCacheKey;FADE.set(k,c);}
       c.opacity=o*(b.transparent?b.opacity:1);m.material=c;m.visible=true;m.userData.faded=true;}
     if(wasVis!==m.visible)shadowDirty=true;}}
-function refreshFades(){FADE.forEach(c=>c.dispose());FADE.clear();for(const t in FCUR)setTagOpacity(t,FCUR[t]);updateSectionDisplay();}
+function refreshFades(){syncWashed();FADE.forEach(c=>c.dispose());FADE.clear();for(const t in FCUR)setTagOpacity(t,FCUR[t]);updateSectionDisplay();}
 function retarget(instant){for(const tag in TAGS){const to=fadeTarget(tag),cur=FCUR[tag]===undefined?to:FCUR[tag];
   if(instant||Math.abs(to-cur)<.003){delete FTW[tag];setTagOpacity(tag,to);}else FTW[tag]={from:cur,to,t:0,dur:.85};}}
 function retargetClip(instant){const tgt=ST.cutL?cutH(ST.cutL):null,TOP=24,cur=CLIP_TOP.constant>1e4?TOP:CLIP_TOP.constant,to=tgt===null?TOP:tgt;CLIPT.target=tgt;
@@ -64,6 +83,7 @@ function stepCam(dt){CT.t+=dt;const k=Math.min(1,CT.t/CT.dur),e=ease(k),f=CT.fro
   if(k>=1){const d=CT.done;CT=null;if(d)d();}}
 function planPose(){const L=ST.level==='all'?2:ST.level;return {th:0,ph:.0015,d:(PLN.span/2)/Math.tan(6*Math.PI/180),t:new THREE.Vector3(PLN.x,CUT[L],PLN.z),fov:12};}
 function animate(dt){let busy=false;
+  {const wt=presenting()?1:0;if(WASH.value!==wt){WASH.value=wt>WASH.value?Math.min(1,WASH.value+dt/.85):Math.max(0,WASH.value-dt/.6);busy=true;}}
   for(const tag in FTW){const w=FTW[tag];w.t+=dt;const k=Math.min(1,w.t/w.dur);setTagOpacity(tag,w.from+(w.to-w.from)*ease(k));if(k>=1)delete FTW[tag];busy=true;}
   if(CLIPT.t<CLIPT.dur){CLIPT.t+=dt;const k=Math.min(1,CLIPT.t/CLIPT.dur);CLIP_TOP.constant=CLIPT.from+(CLIPT.to-CLIPT.from)*ease(k);if(k>=1&&CLIPT.target===null)CLIP_TOP.constant=1e5;shadowDirty=true;busy=true;}
   if(SKYT.t<SKYT.dur){SKYT.t+=dt;const k=Math.min(1,SKYT.t/SKYT.dur);SKY_MAT.uniforms.pm.value=SKYT.from+(SKYT.to-SKYT.from)*ease(k);busy=true;}
@@ -96,6 +116,7 @@ function buildScene(){
   TREES=buildTrees();addTag('trees',TREES);
   SETBACK=setbackLines();SETBACK.visible=false;scene.add(SETBACK);
   const GR=buildGrass();MAT.grassBlades=GR.userData.mat;addTag('grass',GR);
+  for(const t of WASH_TAGS)for(const m of meshesOf(t)){if(Array.isArray(m.material))continue;m.material=washOf(m.material,t==='grass'?'calm':m.material===MAT.grass?'sage':'pale');m.userData.baseMat=m.material;}
   LOOK.hemi=new THREE.HemisphereLight(0xe3edf7,0x5e5444,.12);LOOK.amb=new THREE.AmbientLight(0xfff6ea,.05);scene.add(LOOK.hemi,LOOK.amb);
   // cut-section fill: back faces show as solid dark wherever the cutaway slices through something
   const TWM=new THREE.MeshBasicMaterial({color:0x353a40,side:THREE.BackSide,clippingPlanes:CLIPS});const NOTWIN=new Set(['glass','frost','light','flame','shade','curtain','plantGreen','chain','mirror']);
@@ -104,9 +125,10 @@ function buildScene(){
   sun=new THREE.DirectionalLight(0xfff0d8,1.75);sun.position.set(-48,95,62).add(new THREE.Vector3(16,-5,15));sun.target.position.set(16,-5,15);
   sun.castShadow=true;const sz=renderer.capabilities.maxTextureSize>=4096?4096:2048;sun.shadow.mapSize.set(sz,sz);
   Object.assign(sun.shadow.camera,{left:-95,right:95,top:95,bottom:-95,near:10,far:330});sun.shadow.bias=-.0003;sun.shadow.normalBias=.04;
-  scene.add(sun,sun.target);buildSky();buildLamps();buildSkyLights();
+  scene.add(sun,sun.target);buildSky();buildLamps();buildKitchenLights();buildSkyLights();
   for(const L of [1,2,3,4]){CAPGRP['plan'+L]=caps(L,PLAN_TAGS[L]);CAPGRP['cut'+L]=caps(L,[String(L),'S'],CUT3(L),true);}
 }
+const CUTLINE_MAT=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.95});
 function caps(L,tags,cutY,noSwings){const cut=cutY||CUT[L],grp=new THREE.Group();const acc={};const put=(k,x0,x1,z0,z1,y)=>{const a=acc[k]=acc[k]||[];
     const Y=y||cut-.02;a.push(x0,Y,z0, x0,Y,z1, x1,Y,z1, x0,Y,z0, x1,Y,z1, x1,Y,z0);};
   const ok=tag=>!tags||tags.includes(tag);
@@ -115,7 +137,9 @@ function caps(L,tags,cutY,noSwings){const cut=cutY||CUT[L],grp=new THREE.Group()
   for(const c of CAPS){if(!ok(c.tag)||!(c.y0<cut&&c.y1>cut))continue;put(c.tag==='X'?'wall':'item',c.x0,c.x1,c.z0,c.z1);}
   const col={wall:0x2a2f35,new:0x2c66c9,glass:0x8fbcd9,closet:0x9aa3aa,item:0x8d959c};
   for(const k in acc){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(acc[k],3));
-    const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:col[k],side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2}));m.renderOrder=5;grp.add(m);}
+    const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:col[k],side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2}));m.renderOrder=5;grp.add(m);
+    // 3/4 view: a crisp white outline round every cut wall, so the plan draws itself in 3D
+    if(noSwings&&k!=='item'){const e=new THREE.EdgesGeometry(g,30);e.translate(0,.03,0);const ln=new THREE.LineSegments(e,CUTLINE_MAT);ln.renderOrder=6;grp.add(ln);}}
   // door swings
   const lp=[],ln=[];
   for(const d of noSwings?[]:DOORS){if(!ok(d.tag)||!(d.y0<cut&&d.y0>cut-7))continue;const w=d.oa1-d.oa0,h=d.hinge<0?d.oa0:d.oa1,f=d.c+d.side*d.t/2,o=d.hinge<0?d.oa1:d.oa0,arr=d.isNew?ln:lp,Y=cut-.03;
@@ -157,7 +181,14 @@ function setLevel(L){if(ST.view==='walk'){if(L==='all'){setView('three');return;
   // in the 3/4 view the level buttons are toggles, so several levels can be highlighted at once
   if(ST.view==='three'){if(L==='all')ST.levels=[];else{const i=ST.levels.indexOf(L);if(i>=0)ST.levels.splice(i,1);else ST.levels.push(L);ST.levels.sort();}
     ST.level=ST.levels.length?Math.max(...ST.levels):'all';
-    const to=snapOrb();to.t.y=ST.levels.length?ST.levels.reduce((a,l)=>a+E[l],0)/ST.levels.length:-5;startCam(to,null,1.0);}
+    // frame the picked levels' rooms (keeping the viewing angle), or go back to the whole-house framing
+    const to=snapOrb();
+    if(ST.levels.length){const r=SPEC.rooms.filter(q=>ST.levels.includes(q.lv));let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
+      for(const q of r){x0=Math.min(x0,q.x0,q.x1);x1=Math.max(x1,q.x0,q.x1);z0=Math.min(z0,q.z0,q.z1);z1=Math.max(z1,q.z0,q.z1);}
+      const rad=Math.hypot(x1-x0,z1-z0)/2,tv=Math.tan(ORB.fov*Math.PI/360),asp=innerWidth/innerHeight;
+      to.t.set((x0+x1)/2,ST.levels.reduce((a,l)=>a+E[l],0)/ST.levels.length,(z0+z1)/2);to.d=Math.max(40,Math.min(300,rad/Math.min(tv,tv*asp)*1.12));}
+    else{to.t.set(14,-5,17);to.d=Math.max(ORB.d,135);}
+    startCam(to,null,1.0);}
   else ST.level=L;
   if(ST.view==='plan'){const from={x:PLN.x,z:PLN.z,span:PLN.span};fitPlan();const to={x:PLN.x,z:PLN.z,span:PLN.span};Object.assign(PLN,from);PT={from,to,t:0,dur:1.0};}
   setVis();}
@@ -165,7 +196,7 @@ function fitPlan(){const L=ST.level==='all'?2:ST.level;const r=SPEC.rooms.filter
   for(const q of r){x0=Math.min(x0,q.x0);x1=Math.max(x1,q.x1);z0=Math.min(z0,q.z0);z1=Math.max(z1,q.z1);}
   if(L===2){x0=Math.min(x0,-22);}PLN.x=(x0+x1)/2;PLN.z=(z0+z1)/2;const asp=innerWidth/innerHeight;PLN.span=Math.max(z1-z0+14,(x1-x0+14)/asp)*(innerWidth<640?1.25:1.08);}
 // ---------------- cameras ----------------
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);if(LOOK.quality==='high')setupPipe();camO.aspect=w/h;camO.updateProjectionMatrix();camW.aspect=w/h;camW.updateProjectionMatrix();updatePlanCam();dirty=true;}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setPixelRatio(qualityPR(LOOK.quality));renderer.setSize(w,h);if(isHQ())setupPipe();camO.aspect=w/h;camO.updateProjectionMatrix();camW.aspect=w/h;camW.updateProjectionMatrix();updatePlanCam();dirty=true;}
 function updateOrbitCam(){if(!CT){ORB.ph=Math.max(.12,Math.min(1.5,ORB.ph));ORB.d=Math.max(18,Math.min(380,ORB.d));}
   if(camO.fov!==ORB.fov){camO.fov=ORB.fov;camO.updateProjectionMatrix();}
   const s=Math.sin(ORB.ph);camO.position.set(ORB.t.x+ORB.d*s*Math.sin(ORB.th),ORB.t.y+ORB.d*Math.cos(ORB.ph),ORB.t.z+ORB.d*s*Math.cos(ORB.th));camO.lookAt(ORB.t);}
@@ -259,7 +290,7 @@ function buildUI(){
   $('tDebug').addEventListener('click',dbgToggle);$('tArrange').addEventListener('click',arrToggle);
   $('arrL').addEventListener('click',()=>arrTurn(15));$('arrR').addEventListener('click',()=>arrTurn(-15));$('arr90').addEventListener('click',()=>arrTurn(90));
   $('arrReset').addEventListener('click',()=>arrReset(ARR.sel));$('arrDone').addEventListener('click',()=>arrSelect(null));$('arrCopy').addEventListener('click',()=>arrCopy(false));
-  $('arrCopyAll').addEventListener('click',()=>arrCopy(true));$('arrResetAll').addEventListener('click',()=>{for(const i of INSTS)if(i.dx||i.dz||i.ry)arrReset(i);});$('dbgCopy').addEventListener('click',dbgCopy);$('dbgDel').addEventListener('click',dbgDelete);$('dbgClose').addEventListener('click',()=>dbgSelect(null));
+  $('arrCopyAll').addEventListener('click',()=>arrCopy(true));$('arrBake').addEventListener('click',arrBake);$('arrResetAll').addEventListener('click',()=>{for(const i of INSTS)if(i.dx||i.dz||i.ry)arrReset(i);});$('dbgCopy').addEventListener('click',dbgCopy);$('dbgDel').addEventListener('click',dbgDelete);$('dbgClose').addEventListener('click',()=>dbgSelect(null));
   const sel=$('goto');sel.innerHTML='<option value="">a room…</option>';const seen=new Set();
   for(const L of [4,3,2,1]){const og=document.createElement('optgroup');og.label=LEVEL_NAMES[L];
     for(const [i,r] of SPEC.rooms.entries()){if(r.lv!==L||seen.has(L+r.name)||r.name==='Patio'||r.name==='Stair hall')continue;seen.add(L+r.name);
@@ -305,10 +336,10 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   updateFog();
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;}if(dirty){PIPE.n=0;dirty=false;}
   if(PIPE.n<PIPE.max){
-    if(LOOK.quality==='high'){try{renderHigh(cam);}catch(e){console.warn(e);setQuality('fast','High quality could not run on this device, so the fast renderer is on.');renderFast(cam);}}
+    if(isHQ()){try{renderHigh(cam);}catch(e){console.warn(e);if(isUltra())setQuality('high','Ultra could not run on this device, so high quality is on.');else{setQuality('fast','High quality could not run on this device, so the fast renderer is on.');renderFast(cam);}}}
     else renderFast(cam);
     updateLabels();dbgTick();const w=whereText();if(w!==lastWhere){$('where').textContent=w;lastWhere=w;}
-    const r=$('refine');const show=LOOK.quality==='high'&&PIPE.n>1&&PIPE.n<PIPE.max;r.textContent=show?'Refining the view, '+Math.round(PIPE.n/PIPE.max*100)+'%':'';r.style.display=show?'block':'none';}
+    const r=$('refine');const show=isHQ()&&PIPE.n>1&&PIPE.n<PIPE.max;r.textContent=show?'Refining the view, '+Math.round(PIPE.n/PIPE.max*100)+'%':'';r.style.display=show?'block':'none';}
   requestAnimationFrame(frame);}
 // real photo textures: list them in assets/textures/manifest.json (only works when served over http, e.g. `npm run dev`)
 async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))return;let list;try{const r=await fetch('assets/textures/manifest.json',{cache:'no-store'});if(!r.ok)return;list=(await r.json()).textures||[];}catch(e){return;}

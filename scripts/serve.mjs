@@ -30,16 +30,41 @@ async function edit(req, res, url) {
   if (url === '/__edit/status') return reply(res, 200, { ok: true, undo: UNDO.length ? { file: UNDO.at(-1).file, removed: UNDO.at(-1).removed } : null });
   if (req.method !== 'POST' || !/application\/json/.test(req.headers['content-type'] || '') ||
     (req.headers.origin && req.headers.origin !== `http://localhost:${port}` && req.headers.origin !== `http://127.0.0.1:${port}`)) return reply(res, 403, { error: 'not allowed' });
-  const { removeElement, removeOpening } = await import('./src-edit.mjs?' + Date.now());
+  const { removeElement, removeOpening, moveT } = await import('./src-edit.mjs?' + Date.now());
   try {
     const q = await body(req);
     if (url === '/__edit/undo') {
       const u = UNDO.at(-1);
       if (!u) return reply(res, 400, { error: 'nothing to undo' });
+      if (u.files) { // a batch (Arrange's Save to code): put every file back, only if none has changed since
+        const curs = u.files.map(f => ({ f, cur: readText(path.join(root, f.file)) }));
+        const changed = curs.find(c => c.cur.text !== c.f.after);
+        if (changed) return reply(res, 409, { error: changed.f.file + ' has changed since the save, so it was not undone; use git to restore it' });
+        for (const c of curs) writeText(path.join(root, c.f.file), c.f.before, c.cur.crlf);
+        UNDO.pop(); return reply(res, 200, { ok: true, restored: u.removed });
+      }
       const abs = path.join(root, u.file), cur = readText(abs);
       if (cur.text !== u.after) return reply(res, 409, { error: u.file + ' has changed since the delete, so it was not undone; use git to restore it' });
       writeText(abs, u.before, cur.crlf); UNDO.pop();
       return reply(res, 200, { ok: true, file: u.file, restored: u.removed });
+    }
+    if (url === '/__edit/arrange') { // Arrange's Save to code: new positions for T(...) pieces and imported models, in one undoable batch
+      const items = Array.isArray(q.items) ? q.items : [], byFile = new Map(), done = [], failed = [];
+      for (const it of items) { const f = it.kind === 'model' ? 'assets/models/manifest.json' : String(it.file || '');
+        if (it.kind !== 'model' && (!/^src\/[\w.-]+\.js$/.test(f) || !fs.existsSync(path.join(root, f)))) { failed.push({ key: it.key, error: 'not a file in src/' }); continue; }
+        if (!byFile.has(f)) byFile.set(f, []); byFile.get(f).push(it); }
+      const files = [];
+      for (const [f, list] of byFile) { const abs = path.join(root, f), cur = readText(abs); let text = cur.text;
+        if (f.endsWith('manifest.json')) { const man = JSON.parse(text);
+          for (const it of list) { const m = (man.models || []).find(x => x.id === it.id); if (!m) { failed.push({ key: it.key, error: 'not in the manifest' }); continue; }
+            m.place = Object.assign({}, m.place, { x: Math.round(it.x * 100) / 100, z: Math.round(it.z * 100) / 100, lv: it.lv, ry: Math.round(it.ry) }); delete m.place.turn; done.push(it.key); }
+          text = JSON.stringify(man, null, 2) + '\n'; }
+        else for (const it of list.sort((a, b) => a.line - b.line || b.col - a.col)) {
+          try { text = moveT(text, Number(it.line), Number(it.col), it.x, it.z, it.ry, f).text; done.push(it.key); } catch (e) { failed.push({ key: it.key, error: e.message }); } }
+        if (text !== cur.text) files.push({ file: f, before: cur.text, after: text, crlf: cur.crlf }); }
+      for (const f of files) writeText(path.join(root, f.file), f.after, f.crlf);
+      if (files.length) UNDO.push({ files: files.map(({ file, before, after }) => ({ file, before, after })), removed: done.length + ' furniture moves' });
+      return reply(res, 200, { ok: true, done, failed, files: files.map(f => f.file) });
     }
     if (url !== '/__edit/delete') return reply(res, 404, { error: 'unknown edit' });
     let file, out;

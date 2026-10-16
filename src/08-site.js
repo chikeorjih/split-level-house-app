@@ -69,7 +69,7 @@ function buildSiteHard(){
     quadSlab('site','concrete',[[x,a+.35,SITE.street1],[x+5,b+.35,SITE.street1],[x+5,b+.35,SITE.street1+.6],[x,a+.35,SITE.street1+.6]],3);
     if(Math.floor(x/5)%3===0)quadSlab('site','trim',[[x,a+.02,74.4],[x+5,b+.02,74.4],[x+5,b+.02,74.6],[x,a+.02,74.6]],.05);}
   for(let x=-95;x<135;x+=2.5){const y=yStreet(x+1.25);addWalk(x,x+2.5,SITE.street0,SITE.street1+.6,y);}
-  // chain-link fence: gates in front of the addition's lower openings, then out to the west lot line and around the back
+  // chain-link fence: gates in front of the addition's lower openings, then straight across to the west lot line, a square corner, and around the back
   const fence=(pts)=>{for(let i=0;i<pts.length-1;i++){const [x0,z0]=pts[i],[x1,z1]=pts[i+1],L=Math.hypot(x1-x0,z1-z0),n=Math.max(1,Math.round(L/4));
       for(let k=0;k<n;k++){const ax=x0+(x1-x0)*k/n,az=z0+(z1-z0)*k/n,bx=x0+(x1-x0)*(k+1)/n,bz=z0+(z1-z0)*(k+1)/n,ya=terrainH(ax,az),yb=terrainH(bx,bz),u0=k*L/n,u1=(k+1)*L/n;
         const b=bucket('site','chain');const V=[[ax,ya+.15,az,u0,0],[bx,yb+.15,bz,u1,0],[bx,yb+4.1,bz,u1,3.95],[ax,ya+4.1,az,u0,3.95]];
@@ -77,13 +77,7 @@ function buildSiteHard(){
         addCol(Math.min(ax,bx)-.2,Math.max(ax,bx)+.2,Math.min(az,bz)-.2,Math.max(az,bz)+.2,Math.min(ya,yb)-2,Math.max(ya,yb)+4.2);
         beam('site','steel',[ax,ya+4.1,az],[bx,yb+4.1,bz],.12,.12);}
       for(let k=0;k<=n;k++){const x=x0+(x1-x0)*k/n,z=z0+(z1-z0)*k/n,y=terrainH(x,z);addGeo('site','steel',new THREE.CylinderGeometry(.09,.09,4.6,8),M(x,y+2.1,z));}}};
-  fence([[-0.6,33.3],[-21.9,33.3],[-30.5,46],[-30.5,-31]]);fence([[-30.5,-31],[63.2,-31],[63.2,27.6],[54.6,27.6]]);
-  // neighbours across Dunwoody Drive (simple massing, seen through the kitchen window)
-  for(const [x,w,d,c] of [[-30,46,30,'siding'],[30,40,28,'sidingNew'],[88,44,32,'siding']]){const z0=SITE.street1+30;
-    const gy=Math.min(terrainH(x-w/2,z0),terrainH(x+w/2,z0)),ty=gy+13.3;box('site',c,x-w/2,x+w/2,gy-1,ty,z0,z0+d);quadSlab('site','roof',[[x-w/2-1,ty,z0-1],[x+w/2+1,ty,z0-1],[x+w/2+1,ty+7,z0+d/2],[x-w/2-1,ty+7,z0+d/2]],.4);
-    quadSlab('site','roof',[[x-w/2-1,ty+7,z0+d/2],[x+w/2+1,ty+7,z0+d/2],[x+w/2+1,ty,z0+d+1],[x-w/2-1,ty,z0+d+1]],.4);
-    for(let k=0;k<3;k++)box('site','glass',x-w/2+5+k*(w-10)/2.6,x-w/2+9+k*(w-10)/2.6,2,7,z0-.05,z0);
-    box('site','doorWhite',x+w/2-16,x+w/2-2,-1.3,7,z0-.08,z0);box('site','drive',x+w/2-17,x+w/2-1,-1.3,-1.22,SITE.street1+.6,z0);}
+  fence([[-0.6,33.3],[-30.5,33.3],[-30.5,-31]]);fence([[-30.5,-31],[63.2,-31],[63.2,27.6],[54.6,27.6]]);
   {const g=terrainH(95,30);box('site','siding',78,112,g-1,g+10,12,44);hipRoof('site','roofBrown',76.5,113.5,10.5,45.5,g+10,6,.4);
    for(const x of [83,92,101])box('site','glass',x,x+4,g+3,g+7,43.98,44.05);box('site','brick',78,112,g-1,g+2.5,43.95,44.2);}
   frontLandscape();
@@ -210,7 +204,7 @@ function frontLandscape(){
 function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chunks=new Map();RNG_SEED=4242;
   const lin=h=>new THREE.Color(h).convertSRGBToLinear(),tipA=lin(0x7fa245),tipB=lin(0x93ad55),tipDeep=lin(0x5f8436),tipDry=lin(0xbdb36e),tmp=new THREE.Color(),cc=new THREE.Color();
   const hard=(x,z)=>inFoot(x,z,.8)||isBed(x,z)||nearPath(x,z,.95)||WALKS.some(w=>x>w.x0-.4&&x<w.x1+.4&&z>w.z0-.4&&z<w.z1+.4)||SPEC.rooms.some(r=>x>Math.min(r.x0,r.x1)-.4&&x<Math.max(r.x0,r.x1)+.4&&z>Math.min(r.z0,r.z1)-.4&&z<Math.max(r.z0,r.z1)+.4)||
-    (x>-31&&x<-21.5&&z>33&&z<47&&Math.abs((z-33.3)-(-(x+21.9))*1.48)<.6);
+    (x>-31&&x<-.4&&Math.abs(z-33.3)<.5);
   const noise=(x,z)=>.5+.25*Math.sin(x*.21+Math.cos(z*.17)*1.7)+.25*Math.sin(z*.13-x*.07+Math.sin(x*.05)*2);
   // more fields for natural variety: patches of taller grass, lusher deep-green areas and drier, straw-tinted spots
   const tallF=(x,z)=>.5+.3*Math.sin(x*.33+Math.sin(z*.29)*2.1)+.2*Math.sin(z*.41-x*.19),deepF=(x,z)=>noise(z*1.7+31,x*1.3-17),dryF=(x,z)=>noise(x*2.3-7,z*2.1+13);
