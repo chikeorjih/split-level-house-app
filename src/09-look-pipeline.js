@@ -13,7 +13,7 @@ const PRESETS={
 };
 const LOOK={dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
 const EXT_MATS=new Set(['brick','siding','sidingNew','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','asphalt','concrete','stone','frameDark','dormerClad',
-  'garageDark','garageDark2','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','glass','leafCards','shrubCards','grassBlades','treeline']);
+  'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','glass','leafCards','shrubCards','grassBlades','treeline','edgeStone']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
 const FOG_D=.0014;
 const fogColor=P=>new THREE.Color(P.hor).lerp(new THREE.Color(P.zen),.12);

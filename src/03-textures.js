@@ -62,10 +62,11 @@ function rugTex(kind){const W=512,H=640,[c,g]=cv(W,H);
     g.globalAlpha=1;g.fillStyle=P.d;g.beginPath();g.ellipse(W/2,H/2,40,58,0,0,7);g.fill();}
   for(let i=0;i<9000;i++){g.fillStyle=`rgba(255,255,255,${rr(0,.12)})`;g.fillRect(rr(0,W),rr(0,H),rr(1,6),1);}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
-function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#667a2f';g.fillRect(0,0,S,S);
-  for(let i=0;i<S*S/40;i++){g.fillStyle=hsl(rr(58,76),rr(22,38),rr(24,34));g.fillRect(rr(0,S),rr(0,S),rr(2,6),rr(2,6));}
-  for(let i=0;i<S*S/14;i++){const x=rr(0,S),y=rr(0,S),l=rr(3,9)*TEXQ,a=rr(-.5,.5);g.strokeStyle=hsl(rr(64,92),rr(30,50),rr(22,44));g.lineWidth=rr(.6,1.4)*TEXQ;
+function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#6a7f33';g.fillRect(0,0,S,S);
+  for(let i=0;i<S*S/40;i++){g.fillStyle=hsl(rr(62,74),rr(26,36),rr(29,34));g.fillRect(rr(0,S),rr(0,S),rr(2,6),rr(2,6));}
+  for(let i=0;i<S*S/22;i++){const x=rr(0,S),y=rr(0,S),l=rr(3,8)*TEXQ,a=rr(-.5,.5);g.strokeStyle=hsl(rr(66,86),rr(30,42),rr(30,40));g.lineWidth=rr(.6,1.0)*TEXQ;
     g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.sin(a)*l,y-Math.cos(a)*l);g.stroke();}
+  g.filter='blur('+(.6*TEXQ)+'px)';g.drawImage(c,0,0);g.filter='none';
   return tex(c,10,10);}
 function plainNoise(col,ft,amt){const S=TX(256),[c,g]=cv(S,S);g.fillStyle=col;g.fillRect(0,0,S,S);noise(g,S,S,amt);return tex(c,ft,ft);}
 function deckTex(h,s,l){const S=TX(512),[c,g]=cv(S,S);const ppf=S/4,bw=0.46*ppf;g.fillStyle='#1a1410';g.fillRect(0,0,S,S);
@@ -116,10 +117,11 @@ function addFacadeMaterials(){
   MAT.metalRoof=std({map:seamTex(),roughness:.45,metalness:.35});
   MAT.soldier=std({map:soldierTex(),roughness:.9});
   MAT.stone=std({map:plainNoise('#b9ad97',4,24),roughness:.95});
+  MAT.edgeStone=std({map:plainNoise('#8a8072',3,30),roughness:.95});
   MAT.frameDark=std({color:0x3b3f37,roughness:.55});
   MAT.dormerClad=std({color:0x45433d,roughness:.6});
-  MAT.garageDark=std({color:0x3a2e29,roughness:.5});
-  MAT.garageDark2=std({color:0x30261f,roughness:.55});
+  MAT.garageDoor=std({color:0xefede7,roughness:.5});
+  MAT.garageDoorPanel=std({color:0xe1ded7,roughness:.55});
   MAT.doorWood=std({color:0xb98a46,roughness:.45});
   MAT.flagstone=std({map:flagTex(),roughness:.95});
   MAT.mulch=std({color:0x5a3b28,roughness:1});
@@ -225,7 +227,7 @@ function makeMaterials(){
   MAT.gold=std({color:0xc49a52,metalness:.85,roughness:.3});
   addFacadeMaterials();addLivingMaterials();
   addRelief();
-  antiTile(MAT.grass,true,.34);for(const k of ['drive','concrete','asphalt'])antiTile(MAT[k],false,.16);for(const k of ['brick','roof','slateRoof'])antiTile(MAT[k],false,.1);
+  antiTile(MAT.grass,true,.16);for(const k of ['drive','concrete','asphalt'])antiTile(MAT[k],false,.16);for(const k of ['brick','roof','slateRoof'])antiTile(MAT[k],false,.1);
 }
 // break up visible texture repeats: optionally blend in a second, rotated and rescaled sample of the same texture through a noise mask,
 // and add broad light/dark patches. Settings are uniforms, so every patched material shares one shader program.

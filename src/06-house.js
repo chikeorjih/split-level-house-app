@@ -13,6 +13,8 @@ function hipRoof(tag,mat,x0,x1,z0,z1,y0,rise,th,fl){th=th||.35;const wx=x1-x0,wz
   else{const h=wx/2,a0=z0+h,a1=z1-h,xc=(x0+x1)/2;
     quadSlab(tag,mat,[[x1,y0,z0],[x1,y0,z1],[xc,yr,a1],[xc,yr,a0]],th,fl);quadSlab(tag,mat,[[x0,y0,z1],[x0,y0,z0],[xc,yr,a0],[xc,yr,a1]],th,fl);
     quadSlab(tag,mat,[[x0,y0,z0],[x1,y0,z0],[xc,yr,a0],[xc,yr,a0]],th,fl);quadSlab(tag,mat,[[x1,y0,z1],[x0,y0,z1],[xc,yr,a1],[xc,yr,a1]],th,fl);}}
+// dormers on the mansard: centre x, side (+1 front, -1 back), width; the mansard is left open between each dormer's base and its ceiling
+const DORMERS=[[8.0,1,5.2],[4.05,-1,5.4]],DORMER_Y0=5.55,DORMER_YH=11.35;
 function mansard(){
   const X0=0,X1=19.2,Z0=0,Z1=31.6,d0=1.2,d1=.25,YT=12.7;
   const eave=(x,z)=>{if(x<0.3)return addRoofY(z)+.15;if(z<0)return x<=14.2?4.4:8.6;if(z>31.6)return x<18.5?4.4:9.05;return z<ROOF.RID?roofB(z):roofA(z);};
@@ -20,22 +22,29 @@ function mansard(){
   const L=(p,q,s)=>[p[0]+(q[0]-p[0])*s,p[1]+(q[1]-p[1])*s];
   for(let i=0;i<4;i++){const j=(i+1)%4,hz=i%2===0,a0=hz?Ee[i][0]:Ee[i][1],a1=hz?Ee[j][0]:Ee[j][1];
     const ts=new Set(),n=Math.ceil(Math.abs(a1-a0)/1.5);for(let k=0;k<=n;k++)ts.add(k/n);
-    for(const b of (hz?[0.3,14.2,18.5]:[0,ROOF.RID,31.6])){const t=(b-a0)/(a1-a0);if(t>.003&&t<.997){ts.add(t-.002);ts.add(t+.002);}}
+    // dormers on this edge (front edge is i=2, back edge i=0): their sides become breakpoints
+    const dms=hz?DORMERS.filter(d=>d[1]===(i===2?1:-1)):[];
+    for(const b of (hz?[0.3,14.2,18.5,...dms.flatMap(d=>[d[0]-d[2]/2,d[0]+d[2]/2])]:[0,ROOF.RID,31.6])){const t=(b-a0)/(a1-a0);if(t>.003&&t<.997){ts.add(t-.002);ts.add(t+.002);}}
     const T=[...ts].sort((p,q)=>p-q);
     for(let k=0;k<T.length-1;k++){const ea=L(Ee[i],Ee[j],T[k]),eb=L(Ee[i],Ee[j],T[k+1]),ta=L(Tt[i],Tt[j],T[k]),tb=L(Tt[i],Tt[j],T[k+1]);
-      quadSlab('roof','slateRoof',[[ea[0],eave(ea[0],ea[1]),ea[1]],[eb[0],eave(eb[0],eb[1]),eb[1]],[tb[0],YT,tb[1]],[ta[0],YT,ta[1]]],.25);}}
+      const A=[ea[0],eave(ea[0],ea[1]),ea[1]],Bv=[eb[0],eave(eb[0],eb[1]),eb[1]],C=[tb[0],YT,tb[1]],D=[ta[0],YT,ta[1]],mx=(ea[0]+eb[0])/2;
+      if(dms.some(d=>Math.abs(mx-d[0])<d[2]/2)){
+        // across a dormer: keep the slope below its base and above its ceiling, open in between
+        const at=(e,t,y)=>{const f=Math.min(1,Math.max(0,(y-e[1])/(t[1]-e[1])));return [e[0]+(t[0]-e[0])*f,e[1]+(t[1]-e[1])*f,e[2]+(t[2]-e[2])*f];};
+        quadSlab('roof','slateRoof',[A,Bv,at(Bv,C,DORMER_Y0),at(A,D,DORMER_Y0)],.25);quadSlab('roof','slateRoof',[at(A,D,DORMER_YH),at(Bv,C,DORMER_YH),C,D],.25);}
+      else quadSlab('roof','slateRoof',[A,Bv,C,D],.25);}}
   hipRoof('roof','roof',X0-d1-.2,X1+d1+.2,Z0-d1-.2,Z1+d1+.2,YT-.05,3.0,.3);
   box('roof','frameDark',X0-d0-.05,18.5,4.25,4.45,Z1+.3,Z1+d0+.05);box('roof','frameDark',14.2,X1+d0+.05,8.5,8.68,Z0-d0-.05,Z0-.3);box('roof','frameDark',18.5,X1+d0+.05,8.95,9.1,Z1+.3,Z1+d0+.05);box('roof','frameDark',18.5,X1+d0+.05,8.2,9.1,Z1+d0-.05,Z1+d0+.05);box('3','brick',18.5,19.2,8.6,9.0,31.3,31.9);box('roof','frameDark',X0+.3,14.2,4.25,4.45,Z0-d0-.05,Z0-.3);
 }
-function dormer(cx,side,w){const wz=side>0?31.6:0,f=wz+side*1.05,y0=5.55,yh=11.35,hw=w/2,ww=w-.9,wy0=6.9,wy1=10.95,fr=.14;
+function dormer(cx,side,w){const wz=side>0?31.6:0,f=wz+side*1.05,y0=DORMER_Y0,yh=DORMER_YH,hw=w/2,ww=w-.9,wy0=6.9,wy1=10.95,fr=.14;
   const Z=(a,b)=>[Math.min(a,b),Math.max(a,b)];const [za,zb]=Z(wz,f),[fa,fb]=Z(f-side*.14,f);
   for(const s of [-1,1]){const x=cx+s*(hw-.12);box('4','dormerClad',x-.12,x+.12,y0,yh,za,zb);PIECES.push({tag:'4',ax:'z',a0:za,a1:zb,c:x,t:.24,y0,y1:yh});
     const xi=cx+s*(hw-.26);box('4','wall',xi-.02,xi+.02,wy0,yh-.1,za,zb);}
   box('4','dormerClad',cx-hw,cx+hw,y0,wy0,fa,fb);box('4','dormerClad',cx-hw,cx+hw,wy1,yh,fa,fb);
   box('4','dormerClad',cx-hw,cx-ww/2,wy0,wy1,fa,fb);box('4','dormerClad',cx+ww/2,cx+hw,wy0,wy1,fa,fb);
-  box('4','frameDark',cx-ww/2,cx+ww/2,wy0,wy0+fr,fa,fb);box('4','frameDark',cx-ww/2,cx+ww/2,wy1-fr,wy1,fa,fb);
-  box('4','frameDark',cx-ww/2,cx-ww/2+fr,wy0,wy1,fa,fb);box('4','frameDark',cx+ww/2-fr,cx+ww/2,wy0,wy1,fa,fb);
-  for(const k of [-1,1]){const x=cx+k*ww/6;box('4','frameDark',x-.06,x+.06,wy0,wy1,fa,fb);}
+  box('4','trim',cx-ww/2,cx+ww/2,wy0,wy0+fr,fa,fb);box('4','trim',cx-ww/2,cx+ww/2,wy1-fr,wy1,fa,fb);
+  box('4','trim',cx-ww/2,cx-ww/2+fr,wy0,wy1,fa,fb);box('4','trim',cx+ww/2-fr,cx+ww/2,wy0,wy1,fa,fb);
+  for(const k of [-1,1]){const x=cx+k*ww/6;box('4','trim',x-.06,x+.06,wy0,wy1,fa,fb);}
   const [ga,gb]=Z(f-side*.09,f-side*.05);box('4','glass',cx-ww/2+fr,cx+ww/2-fr,wy0+fr,wy1-fr,ga,gb);
   PIECES.push({tag:'4',ax:'x',a0:cx-ww/2,a1:cx+ww/2,c:f-side*.07,t:.12,y0:wy0,y1:wy1,glass:true});
   box('4','ceiling',cx-hw+.24,cx+hw-.24,yh-.1,yh,za,zb);box('4','trim',cx-hw+.24,cx+hw-.24,wy0-.1,wy0,za,zb);
@@ -99,7 +108,7 @@ function buildHouse(){
   // fascia along the front eaves
   box('roof','frameDark',23.7,35.6,A(32.4)-.55,A(32.4)-.05,32.35,32.5);box('roof','frameDark',35.6,54.95,GE-.55,GE-.05,29.55,29.7);
   // upper floor: mansard with slate-look skirt, low hipped cap, arched dormers front and back
-  mansard();dormer(8.0,1,5.2);dormer(4.05,-1,5.4);
+  mansard();for(const d of DORMERS)dormer(...d);
   // entry portico: small hip on two dark posts over the front doors
   hipRoof('roof','roof',19.0,23.6,31.6,35.5,7.75,1.1);
   box('3','frameDark',19.0,23.6,7.35,7.8,35.0,35.5);box('3','frameDark',19.0,23.6,7.72,7.8,31.6,35.5);
@@ -139,14 +148,17 @@ function buildHouse(){
   stairFlight({x0:29.8,x1:43.8,z0:-3.0,z1:-0.05,yLow:E[1]-.1,yHigh:-0.15,dir:1},{tag:'3',tread:'deckNew',riser:'deckNew',open:true,stringer:'deckNew'});
   railRun('3',[29.8,E[1]-.1,-2.95],[43.8,-.15,-2.95],3,'wood',{post:'deckNew',rail:'deckNew',bal:'blackMetal'});
   for(const x of [31.5,35,38.5,42]){const z=-2.8,top=-0.15-(43.8-x)/14*(13.45),g=terrainH(x,z);box('3','deckNew',x-.22,x+.22,g-.4,top-.9,z-.22,z+.22);}
-  // porch: raised stoop; the stair runs down to the left along the house front, as in the street photo
-  deck('3','deckOld',18.1,26.6,31.75,36.4,-0.5,'deckRailOld');
-  railRun('3',[26.5,-.5,31.9],[26.5,-.5,36.3],2.9,'wood');railRun('3',[18.2,-.5,36.3],[26.5,-.5,36.3],2.9,'wood');
-  railRun('3',[18.2,-.5,35.95],[18.2,-.5,36.3],2.9,'wood',{collide:false});
-  const sb=terrainH(8.6,34.4);
-  stairFlight({x0:8.6,x1:18.1,z0:32.95,z1:35.85,yLow:sb,yHigh:-0.5,dir:1},{tag:'3',tread:'deckOld',riser:'deckRailOld',open:true,stringer:'deckRailOld'});
-  railRun('3',[8.7,sb,35.75],[18.1,-.5,35.75],2.9,'wood');
-  quadSlab('site','flagstone',[[2.6,sb+.05,32.5],[8.7,sb+.05,32.5],[8.7,sb+.05,37.4],[2.6,sb+.05,37.4]],.6);addWalk(2.6,8.7,32.5,37.4,sb+.05);
+  // front entry, as in the listing photo: a concrete walk runs along the house front from the driveway to the front door, level at the door
+  // and easing down to the driveway; a low brick wall with a concrete cap encloses it on the yard side and the west end, with a wood rail by
+  // the door. No stair down to the lawn.
+  {const WX0=18.1,WX1=36,WZ0=31.6,WZ1=36.0,T=.35,ent=24,yE=-.5,yD=-.8,top=x=>x<=ent?yE:yE+(yD-yE)*(x-ent)/(WX1-ent);
+    box('3','drive',WX0,ent,yE-.6,yE,WZ0,WZ1);quadSlab('3','drive',[[ent,yE,WZ0],[WX1,yD,WZ0],[WX1,yD,WZ1],[ent,yE,WZ1]],.6);
+    addWalk(WX0,ent,WZ0,WZ1,yE);for(let x=ent;x<WX1;x+=3)addWalk(x,Math.min(WX1,x+3),WZ0,WZ1,top(x+1.5));
+    const low=(xa,za,xb,zb)=>Math.min(terrainH(xa,za),terrainH(xb,zb),terrainH((xa+xb)/2,(za+zb)/2))-.4;
+    for(let x=WX0;x<WX1-.01;x+=3){const xb=Math.min(WX1,x+3),cap=Math.max(top(x),top(xb))+1.1,y0=low(x,WZ1+T/2,xb,WZ1+T/2);
+      box('3','brick',x,xb,y0,cap-.1,WZ1,WZ1+T);box('3','concrete',x-.03,xb+.03,cap-.1,cap,WZ1-.04,WZ1+T+.04);addCol(x,xb,WZ1,WZ1+T,y0,cap);}
+    {const cap=yE+1.1,y0=low(WX0-T/2,WZ0,WX0-T/2,WZ1+T);box('3','brick',WX0-T,WX0,y0,cap-.1,WZ0,WZ1+T);box('3','concrete',WX0-T-.04,WX0+.03,cap-.1,cap,WZ0,WZ1+T+.04);addCol(WX0-T,WX0,WZ0,WZ1+T,y0,cap);}
+    railRun('3',[WX0+.15,yE+1.1,WZ1+T/2],[26.6,yE+1.1,WZ1+T/2],1.9,'wood',{collide:false});railRun('3',[WX0-T/2,yE+1.1,WZ0+.3],[WX0-T/2,yE+1.1,WZ1+T/2],1.9,'wood',{collide:false});}
   // patio
   box('1','paver',-27,10.3,-16.25,-16.05,-3.75,0);box('1','paver',-27,0,-16.25,-16.05,0,6.5);
   addWalk(-27,10.3,-3.75,0,-16.05);addWalk(-27,0,0,6.5,-16.05);

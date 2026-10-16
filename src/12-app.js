@@ -95,7 +95,7 @@ function buildScene(){
   {const sk=new THREE.Mesh(buildSkirt(),MAT.grass);sk.receiveShadow=true;sk.userData.skirt=true;addTag('site',sk);}
   TREES=buildTrees();addTag('trees',TREES);
   SETBACK=setbackLines();SETBACK.visible=false;scene.add(SETBACK);
-  const GR=buildGrass();MAT.grassBlades=GR.material;addTag('grass',GR);
+  const GR=buildGrass();MAT.grassBlades=GR.userData.mat;addTag('grass',GR);
   LOOK.hemi=new THREE.HemisphereLight(0xe3edf7,0x5e5444,.12);LOOK.amb=new THREE.AmbientLight(0xfff6ea,.05);scene.add(LOOK.hemi,LOOK.amb);
   // cut-section fill: back faces show as solid dark wherever the cutaway slices through something
   const TWM=new THREE.MeshBasicMaterial({color:0x353a40,side:THREE.BackSide,clippingPlanes:CLIPS});const NOTWIN=new Set(['glass','frost','light','flame','shade','curtain','plantGreen','chain','mirror']);
@@ -183,9 +183,9 @@ function teleport(o){let x=o.x,z=o.z;let f=o.f!==undefined?o.f:(o.out?groundAt(x
   if(blocked(x,z,f)){outer:for(let r=.5;r<6;r+=.5)for(let a=0;a<6.28;a+=.4){const nx=x+Math.cos(a)*r,nz=z+Math.sin(a)*r,nf=groundAt(nx,nz,f+.5);if(Math.abs(nf-f)<1&&!blocked(nx,nz,nf)){x=nx;z=nz;f=nf;break outer;}}}
   Object.assign(WLK,{x,z,f,vy:0,yaw:o.yaw||0,pitch:-.06,ground:true});dirty=true;}
 const SPAWN={'Family room':[11.5,15.5,1.05],'Four-seasons room':[-11,11.6,0],'Kitchen':[28.6,16.2,Math.PI],'Living room':[29.5,10,1.1],'Dining area':[33.2,9.4,-1.03],
-  'Primary bedroom|2':[-7.7,19.7,Math.PI],'New deck':[49,6,0],'Foyer':[21.2,29.8,0],'Porch':[22.3,34.6,0],'Deck':[22,-5,Math.PI],'Gallery':[-2.4,17,0],'Bedroom|2':[8.5,22,Math.PI],
+  'Primary bedroom|2':[-7.7,19.7,Math.PI],'New deck':[49,6,0],'Foyer':[21.2,29.8,0],'Entry walk':[22.3,34,0],'Deck':[22,-5,Math.PI],'Gallery':[-2.4,17,0],'Bedroom|2':[8.5,22,Math.PI],
   'Sitting room':[25,9,0],'Recreation room':[9,24,0],'Hall|4':[11.5,15,Math.PI/2]};
-function teleportRoom(r){if(!r)return;const k=SPAWN[r.name+'|'+r.lv]||SPAWN[r.name];const out=/deck|Porch|Patio/i.test(r.name);
+function teleportRoom(r){if(!r)return;const k=SPAWN[r.name+'|'+r.lv]||SPAWN[r.name];const out=/deck|Porch|Patio|walk/i.test(r.name);
   if(ST.view!=='walk'){ST.view='walk';WLK.inited=true;}
   teleport({x:k?k[0]:(r.x0+r.x1)/2,z:k?k[1]:(r.z0+r.z1)/2,lv:r.lv,yaw:k?k[2]:0,out});setVis();}
 const KEYS={};let JOY={x:0,y:0};
@@ -232,6 +232,7 @@ function updateUI(){document.querySelectorAll('.seg button[data-view]').forEach(
   const active=ST.view==='walk'?null:(ST.view==='plan'?ST.cutL:ST.level);
   document.querySelectorAll('#section .lvl').forEach(b=>b.setAttribute('aria-pressed',String(ST.view==='three'?ST.levels.includes(+b.dataset.lv):String(active)===b.dataset.lv)));
   $('allbtn').setAttribute('aria-pressed',String(ST.view==='three'&&ST.level==='all'));
+  {const vh=ST.pending||ST.view;$('lvlHint').textContent=vh==='walk'?'Pick a level to go there.':vh==='plan'?'Pick the level to draw.':'Pick levels to cut open. Pick more than one to combine them.';}
   $('help').textContent=ARR.on?'Arrange: tap a piece of furniture, drag it to move it, drag the pink ring to turn it. Hold Shift to snap; Q and E turn 15°. Moves are saved in this browser.':DBG.on?'Debug mode: tap any surface or ID label to inspect it, then copy it into your message. Pick a level or walk into a room to label everything there. IDs match this published version.':HELP[ST.view];$('joy').style.display=(ST.view==='walk'&&COARSE)?'block':'none';
   $('tSite').setAttribute('aria-pressed',String(ST.site));$('tTrees').setAttribute('aria-pressed',String(ST.trees));$('tLabels').setAttribute('aria-pressed',String(ST.labels));
   lastWhere='';}
@@ -311,7 +312,12 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   requestAnimationFrame(frame);}
 // real photo textures: list them in assets/textures/manifest.json (only works when served over http, e.g. `npm run dev`)
 async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))return;let list;try{const r=await fetch('assets/textures/manifest.json',{cache:'no-store'});if(!r.ok)return;list=(await r.json()).textures||[];}catch(e){return;}
-  const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
+  // "paint": a colour; the photo's colour map is turned grey, flattened and multiplied by it, for painted brick and the like
+  // "cropTop": a fraction of the image's height cut off its top edge, for photos with a stray strip there (keep it a whole number of rows so the tile still wraps)
+  const crop=(tx,f)=>{const im=tx.image,h=Math.round(im.height*(1-f)),[c,g]=cv(im.width,h);g.drawImage(im,0,im.height-h,im.width,h,0,0,im.width,h);tx.dispose();return new THREE.CanvasTexture(c);};
+  const paint=(tx,col)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter='grayscale(1) contrast(.4) brightness(2.1)';g.drawImage(im,0,0);g.filter='none';
+    g.globalCompositeOperation='multiply';g.fillStyle=col;g.fillRect(0,0,c.width,c.height);tx.dispose();return new THREE.CanvasTexture(c);};
+  const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
     if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.encoding=THREE.sRGBEncoding;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
   for(const t of list){const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
     const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(nm)m.normalMap=nm;if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}

@@ -2,6 +2,7 @@
 "use strict";
 // ================= GEOMETRY ENGINE =================
 const BUCKETS=new Map(); const COLS=[]; const WALKS=[]; const PIECES=[];
+const ROOF_MATS=new Set(['roof','slateRoof','roofBrown','metalRoof']);
 function bucket(tag,mat,flags){const k=tag+'|'+mat+'|'+(flags||'');let b=BUCKETS.get(k);
   if(!b){b={tag,mat,flags:flags||'',p:[],n:[],u:[]};BUCKETS.set(k,b);}return b;}
 function addCol(x0,x1,z0,z1,y0,y1){const c={x0:Math.min(x0,x1),x1:Math.max(x0,x1),z0:Math.min(z0,z1),z1:Math.max(z0,z1),y0,y1};COLS.push(c);return c;}
@@ -41,13 +42,18 @@ function quadSlab(tag,mat,pts,th,flags){
   {const a=pts[0],b=pts[1],c=pts[2];const ux=b[0]-a[0],uz=b[2]-a[2],vx=c[0]-a[0],vz=c[2]-a[2];if(uz*vx-ux*vz<0)pts=pts.slice().reverse();}
   regPiece(tag,mat,Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1]))-th,Math.min(...pts.map(p=>p[2])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[2])));
   const top=pts.map(p=>new THREE.Vector3(...p)),bot=top.map(v=>v.clone().add(new THREE.Vector3(0,-th,0)));
-  const b=bucket(tag,mat,flags);
-  const tri=(a,c,d)=>{const n=new THREE.Vector3().subVectors(c,a).cross(new THREE.Vector3().subVectors(d,a)).normalize();
-    const ax=Math.abs(n.x),ay=Math.abs(n.y);for(const v of [a,c,d]){b.p.push(v.x,v.y,v.z);b.n.push(n.x,n.y,n.z);
-      if(ay>.5)b.u.push(v.x,v.z);else if(ax>.5)b.u.push(v.z,v.y);else b.u.push(v.x,v.y);}};
-  const quad=(a,c,d,e)=>{tri(a,c,d);tri(a,d,e);};
+  const b=bucket(tag,mat,flags),UP=new THREE.Vector3(0,1,0),E=new THREE.Vector3(),S=new THREE.Vector3();
+  const fn=(a,c,d)=>new THREE.Vector3().subVectors(c,a).cross(new THREE.Vector3().subVectors(d,a)).normalize();
+  // roofs: a slab's edges are shaded like its top, so where pitches meet or a hip overlaps, the exposed edge blends into the roof
+  const roofy=ROOF_MATS.has(mat),tn=(t=>t.lengthSq()>.5?t:fn(top[0],top[2],top[3]))(fn(top[0],top[1],top[2]));
+  // texture coordinates in feet: plan x,z on (near) level faces; otherwise along the face's own level line (u) and up its slope (v),
+  // so slate and shingle rows run parallel to each roof face's eave and are not stretched on steep pitches
+  const tri=(a,c,d,useN)=>{const n=fn(a,c,d);if(n.lengthSq()<.5)return;const sn=useN||n,flat=Math.abs(n.y)>.985;
+    if(!flat){E.crossVectors(UP,n).normalize();S.crossVectors(n,E);if(S.y<0)S.negate();}
+    for(const v of [a,c,d]){b.p.push(v.x,v.y,v.z);b.n.push(sn.x,sn.y,sn.z);if(flat)b.u.push(v.x,v.z);else b.u.push(v.dot(E),v.dot(S));}};
+  const quad=(a,c,d,e,useN)=>{tri(a,c,d,useN);tri(a,d,e,useN);};
   quad(top[0],top[1],top[2],top[3]);quad(bot[3],bot[2],bot[1],bot[0]);
-  for(let i=0;i<4;i++){const j=(i+1)%4;quad(bot[i],bot[j],top[j],top[i]);}
+  for(let i=0;i<4;i++){const j=(i+1)%4;quad(bot[i],bot[j],top[j],top[i],roofy?tn:null);}
 }
 // beam between two points
 function beam(tag,mat,a,b,w,h,flags){const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b);const d=B.clone().sub(A);const L=d.length();d.normalize();
@@ -89,6 +95,11 @@ function wallBuild(w){
       B(mat,oa0-0.01,oa0+0.05,cA,cB,y0,y1);B(mat,oa1-0.05,oa1+0.01,cA,cB,y0,y1);}
   };
   if(w.ext)skin(w.ext,w.ext.mat,0.14,0);
+  // wrap the cladding over the wall's ends where it reaches them, so an outside corner shows brick (or stone), not the bare wall core
+  if(w.ext){const e=w.ext,sy0=e.y0!==undefined?e.y0:w.y0,sy1=e.y1!==undefined?e.y1:w.y1,f=c+e.side*(t/2+.14),cA=Math.min(c-t/2,f),cB=Math.max(c+t/2,f);
+    for(const [end,dir,reach] of [[a0,-1,e.a0===undefined||e.a0<=a0+.01],[a1,1,e.a1===undefined||e.a1>=a1-.01]]){
+      if(!reach)continue;for(const p of pieces)if(p[0]<=end+.01&&p[1]>=end-.01){const y0=Math.max(p[2],sy0),y1=Math.min(p[3],sy1);
+        if(y1-y0>.01)B(e.mat,dir<0?end-.02:end,dir<0?end:end+.02,cA,cB,y0,y1);}}}
   if(w.paint)for(const pt of w.paint){skin(Object.assign({mat:'charcoal'},pt),'charcoal',0.02,0.003);
     // chair rail + baseboard in the dining room
     const f=c+pt.side*(t/2+.02);
@@ -114,7 +125,7 @@ function openingBuild(w,o,ax,c,t,tag,B){const B0=B;
     if(ax==='x')addCol(a-.04,a+.16,cA,cB,y0,y0+h);else addCol(cA,cB,y0,y0+h,a-.04,a+.16);};
   const frameRing=(depth)=>{const f0=c-depth/2,f1=c+depth/2;B('trim',oa0,oa0+J,f0,f1,y0,y1);B('trim',oa1-J,oa1,f0,f1,y0,y1);B('trim',oa0,oa1,f0,f1,y1-J,y1);B('trim',oa0,oa1,f0,f1,y0,y0+J);};
   switch(o.k){
-    case 'win': case 'frost':{const hasExt=!!w.ext,xs=hasExt?ext:1,dep=t+.06,XM=hasExt?'frameDark':'trim';
+    case 'win': case 'frost':{const hasExt=!!w.ext,xs=hasExt?ext:1,dep=t+.06,XM='trim';
       const ring=(fa,fb,mat)=>{const f0=Math.min(fa,fb),f1=Math.max(fa,fb);B(mat,oa0,oa0+J,f0,f1,y0,y1);B(mat,oa1-J,oa1,f0,f1,y0,y1);B(mat,oa0,oa1,f0,f1,y1-J,y1);B(mat,oa0,oa1,f0,f1,y0,y0+J);};
       const half=(mat,inside,pa0,pa1,yy0,yy1,d)=>{const e=c+(inside?-xs:xs)*d;B(mat,pa0,pa1,Math.min(c,e),Math.max(c,e),yy0,yy1);};
       ring(c-xs*dep/2,c,'trim');ring(c,c+xs*dep/2,XM);
@@ -155,10 +166,10 @@ function openingBuild(w,o,ax,c,t,tag,B){const B0=B;
     case 'closet':{PIECES.push({tag,ax,a0:oa0,a1:oa1,c,t:.14,y0,y1,closet:true});const n=o.w>4.5?4:2,pw=o.w/n;for(let i=0;i<n;i++){const a=oa0+i*pw;B('doorWhite',a+.02,a+pw-.02,c-.08,c+.08,y0,y1-.02);
         B('doorWhite',a+.2,a+pw-.2,c-.1,c+.1,y0+.6,y1-.6);B('brass',a+pw-.3,a+pw-.24,c-.14,c+.14,y0+3,y0+3.6);}
       casing([-1,1]);col(oa0,oa1,y0,y1);break;}
-    case 'garage':{const secs=4,sh=(y1-y0)/secs;for(let i=0;i<secs;i++){const yy=y0+i*sh;B('garageDark',oa0,oa1,c-.06,c+.06,yy+.02,yy+sh-.02);
+    case 'garage':{casing([ext]);const secs=4,sh=(y1-y0)/secs;for(let i=0;i<secs;i++){const yy=y0+i*sh;B('garageDoor',oa0,oa1,c-.06,c+.06,yy+.02,yy+sh-.02);
         if(i===secs-1){const n=4;for(let k=0;k<n;k++){const a=oa0+.4+k*(o.w-.8)/n,b=a+(o.w-.8)/n;B('glass',a+.15,b-.15,Math.min(c+ext*.07,c+ext*.09),Math.max(c+ext*.07,c+ext*.09),yy+.3,yy+sh-.3);
-            B('garageDark2',(a+b)/2-.04,(a+b)/2+.04,Math.min(c+ext*.06,c+ext*.11),Math.max(c+ext*.06,c+ext*.11),yy+.3,yy+sh-.3);}}
-        else for(let k=0;k<4;k++){const a=oa0+.3+k*(o.w-.6)/4;B('garageDark2',a+.1,a+(o.w-.6)/4-.1,Math.min(c+ext*.06,c+ext*.1),Math.max(c+ext*.06,c+ext*.1),yy+.25,yy+sh-.25);}}
+            B('garageDoorPanel',(a+b)/2-.04,(a+b)/2+.04,Math.min(c+ext*.06,c+ext*.11),Math.max(c+ext*.06,c+ext*.11),yy+.3,yy+sh-.3);}}
+        else for(let k=0;k<4;k++){const a=oa0+.3+k*(o.w-.6)/4;B('garageDoorPanel',a+.1,a+(o.w-.6)/4-.1,Math.min(c+ext*.06,c+ext*.1),Math.max(c+ext*.06,c+ext*.1),yy+.25,yy+sh-.25);}}
       for(const s0 of [-1,1])B('blackMetal',(oa0+oa1)/2+s0*o.w*.22-.25,(oa0+oa1)/2+s0*o.w*.22+.25,Math.min(c+ext*.1,c+ext*.16),Math.max(c+ext*.1,c+ext*.16),y0+3.2,y0+3.3);
       casing([ext]);col(oa0,oa1,y0,y1);break;}
     case 'bay':{const d=1.4,f=c+ext*t/2,g=f+ext*d;const cA=Math.min(f,g),cB=Math.max(f,g);

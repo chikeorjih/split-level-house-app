@@ -86,6 +86,7 @@ function buildSiteHard(){
     box('site','doorWhite',x+w/2-16,x+w/2-2,-1.3,7,z0-.08,z0);box('site','drive',x+w/2-17,x+w/2-1,-1.3,-1.22,SITE.street1+.6,z0);}
   {const g=terrainH(95,30);box('site','siding',78,112,g-1,g+10,12,44);hipRoof('site','roofBrown',76.5,113.5,10.5,45.5,g+10,6,.4);
    for(const x of [83,92,101])box('site','glass',x,x+4,g+3,g+7,43.98,44.05);box('site','brick',78,112,g-1,g+2.5,43.95,44.2);}
+  frontLandscape();
 }
 function leafTex(small){const S=TX(256),C=S/2,[c,g]=cv(S,S);g.clearRect(0,0,S,S);
   for(let q=0;q<4;q++){const ox=(q%2)*C,oy=Math.floor(q/2)*C;g.save();g.beginPath();g.rect(ox,oy,C,C);g.clip();
@@ -119,8 +120,9 @@ function buildTrees(){
     pushGeo(B,new THREE.CylinderGeometry(r1,r0,L2,seg||5),new THREE.Matrix4().compose(new THREE.Vector3((x0+x1)/2,(y0+y1)/2,(z0+z1)/2),q,new THREE.Vector3(1,1,1)));};
   // broadleaf shade tree, like the maples and oaks in a mature lawn: a short trunk that forks into limbs, each carrying a clump of
   // leaf cards; the clumps overlap into a rounded crown with gaps you can see branches through
-  const tree=(x,z,big,orn)=>{const g=terrainH(x,z),H=orn?rr(11,14):big?rr(30,44):rr(17,25),th=H*(orn?.42:rr(.3,.38)),r=orn?.2:big?rr(.55,.8):rr(.3,.45);
-    const CR=orn?rr(3.4,4.4):big?rr(11,15):rr(6,8.5),cy=g+th+(H-th)*.48,sy=(H-th)*.5/CR,base=new THREE.Color().setHSL(rr(.22,.28),rr(.3,.42),rr(.8,.92));
+  // back-yard trees (z<5) get a height factor from 1 to 2, so the tallest are twice their usual height; crowns and trunks grow a little with them
+  const tree=(x,z,big,orn)=>{const hk=!orn&&z<5?rr(1,2):1,g=terrainH(x,z),H=(orn?rr(11,14):big?rr(30,44):rr(17,25))*hk,th=H*(orn?.42:rr(.3,.38)),r=(orn?.2:big?rr(.55,.8):rr(.3,.45))*(1+(hk-1)*.5);
+    const CR=(orn?rr(3.4,4.4):big?rr(11,15):rr(6,8.5))*(1+(hk-1)*.3),cy=g+th+(H-th)*.48,sy=(H-th)*.5/CR,base=new THREE.Color().setHSL(rr(.22,.28),rr(.3,.42),rr(.8,.92));
     limb(x,g-.5,z,x+rr(-.3,.3),g+th+CR*sy*.4,z+rr(-.3,.3),r,r*.45,8);
     const n=orn?3:big?Math.round(rr(5,6)):4,top=g+th;
     for(let k=0;k<n;k++){const a=k/n*6.283+rr(-.4,.4),d=CR*rr(.4,.55),cx=x+Math.cos(a)*d,cz=z+Math.sin(a)*d,ccy=cy+rr(-.2,.45)*CR*sy,R=CR*rr(.48,.6);
@@ -132,12 +134,25 @@ function buildTrees(){
   while(count<120&&tries<9000){tries++;const x=rr(-95,135),z=rr(-95,26);const rear=z<5,side=x<-22||x>58;
     if(!rear&&(!side||rnd()<.6))continue;if(!ok(x,z,4))continue;tree(x,z,rnd()<.8);count++;}
   for(let i=0;i<70;i++){const x=rr(-80,120),z=rr(-85,20);if(z>5&&x>-22&&x<58)continue;if(!ok(x,z,2))continue;tree(x,z,false);}
-  // foundation shrubs (boxwood) and the tall conical shrub by the porch stair
-  const shrub=(x,z,r,sy)=>{const y=terrainH(x,z);cards(S,scol,x,y+r*.75*(sy||1),z,r,(sy||.8),Math.round(18+r*r*22),r*.85,new THREE.Color().setHSL(rr(.25,.3),.35,rr(.55,.68)));};
-  for(let x=27.5;x<35;x+=2.2)shrub(x,33.0,.95);for(let z=34;z<60;z+=4)shrub(56.5,z,1.3);
-  for(const [x,z,r] of [[10.5,37.6,1.1],[12.6,38.2,.9],[14.6,37.9,1.2],[0.8,33.6,1.0],[-0.6,36.4,1.15],[20.5,37.3,.9],[24.8,37.2,1.0],[28.5,36.4,1.2],[31.5,36.8,.9],[-12.5,35.6,.95],[-4,35.2,1.1]])shrub(x,z,r);
-  shrub(17.0,38.4,2.2,1.45);
-  for(const [x,z] of [[-5,46],[-23,54]])tree(x,z,false,true);
+  // foundation shrubs (boxwood), the planting strip outside the entry walk's wall, and the tall conical shrub at the walk's west end
+  const shrub=(x,z,r,sy,col)=>{const y=terrainH(x,z);cards(S,scol,x,y+r*.75*(sy||1),z,r,(sy||.8),Math.round(18+r*r*22),r*.85,col||new THREE.Color().setHSL(rr(.25,.3),.35,rr(.55,.68)));};
+  const hsl3=(h,s,l)=>new THREE.Color().setHSL(h,s,l);
+  // planting strip outside the entry walk's wall
+  for(let x=27.5;x<35;x+=2.2)shrub(x,37.4,.95);shrub(20.5,37.5,.9);shrub(24.8,37.4,1.0);
+  // the curved front bed: a back row of rounded shrubs along the house, two big mounded shrubs in front, low fillers toward the edging,
+  // and the tall conical shrub at its east end
+  for(const [x,z,r] of [[-9,34.4,1.45],[-5.2,34.6,1.6],[-1.4,34.5,1.5],[2.6,34.3,1.65],[6.4,34.4,1.55],[10.2,34.6,1.65],[13.8,34.5,1.5]])shrub(x,z,r,.85,hsl3(rr(.26,.3),.36,rr(.5,.6)));
+  shrub(3.4,37.8,2.3,.8,hsl3(.27,.38,.55));shrub(8.8,38.6,2.1,.85,hsl3(.29,.42,.42));
+  for(const [x,z,r] of [[-6,37.2,1.05],[-2,38.4,1.0],[13.6,39.1,1.05],[-9.8,36.4,.95]])shrub(x,z,r,.75,hsl3(rr(.2,.24),.42,rr(.58,.66)));
+  shrub(16.6,38.6,2.0,1.4);
+  // the deep flowering hedge along the driveway's east side (hydrangea and mixed shrubs), two staggered rows
+  for(let z=31;z<61;z+=1.9){shrub(55.6+rr(-.2,.2),z+rr(-.3,.3),rr(1.3,1.7),rr(1.05,1.35),hsl3(rr(.22,.3),rr(.3,.42),rr(.48,.6)));
+    shrub(57.5+rr(-.2,.2),z+.95,rr(1.2,1.6),rr(1.0,1.3),rnd()<.25?hsl3(rr(.05,.09),.28,rr(.6,.68)):hsl3(rr(.24,.3),.36,rr(.5,.6)));}
+  // mid-lawn: a small ornamental tree, an ornamental grass clump, a shrub by the street, and the low shrub bed near the street on the west
+  tree(15,49,false,true);
+  {const g=terrainH(25,45);for(let k=0;k<5;k++)cards(L,lcol,25+rr(-.4,.4),g+1.6+rr(0,.6),45+rr(-.4,.4),1.3,1.6,14,1.4,hsl3(.18,.35,.6));}
+  shrub(33,59.5,1.1,.9);
+  for(const [x,z,r] of [[-25.5,55.4,.8],[-23.2,55.8,.95],[-20.8,55.3,.8]])shrub(x,z,r,.75);
   const mk=(A,mat,c)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
     g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));if(c)g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));return new THREE.Mesh(g,mat);};
   const lt=leafTex(false),st=leafTex(true);
@@ -157,23 +172,70 @@ function buildTrees(){
     const band=new THREE.Mesh(new THREE.CylinderGeometry(560,560,70,72,1,true),MAT.treeline);band.position.set(20,-46+35,25);band.userData.horizon=true;grp.add(band);}
   return grp;
 }
-function bladeTex(){const S=TX(128),[c,g]=cv(S,S);g.clearRect(0,0,S,S);
-  for(let i=0;i<46;i++){const x0=S/2+rr(-S*.32,S*.32),lean=rr(-.3,.3),h=rr(.55,.98)*S,w=rr(1.2,2.6)*S/128;g.fillStyle=hsl(rr(66,92),rr(30,48),rr(30,46));
-    g.beginPath();g.moveTo(x0-w,S);g.quadraticCurveTo(x0+lean*h*.4,S-h*.5,x0+lean*h,S-h);g.quadraticCurveTo(x0+lean*h*.4+w*.5,S-h*.5,x0+w,S);g.fill();}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
-function isBed(x,z){return (x>-1.5&&x<19.8&&z>31.6&&z<39.6)||(x>25&&x<37&&z>31.6&&z<35.4)||Math.hypot(x+5,z-46)<2.2||Math.hypot(x+23,z-54)<2.2||(x>55&&x<58&&z>32&&z<61);}
-function buildGrass(){const n=COARSE?4500:16000;
-  const g=new THREE.BufferGeometry(),P=[],N=[],U=[];
-  for(const r of [0,Math.PI/2]){const c=Math.cos(r),s=Math.sin(r);for(const [i,j,u,v] of [[-.5,0,0,0],[.5,0,1,0],[.5,1,1,1],[-.5,0,0,0],[.5,1,1,1],[-.5,1,0,1]]){P.push(i*c,j,i*s);N.push(0,1,0);U.push(u,v);}}
-  g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
-  const mat=new THREE.MeshStandardMaterial({map:bladeTex(),alphaTest:.45,side:THREE.DoubleSide,roughness:.85,clippingPlanes:CLIPS,clipShadows:true});
-  const mesh=new THREE.InstancedMesh(g,mat,n),m=new THREE.Matrix4(),q=new THREE.Quaternion(),col=new THREE.Color();let k=0,tries=0;RNG_SEED=4242;
-  while(k<n&&tries<n*6){tries++;const pick=rnd();let x,z;if(pick<.82){x=rr(-30,54);z=rr(33.5,62);}else{x=rr(54.5,63);z=rr(-4,62);}
-    if(inFoot(x,z,1.2)||isBed(x,z))continue;if(x>35&&x<55&&z>28&&z<63)continue;if(x>-23&&x<1&&z<33.6)continue;if(x>2.4&&x<9&&z>32.3&&z<37.6)continue;if(x>8.4&&x<18.3&&z>32.7&&z<36.1)continue;
-    if(x>-31&&x<-21.5&&z>33&&z<47&&Math.abs((z-33.3)-(-(x+21.9))*1.48)<.6)continue;
-    const y=terrainH(x,z);q.setFromAxisAngle(new THREE.Vector3(0,1,0),rr(0,6.28));const w=rr(.7,1.2);m.compose(new THREE.Vector3(x,y-.03,z),q,new THREE.Vector3(w,rr(.3,.55),w));
-    mesh.setMatrixAt(k,m);col.setHSL(rr(.18,.24),rr(.35,.5),rr(.62,.82));mesh.setColorAt(k,col);k++;}
-  mesh.count=k;mesh.receiveShadow=true;mesh.castShadow=false;mesh.frustumCulled=false;return mesh;}
+// lawn grass, after "How to Make The Fluffiest Grass With Three.js" (Codrops, 2025): clumps of alpha-cut cards fanned out and tilted so
+// they read as grass from any angle, even from above; a dark base fading to a lighter tip (fake ambient occlusion); two tip colours mixed by
+// a noise field; every card lit as if it faced straight up, so both faces shade the same and the lawn looks soft. Clumps are merged into
+// 16 ft chunks so off-screen chunks are skipped. (No wind: the high-quality view converges by averaging still frames.)
+function grassCardTex(){const W=TX(256),H=TX(128),[c,g]=cv(W,H);g.clearRect(0,0,W,H);g.fillStyle='#fff';
+  for(let i=0;i<34;i++){const x0=rr(.04,.96)*W,h=rr(.5,1)*H,w=rr(1.6,3.2)*W/256,lean=rr(-.22,.22);
+    g.beginPath();g.moveTo(x0-w,H);g.quadraticCurveTo(x0+lean*h*.35,H-h*.55,x0+lean*h,H-h);g.quadraticCurveTo(x0+lean*h*.35+w*.4,H-h*.55,x0+w,H);g.fill();}
+  const t=new THREE.CanvasTexture(c);t.wrapS=THREE.RepeatWrapping;t.anisotropy=MAXANISO;return t;}
+// front landscaping, laid out from the aerial listing photo: a curved, stone-edged mulch bed across the front of the house (half an ellipse
+// centred x 9, z 33, 21 ft by 9 ft), a flagstone stepping path around its outside from the driveway to the west side yard, mulch rings for
+// a small ornamental tree and an ornamental grass mid-lawn and a shrub by the street, a low shrub bed near the street on the west, and a
+// deep flowering hedge along the east side of the driveway
+const BED={cx:9,cz:33,rx:21,rz:9};
+function bedEdgeZ(x){const t=(x-BED.cx)/BED.rx;return Math.abs(t)>1?-1e9:BED.cz+BED.rz*Math.sqrt(1-t*t);}
+function isBed(x,z){return (z>31.6&&z<bedEdgeZ(x))||(x>17.6&&x<36&&z>36.3&&z<38.7)||Math.hypot(x-15,z-49)<2.3||Math.hypot(x-25,z-45)<1.7||Math.hypot(x-33,z-59.5)<1.7||
+  ((x+23)*(x+23)/12+(z-55.5)*(z-55.5)/2.6<1)||(x>54.6&&x<58.6&&z>30&&z<61.6);}
+// the stepping path: a polyline from the driveway, round the outside of the bed, to the west side yard; stones are placed along it
+const FRONT_PATH=(()=>{const P=[[35.8,40.4],[31,41.6],[25.5,42.6]];
+  for(let th=Math.acos((BED.cx-21)/BED.rx);th<=Math.PI+1e-6;th+=.08){const x=BED.cx-BED.rx*Math.cos(th),z=BED.cz+BED.rz*Math.sin(th),nx=(x-BED.cx)/(BED.rx*BED.rx),nz=(z-BED.cz)/(BED.rz*BED.rz),l=Math.hypot(nx,nz);
+    P.push([x+nx/l*2.1,z+nz/l*2.1]);}
+  P.push([-17,34.3],[-21,35.2],[-25,36.2]);return P;})();
+let PATH_STONES=[];
+function nearPath(x,z,r){return PATH_STONES.some(q=>Math.hypot(q[0]-x,q[1]-z)<(r||1));}
+function frontLandscape(){
+  // stepping stones, about every 1.75 ft along the path, irregular and slightly rotated
+  let carry=0;PATH_STONES=[];
+  for(let i=0;i<FRONT_PATH.length-1;i++){const [x0,z0]=FRONT_PATH[i],[x1,z1]=FRONT_PATH[i+1],L=Math.hypot(x1-x0,z1-z0);
+    for(let d=carry;d<L;d+=1.75){const f=d/L,x=x0+(x1-x0)*f+rr(-.12,.12),z=z0+(z1-z0)*f+rr(-.12,.12),r=rr(.62,.78),y=terrainH(x,z);
+      addGeo('site','flagstone',new THREE.CylinderGeometry(1,1,1,6),M(x,y+.02,z,rr(0,6.3),r*rr(1.15,1.4),.1,r*rr(.85,1)));PATH_STONES.push([x,z]);}
+    carry=(Math.ceil(L/1.75)*1.75-L+carry)%1.75;}
+  // natural stone edging along the bed's curve (stopping where it meets the entry wall)
+  for(let th=0;th<=Math.PI;th+=.028){const x=BED.cx-BED.rx*Math.cos(th),z=BED.cz+BED.rz*Math.sin(th)+.15;if(x>17.8&&z<36.8)continue;
+    const tx=BED.rx*Math.sin(th),tz=BED.rz*Math.cos(th),ry=-Math.atan2(tz,tx),y=terrainH(x,z);
+    addGeo('site','edgeStone',new THREE.DodecahedronGeometry(.5,0),M(x,y+.06,z,ry+rr(-.2,.2),rr(1.3,1.7),rr(.45,.6),rr(.85,1.05)));}
+}
+function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chunks=new Map();RNG_SEED=4242;
+  const lin=h=>new THREE.Color(h).convertSRGBToLinear(),tipA=lin(0x7fa245),tipB=lin(0x93ad55),tipDeep=lin(0x5f8436),tipDry=lin(0xbdb36e),tmp=new THREE.Color(),cc=new THREE.Color();
+  const hard=(x,z)=>inFoot(x,z,.8)||isBed(x,z)||nearPath(x,z,.95)||WALKS.some(w=>x>w.x0-.4&&x<w.x1+.4&&z>w.z0-.4&&z<w.z1+.4)||SPEC.rooms.some(r=>x>Math.min(r.x0,r.x1)-.4&&x<Math.max(r.x0,r.x1)+.4&&z>Math.min(r.z0,r.z1)-.4&&z<Math.max(r.z0,r.z1)+.4)||
+    (x>-31&&x<-21.5&&z>33&&z<47&&Math.abs((z-33.3)-(-(x+21.9))*1.48)<.6);
+  const noise=(x,z)=>.5+.25*Math.sin(x*.21+Math.cos(z*.17)*1.7)+.25*Math.sin(z*.13-x*.07+Math.sin(x*.05)*2);
+  // more fields for natural variety: patches of taller grass, lusher deep-green areas and drier, straw-tinted spots
+  const tallF=(x,z)=>.5+.3*Math.sin(x*.33+Math.sin(z*.29)*2.1)+.2*Math.sin(z*.41-x*.19),deepF=(x,z)=>noise(z*1.7+31,x*1.3-17),dryF=(x,z)=>noise(x*2.3-7,z*2.1+13);
+  const cl=v=>Math.min(1,Math.max(0,v));
+  for(let x=-31;x<64;x+=cell)for(let z=-32;z<SITE.street0-.3;z+=cell){const px=x+rr(0,cell),pz=z+rr(0,cell);if(hard(px,pz))continue;
+    const k=Math.floor(px/CH)+','+Math.floor(pz/CH);let A=chunks.get(k);if(!A){A={p:[],n:[],u:[],c:[],i:[]};chunks.set(k,A);}
+    const y=terrainH(px,pz)-.03,yaw=rr(0,3.1416),w=rr(.7,1.1),t=cl(Math.pow(rnd(),2.2)*.75+Math.max(0,tallF(px,pz)-.55)*1.4+(rnd()<.04?rr(.4,.9):0)),h=.56*(1+2*t);
+    // height: .56 ft at the low end, up to three times that (.56 plus twice .56) in taller patches and the odd stray tuft
+    tmp.copy(tipA).lerp(tipB,cl(noise(px,pz)+rr(-.15,.15))).lerp(tipDeep,cl(deepF(px,pz)-.4)*1.3).lerp(tipDry,cl(dryF(px,pz)-.68)*1.1+t*.1+rr(0,.04))
+      .multiplyScalar(rr(.86,1.1));
+    for(let q=0;q<5;q++){const ang=yaw+q*Math.PI/5,ca=Math.cos(ang),sa=Math.sin(ang),tilt=(q%2?1:-1)*rr(.25,.6),hq=h*rr(.8,1.15),tx=-sa*Math.sin(tilt)*hq,tz=ca*Math.sin(tilt)*hq,ty=Math.cos(tilt)*hq,u0=rr(0,1),base=A.p.length/3;
+      cc.copy(tmp).offsetHSL(rr(-.012,.012),rr(-.04,.04),0).multiplyScalar(rr(.9,1.08));
+      for(const [e,top] of [[-1,0],[1,0],[1,1],[-1,1]]){A.p.push(px+ca*e*w/2+(top?tx:0),y+(top?ty:0),pz+sa*e*w/2+(top?tz:0));A.n.push(0,1,0);A.u.push(u0+(e+1)*.25,top);A.c.push(cc.r,cc.g,cc.b);}
+      A.i.push(base,base+1,base+2,base,base+2,base+3);}}
+  const mat=new THREE.MeshStandardMaterial({map:grassCardTex(),vertexColors:true,alphaTest:.5,alphaToCoverage:true,side:THREE.DoubleSide,roughness:1,clippingPlanes:CLIPS,clipShadows:true});
+  const gBase={value:lin(0x3e4f1f)};
+  mat.onBeforeCompile=sh=>{sh.uniforms.gBase=gBase;
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 gBase;')
+      .replace('#include <color_fragment>','#include <color_fragment>\n  diffuseColor.rgb=mix(gBase,diffuseColor.rgb,smoothstep(0.,.9,vUv.y));')
+      .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n  normal=normalize(vNormal);');};
+  const grp=new THREE.Group();grp.userData.mat=mat;
+  for(const A of chunks.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
+    g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));g.setIndex(A.i);g.computeBoundingSphere();
+    const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.castShadow=false;grp.add(m);}
+  return grp;}
 function setbackLines(){const g=new THREE.Group();const mat=new THREE.LineDashedMaterial({color:0xd0453b,dashSize:2.2,gapSize:1.4,depthTest:false,transparent:true});
   const line=(pts)=>{const L=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p[0],terrainH(p[0],p[1])+.4,p[1]))),mat);L.computeLineDistances();L.renderOrder=20;g.add(L);};
   const seg=(x0,z0,x1,z1)=>{const pts=[],n=Math.ceil(Math.hypot(x1-x0,z1-z0)/2);for(let i=0;i<=n;i++)pts.push([x0+(x1-x0)*i/n,z0+(z1-z0)*i/n]);line(pts);};
