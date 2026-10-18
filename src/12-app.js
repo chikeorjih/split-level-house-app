@@ -28,7 +28,7 @@ function envMap(){const s=new THREE.Scene();const g=new THREE.SphereGeometry(50,
   const pm=new THREE.PMREMGenerator(renderer);const rt=pm.fromScene(s,.04);pm.dispose();return rt.texture;}
 // ---------- animated transitions: per-level opacity, sliding cut plane, sky-to-paper, camera moves ----------
 const FADE=new Map(),FADE_OPACITY=.2,TAG_LV={'1':1,'2':2,'3':3,'4':4,'X':0,'frontOpen':3,'frontClosed':3};
-const FCUR={},FTW={},CLIPT={from:0,to:0,t:1,dur:1,target:null},SKYT={from:0,to:0,t:1,dur:1};
+const FCUR={},FTW={},CLIPT={from:0,to:0,t:1,dur:1,target:null},SKYT={from:0,to:0,t:1,dur:.75};
 let CT=null,PT=null,ORB_SAVED=null;
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function meshesOf(tag){const out=[];for(const o of TAGS[tag]||[]){if(o.isMesh)out.push(o);else if(o.traverse)o.traverse(c=>{if(c.isMesh&&!c.userData.isTwin)out.push(c);});}return out;}
@@ -56,18 +56,34 @@ function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
   if(tag==='frontOpen')return 0;
   if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv>L)return 0;if(lv!==undefined&&!shownLv().includes(lv))return FADE_OPACITY;}
   return 1;}
+function fadeMat(tag,b){const k=tag+'|'+b.uuid;let c=FADE.get(k);
+  if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
+    if(b.customProgramCacheKey!==THREE.Material.prototype.customProgramCacheKey)c.customProgramCacheKey=b.customProgramCacheKey;FADE.set(k,c);}
+  return c;}
+// ---------- prewarm: compile, ahead of time, every shader a transition can switch to (faded copies, pale massing, cut caps, section
+// fill, the blueprint), so animations never stall on a shader compile. Runs once the app is idle and again after materials change.
+let PREWARM_T=0;
+function schedulePrewarm(ms){clearTimeout(PREWARM_T);PREWARM_T=setTimeout(prewarm,ms||800);}
+function prewarm(){const cam=activeCam(),undo=[],show=o=>{if(!o.visible){o.visible=true;undo.push(()=>{o.visible=false;});}};
+  try{buildPaper();
+    for(const pass of ['fade','ghost']){const swap=[];
+      for(const tag in TAGS){if(tag==='trees'||tag==='grass'||tag==='site')continue;for(const m of meshesOf(tag)){const b=m.userData.baseMat||m.material;if(Array.isArray(b))continue;
+        const to=pass==='fade'?fadeMat(tag,b):ghostOf(tag);swap.push([m,m.material,m.visible]);m.material=to;m.visible=true;}}
+      for(const t of ['trees','grass','site'])for(const m of meshesOf(t)){const b=m.userData.baseMat||m.material;if(Array.isArray(b)||pass!=='fade')continue;swap.push([m,m.material,m.visible]);m.material=fadeMat(t,b);m.visible=true;}
+      renderer.compile(scene,cam);for(const [m,mt,v] of swap){m.material=mt;m.visible=v;}}
+    for(const k in CAPGRP)show(CAPGRP[k]);for(const tw of TWINS)show(tw);if(PAPER.mesh){show(PAPER.mesh);show(PAPER.roll);}
+    renderer.compile(scene,cam);}
+  catch(e){console.warn('prewarm',e);}finally{for(const f of undo)f();dirty=true;}}
 function setTagOpacity(tag,o){FCUR[tag]=o;const ghost=presenting()&&fadeTarget(tag)===FADE_OPACITY;
   for(const m of meshesOf(tag)){if(!m.userData.baseMat)m.userData.baseMat=m.material;const b=m.userData.baseMat,wasVis=m.visible;
     if(o<=.003){m.visible=false;m.userData.faded=true;}
     else if(o>=.997){m.visible=true;m.material=b;m.userData.faded=false;}
     else if(ghost){const g=ghostOf(tag);g.opacity=Math.min(1,o/FADE_OPACITY*GHOST_OPACITY);m.material=g;m.visible=true;m.userData.faded=true;}
-    else{const k=tag+'|'+b.uuid;let c=FADE.get(k);if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
-        if(b.customProgramCacheKey!==THREE.Material.prototype.customProgramCacheKey)c.customProgramCacheKey=b.customProgramCacheKey;FADE.set(k,c);}
-      c.opacity=o*(b.transparent?b.opacity:1);m.material=c;m.visible=true;m.userData.faded=true;}
+    else{const c=fadeMat(tag,b);c.opacity=o*(b.transparent?b.opacity:1);m.material=c;m.visible=true;m.userData.faded=true;}
     if(wasVis!==m.visible)shadowDirty=true;}}
-function refreshFades(){syncWashed();FADE.forEach(c=>c.dispose());FADE.clear();for(const t in FCUR)setTagOpacity(t,FCUR[t]);updateSectionDisplay();}
+function refreshFades(){syncWashed();FADE.forEach(c=>c.dispose());FADE.clear();for(const t in FCUR)setTagOpacity(t,FCUR[t]);updateSectionDisplay();if(renderer)schedulePrewarm();}
 function retarget(instant){for(const tag in TAGS){const to=fadeTarget(tag),cur=FCUR[tag]===undefined?to:FCUR[tag];
-  if(instant||Math.abs(to-cur)<.003){delete FTW[tag];setTagOpacity(tag,to);}else FTW[tag]={from:cur,to,t:0,dur:.85};}}
+  if(instant||Math.abs(to-cur)<.003){delete FTW[tag];setTagOpacity(tag,to);}else FTW[tag]={from:cur,to,t:0,dur:.6};}}
 function retargetClip(instant){const tgt=ST.cutL?cutH(ST.cutL):null,TOP=24,cur=CLIP_TOP.constant>1e4?TOP:CLIP_TOP.constant,to=tgt===null?TOP:tgt;CLIPT.target=tgt;
   if(instant||Math.abs(cur-to)<.01){CLIPT.t=CLIPT.dur;CLIP_TOP.constant=tgt===null?1e5:tgt;}else{CLIPT.from=cur;CLIPT.to=to;CLIPT.t=0;CLIPT.dur=.6+Math.min(.6,Math.abs(to-cur)/30);CLIP_TOP.constant=cur;}}
 function updateSectionDisplay(){const vv=ST.pending||ST.view,settled=CLIPT.t>=CLIPT.dur,clipping=CLIP_TOP.constant<1e4;
@@ -154,12 +170,64 @@ function caps(L,tags,cutY,noSwings){const cut=cutY||CUT[L],grp=new THREE.Group()
 const ORB={t:new THREE.Vector3(14,-4,17),th:Math.atan2(.18,1),ph:1.08,d:135,fov:38};
 const PLN={x:16,z:15,span:78};
 const WLK={x:22.3,z:34.6,f:-.5,yaw:0,pitch:-.05,vy:0,ground:true,inited:false};
+// ---------- floor plan on a blueprint: the ground gives way to a sheet of blueprint paper under the cut-open level, and a fixed
+// "studio" sun casts the model's shadow onto it. The sheet fades in with the sky-to-paper transition (SKY_MAT's pm).
+const PAPER={x0:-36,x1:69,z0:-38,z1:67,mesh:null},STUDIO_DIR=new THREE.Vector3(-.42,.84,-.34).normalize();
+function blueprintTex(){const P=PAPER,ppf=TX(2048)/(P.x1-P.x0),W=Math.round((P.x1-P.x0)*ppf),H=Math.round((P.z1-P.z0)*ppf),[c,g]=cv(W,H);
+  const X=x=>(x-P.x0)*ppf,Z=z=>(z-P.z0)*ppf;RNG_SEED=8080;
+  // paper: deep cyan-blue, soft mottling and fibres
+  const gr=g.createLinearGradient(0,0,W,H);gr.addColorStop(0,'#3471c6');gr.addColorStop(1,'#3066b5');g.fillStyle=gr;g.fillRect(0,0,W,H);
+  for(let i=0;i<70;i++){const x=rr(0,W),y=rr(0,H),r=rr(W*.04,W*.16),rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,rnd()<.5?'rgba(255,255,255,.035)':'rgba(0,10,40,.05)');rg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=rg;g.fillRect(x-r,y-r,2*r,2*r);}
+  for(let i=0;i<W*1.2;i++){const x=rr(0,W),y=rr(0,H),a=rr(0,6.28),l=rr(3,14);g.strokeStyle='rgba(220,235,255,'+rr(.02,.06)+')';g.lineWidth=.6;g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
+  // drafting grid: 1 ft fine, 5 ft bold, inside a border
+  const m=3,bx0=X(P.x0+m),bx1=X(P.x1-m),bz0=Z(P.z0+m),bz1=Z(P.z1-m);
+  for(let x=Math.ceil(P.x0+m);x<=P.x1-m;x++){g.strokeStyle='rgba(190,220,255,'+(x%5?.10:.24)+')';g.lineWidth=x%5?.7:1.2;g.beginPath();g.moveTo(X(x),bz0);g.lineTo(X(x),bz1);g.stroke();}
+  for(let z=Math.ceil(P.z0+m);z<=P.z1-m;z++){g.strokeStyle='rgba(190,220,255,'+(z%5?.10:.24)+')';g.lineWidth=z%5?.7:1.2;g.beginPath();g.moveTo(bx0,Z(z));g.lineTo(bx1,Z(z));g.stroke();}
+  g.strokeStyle='rgba(235,245,255,.85)';g.lineWidth=ppf*.12;g.strokeRect(bx0,bz0,bx1-bx0,bz1-bz0);g.lineWidth=ppf*.04;g.strokeRect(bx0+ppf*.4,bz0+ppf*.4,bx1-bx0-ppf*.8,bz1-bz0-ppf*.8);
+  // lot line, dashed white ink, and the street edge
+  g.setLineDash([ppf*1.2,ppf*.6]);g.lineWidth=ppf*.08;g.strokeStyle='rgba(240,248,255,.75)';g.strokeRect(X(-31.5),Z(-32.15),X(64.1)-X(-31.5),Z(SITE.street0)-Z(-32.15));g.setLineDash([]);
+  // north arrow (north lies between +x and -z: x runs toward the northeast lot line, z toward the street to the southeast)
+  {const cx=X(P.x0+9),cy=Z(P.z0+9),r=ppf*3.2,a=Math.atan2(-1,1);g.save();g.translate(cx,cy);g.strokeStyle=g.fillStyle='rgba(240,248,255,.9)';g.lineWidth=ppf*.08;
+    g.beginPath();g.arc(0,0,r,0,6.283);g.stroke();g.rotate(a+Math.PI/2);g.beginPath();g.moveTo(0,-r*1.05);g.lineTo(r*.32,r*.35);g.lineTo(0,r*.12);g.lineTo(-r*.32,r*.35);g.closePath();g.fill();
+    g.font='600 '+Math.round(ppf*1.4)+'px Archivo, system-ui, sans-serif';g.textAlign='center';g.fillText('N',0,-r*1.25);g.restore();}
+  // title block, lower right
+  {const w=ppf*26,h=ppf*7,x=bx1-ppf*.4-w,y=bz1-ppf*.4-h;g.fillStyle='rgba(28,78,150,.55)';g.fillRect(x,y,w,h);g.strokeStyle='rgba(235,245,255,.85)';g.lineWidth=ppf*.06;g.strokeRect(x,y,w,h);
+    g.beginPath();g.moveTo(x,y+h*.58);g.lineTo(x+w,y+h*.58);g.moveTo(x+w*.62,y+h*.58);g.lineTo(x+w*.62,y+h);g.stroke();g.fillStyle='rgba(240,248,255,.92)';g.textAlign='left';
+    g.font='700 '+Math.round(ppf*1.5)+'px Archivo, system-ui, sans-serif';g.fillText('SPLIT-LEVEL RESIDENCE',x+ppf*.8,y+ppf*2.0);
+    g.font='500 '+Math.round(ppf*.95)+'px Archivo, system-ui, sans-serif';g.fillText('DUNWOODY DRIVE  ·  ADDITION AND DECK',x+ppf*.8,y+ppf*3.4);
+    g.fillText('FLOOR PLANS',x+ppf*.8,y+h-ppf*1.1);g.fillText('GRID 1 FT',x+w*.62+ppf*.8,y+h-ppf*1.1);}
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+// the sheet unrolls from the back edge toward the street as the plan comes in (and rolls back up on the way out): the part not yet
+// unrolled is cut away in the shader, and a paper roll, thinner as it unwinds, rides along the reveal edge
+const PAPER_REV={value:0};
+function buildPaper(){if(PAPER.mesh)return;const m=new THREE.MeshStandardMaterial({map:blueprintTex(),roughness:.92,transparent:true});
+    m.onBeforeCompile=sh=>{sh.uniforms.uRev=PAPER_REV;sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uRev;')
+      .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n  if(vUv.y<1.-uRev)discard;');};
+    const P=PAPER.mesh=new THREE.Mesh(new THREE.PlaneGeometry(PAPER.x1-PAPER.x0,PAPER.z1-PAPER.z0),m);
+    P.rotation.x=-Math.PI/2;P.position.set((PAPER.x0+PAPER.x1)/2,0,(PAPER.z0+PAPER.z1)/2);P.receiveShadow=true;P.renderOrder=-1;scene.add(P);
+    const R=PAPER.roll=new THREE.Mesh(new THREE.CylinderGeometry(1,1,PAPER.x1-PAPER.x0,40),new THREE.MeshStandardMaterial({color:0xc9d8ea,roughness:.85}));
+    R.rotation.z=Math.PI/2;R.castShadow=false;R.receiveShadow=true;scene.add(R);
+    // compile both shaders now, so the first trip into the plan doesn't stall on it
+    const k0=PAPER_REV.value;P.visible=R.visible=true;PAPER_REV.value=1;try{renderer.compile(scene,camO);}catch(e){}P.visible=R.visible=false;PAPER_REV.value=k0;}
+function updatePaper(){const k=SKY_MAT.uniforms.pm.value;let P=PAPER.mesh;
+  if(k<.003){if(P){P.visible=false;PAPER.roll.visible=false;}return;}
+  if(!P){buildPaper();P=PAPER.mesh;}
+  const L=ST.cutL||2,y=E[L]-1.1,u=ease(Math.min(1,Math.max(0,(k-.08)/.92)));P.position.y=y;P.visible=true;PAPER_REV.value=u;
+  const m=P.material,op=k>.997,o=Math.min(1,k*4);m.opacity=o;if(m.transparent===op){m.transparent=!op;m.needsUpdate=true;}m.depthWrite=o>.5;
+  const R=PAPER.roll,r=.22+1.5*(1-u);R.visible=u<.999;R.scale.set(r,1,r);R.position.set((PAPER.x0+PAPER.x1)/2,y+r,PAPER.z0+(PAPER.z1-PAPER.z0)*u);
+  R.material.transparent=o<1;R.material.opacity=o;}
+// studio light for the plan: a fixed high sun from the upper left of the sheet, so the shadow falls down and to the right
+function presetSun(){const P=PRESETS[LOOK.preset],e=P.elev*Math.PI/180;LOOK.sunDir.set(P.h.x*Math.cos(e),Math.sin(e),P.h.z*Math.cos(e)).normalize();
+  sun.color.setHex(P.sun);LOOK.hemi.color.setHex(P.zen).lerp(new THREE.Color(1,1,1),.6);applyLightBalance();fitShadow(true);shadowDirty=true;dirty=true;}
+function planStudio(){LOOK.sunDir.copy(STUDIO_DIR);sun.color.setHex(0xfff8f0);sun.intensity=1.6;LOOK.hemi.intensity=.42;LOOK.hemi.color.setHex(0xf4f8ff);fitShadow(true);shadowDirty=true;dirty=true;}
 function setVis(instant){const vv0=ST.pending||ST.view;
   if(vv0==='three'){if(ST.level==='all')ST.levels=[];else if(!ST.levels.includes(ST.level))ST.levels=[ST.level];if(ST.levels.length)ST.level=Math.max(...ST.levels);}
   const vv=vv0,L=ST.level,cutL=(vv==='plan')?(L==='all'?2:L):(vv==='three'&&L!=='all'?L:null),plan=vv==='plan';
   ST.cutL=cutL;retarget(instant);retargetClip(instant);
+  if(plan!==!!LOOK.studio){LOOK.studio=plan;if(plan)planStudio();else presetSun();}
+  if(isUltra())updateInteriorShadows();
   SKYT.from=SKY_MAT.uniforms.pm.value;SKYT.to=plan?1:0;SKYT.t=instant?SKYT.dur:0;if(instant)SKY_MAT.uniforms.pm.value=SKYT.to;
-  SETBACK.visible=ST.site;if(SKY)SKY.visible=true;scene.background=null;scene.fog=plan?null:makeFog();updateFog();
+  SETBACK.visible=ST.site;if(SKY)SKY.visible=true;scene.background=null;if(!scene.fog)scene.fog=makeFog();scene.fog.color.copy(fogColor(PRESETS[LOOK.preset]));updateFog();
   for(const L2 of SETBACK.children)L2.material.depthTest=!plan&&vv!=='three'?true:false;
   fitShadow(true);updateSectionDisplay();shadowDirty=true;dirty=true;updateUI();}
 function setView(v){
@@ -167,10 +235,10 @@ function setView(v){
     const d=CT&&CT.done;CT=null;if(d)d();}
   const prev=ST.view;if(v===prev)return;
   if(prev==='three'&&v==='plan'){if(ST.level==='all')ST.level=2;fitPlan();ORB_SAVED=snapOrb();ST.pending='plan';setVis();
-    startCam(planPose(),()=>{ST.pending=null;ST.view='plan';ORB.fov=38;resize();setVis();},1.5);return;}
+    startCam(planPose(),()=>{ST.pending=null;ST.view='plan';ORB.fov=38;resize();setVis();},.9);return;}
   if(prev==='plan'&&v==='three'){const pp=planPose();Object.assign(ORB,{th:pp.th,ph:pp.ph,d:pp.d,fov:pp.fov});ORB.t.copy(pp.t);ST.view='three';
     const to=ORB_SAVED?{...ORB_SAVED,t:ORB_SAVED.t.clone()}:{th:Math.atan2(.18,1),ph:1.08,d:135,t:new THREE.Vector3(14,-4,17),fov:38};to.t.y=ST.level==='all'?-5:E[ST.level];to.fov=38;
-    resize();setVis();startCam(to,null,1.5);return;}
+    resize();setVis();startCam(to,null,.9);return;}
   ST.view=v;if(v==='walk'&&!WLK.inited){WLK.inited=true;teleport({x:22.3,z:34.6,lv:3,yaw:0,out:true});}
   if(v==='plan'&&ST.level==='all')ST.level=2;
   if(v==='plan')fitPlan();if(v==='three'){ORB.fov=38;}setVis();resize();}
@@ -331,7 +399,7 @@ function bindInput(){const c=renderer.domElement;c.tabIndex=0;c.setAttribute('ar
 let last=performance.now(),lastSig='';
 function camSig(c){c.updateMatrixWorld();return c.matrixWorld.elements.map(v=>v.toFixed(4)).join()+c.projectionMatrix.elements.map(v=>v.toFixed(5)).join();}
 function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
-  animate(dt);
+  animate(dt);updatePaper();
   if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
   updateFog();
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;}if(dirty){PIPE.n=0;dirty=false;}
@@ -346,9 +414,11 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   // "paint": a colour; the photo's colour map is turned grey, flattened and multiplied by it, for painted brick and the like
   // "cropTop": a fraction of the image's height cut off its top edge, for photos with a stray strip there (keep it a whole number of rows so the tile still wraps)
   const crop=(tx,f)=>{const im=tx.image,h=Math.round(im.height*(1-f)),[c,g]=cv(im.width,h);g.drawImage(im,0,im.height-h,im.width,h,0,0,im.width,h);tx.dispose();return new THREE.CanvasTexture(c);};
+  // "saturate": a factor for the colour map's saturation (1 = unchanged, .85 = 15% less)
+  const satur=(tx,k)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter='saturate('+k+')';g.drawImage(im,0,0);tx.dispose();return new THREE.CanvasTexture(c);};
   const paint=(tx,col)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter='grayscale(1) contrast(.4) brightness(2.1)';g.drawImage(im,0,0);g.filter='none';
     g.globalCompositeOperation='multiply';g.fillStyle=col;g.fillRect(0,0,c.width,c.height);tx.dispose();return new THREE.CanvasTexture(c);};
-  const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
+  const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);if(srgb&&t.saturate!==undefined)tx=satur(tx,t.saturate);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
     if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.encoding=THREE.sRGBEncoding;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
   for(const t of list){const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
     const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(nm)m.normalMap=nm;if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}
@@ -360,5 +430,6 @@ function start(){
   camP=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);
   buildUI();buildLabels();bindInput();
   setQuality(COARSE?'fast':'high',COARSE?'':undefined);applyPreset('afternoon');resize();setVis(true);updateOrbitCam();arrLoad();loadTextureOverrides();loadModels();dbgAfterReload();
-  requestAnimationFrame(t=>{last=t;frame(t);$('loading').style.display='none';});}
+  requestAnimationFrame(t=>{last=t;frame(t);$('loading').style.display='none';});
+  schedulePrewarm(1500);}
 requestAnimationFrame(()=>setTimeout(start,30));

@@ -16,17 +16,19 @@ const PRESETS={
     grade:{wb:[1.045,1,.92],lift:[.012,.01,.004],sat:1.04,con:1.09,css:'sepia(.1) saturate(1.04) contrast(1.09)'}},
   golden:{label:'Golden hour',h:H2(DIRS.W,[DIRS.N[0]*.25,DIRS.N[1]*.25]),elev:8,sun:0xff9445,si:2.0,zen:0x4a67a8,hor:0xf2a66c,gnd:0x3a3026,exp:1.28,envE:.85,envI:.75,lamps:false,bloom:.26,hemi:.08,sky:.9,
     grade:{wb:[1.08,.98,.84],lift:[.02,.008,0],sat:1.15,con:1.15,css:'sepia(.18) saturate(1.18) contrast(1.15)'}},
-  dusk:{label:'Dusk, lights on',h:H2(DIRS.W,[DIRS.N[0]*.3,DIRS.N[1]*.3]),elev:5,sun:0x8c84b8,si:.22,zen:0x0d1934,hor:0x7a5f73,gnd:0x141416,exp:1.55,envE:.45,envI:.22,lamps:true,bloom:.55,hemi:.05,sky:.35,
-    grade:{wb:[.95,.97,1.08],lift:[.008,.01,.03],sat:1.06,con:1.09,css:'saturate(1.06) contrast(1.09)'}}
+  dusk:{label:'Dusk, lights on',h:H2(DIRS.W,[DIRS.N[0]*.3,DIRS.N[1]*.3]),elev:5,sun:0x9a7f9e,si:.18,zen:0x14203a,hor:0x8a6556,gnd:0x161412,exp:1.2,envE:.4,envI:.2,lamps:true,bloom:.2,hemi:.05,sky:.3,
+    // cozy dusk: warm amber lamps, soft glow, deep blue-violet sky outside; warm grade with warm-lifted shadows
+    grade:{wb:[1.07,1,.86],lift:[.022,.012,.004],sat:1.04,con:1.06,css:'sepia(.2) saturate(1.05) contrast(1.06) brightness(.94)'}}
 };
-const LOOK={dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
+// bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
+const LOOK={bloomScale:.5,dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
 const EXT_MATS=new Set(['brick','siding','sidingNew','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','asphalt','concrete','stone','frameDark','dormerClad',
   'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','glass','leafCards','shrubCards','grassBlades','treeline','edgeStone']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
 const FOG_D=.0014;
 const fogColor=P=>new THREE.Color(P.hor).lerp(new THREE.Color(P.zen),.12);
 function makeFog(){return new THREE.FogExp2(fogColor(PRESETS[LOOK.preset]).getHex(),FOG_D);}
-function updateFog(){if(scene.fog&&scene.fog.isFogExp2)scene.fog.density=FOG_D*(ST.view==='three'?Math.min(1,170/ORB.d):1);}
+function updateFog(){if(scene.fog&&scene.fog.isFogExp2)scene.fog.density=(ST.pending||ST.view)==='plan'?0:FOG_D*(ST.view==='three'?Math.min(1,170/ORB.d):1);}
 // ---------- sky ----------
 const SKY_MAT=new THREE.ShaderMaterial({uniforms:{pm:{value:0},paper:{value:new THREE.Color(.9,.91,.875)},sunDir:{value:new THREE.Vector3(0,1,0)},zen:{value:new THREE.Color()},hor:{value:new THREE.Color()},gnd:{value:new THREE.Color()},sunCol:{value:new THREE.Color()},sunI:{value:1}},
   vertexShader:'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -58,7 +60,7 @@ function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6
   const pr={chandelier:0,pendant:1,ceiling:2,lamp:3,outdoor:4};const L=LAMPS.slice().sort((a,b)=>pr[a.k]-pr[b.k]);let pend=null;const out=[];
   for(const l of L){if(l.k==='pendant'){if(!pend){pend=l.v.clone();out.push({v:pend,k:'pendant'});}else pend.lerp(l.v,.5);continue;}out.push(l);}
   for(const f of fills)out.push({v:new THREE.Vector3(...f),k:'fill'});
-  for(const l of out.slice(0,COARSE?10:22)){const warm=l.k==='outdoor'?0xffb870:0xffc489;const p=new THREE.PointLight(warm,l.k==='fill'?.55:(l.k==='outdoor'?.9:1.1),l.k==='fill'?22:16,1.6);
+  for(const l of out.slice(0,COARSE?10:22)){const warm=l.k==='outdoor'?0xffa75c:0xffb36b;const p=new THREE.PointLight(warm,l.k==='fill'?.55:(l.k==='outdoor'?.9:1.1),l.k==='fill'?22:16,1.6);
     p.position.copy(l.v);p.visible=false;scene.add(p);LOOK.lights.push(p);if(l.inst)l.inst.lights.push({light:p,v0:l.v.clone()});}}
 // ---------- kitchen lights: the recessed cans as downlights and the black drum's diffuser, on in every preset (as in the listing photo) ----------
 function buildKitchenLights(){LOOK.kitchen=[];const C=CEIL[3],warm=0xfff0d8;
@@ -80,7 +82,7 @@ function skyColorAt(d,out){const P=PRESETS[LOOK.preset],y=Math.max(d.y,0);out.se
 function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ();
   for(const L of SKYL)L.visible=hq;LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
   for(const k in MAT){const m=MAT[k];if(m&&m.isMeshStandardMaterial&&EXT_MATS.has(k))m.envMapIntensity=P.envE*(hq?LIGHT_HQ.env:1);}
-  shadowDirty=true;dirty=true;}
+  shadowDirty=true;dirty=true;if(LOOK.studio&&typeof planStudio==='function')planStudio();}
 // ---------- applying a preset ----------
 function applyPreset(name){const P=PRESETS[name]||PRESETS.afternoon;LOOK.preset=name;
   const e=P.elev*Math.PI/180;LOOK.sunDir.set(P.h.x*Math.cos(e),Math.sin(e),P.h.z*Math.cos(e)).normalize();
@@ -88,12 +90,12 @@ function applyPreset(name){const P=PRESETS[name]||PRESETS.afternoon;LOOK.preset=
   sun.color.setHex(P.sun);sun.intensity=P.si;LOOK.hemi.intensity=P.hemi;LOOK.hemi.color.setHex(P.zen).lerp(new THREE.Color(1,1,1),.6);LOOK.amb.intensity=P.lamps?.03:.05;
   makeEnvs(P);
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?null:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
-  applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?2.4:.35;MAT.light.emissiveIntensity=P.lamps?3.2:1.2;MAT.flame.emissiveIntensity=P.lamps?5:1.5;
+  applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
   for(const l of LOOK.lights)l.visible=P.lamps;
-  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.5:1);
+  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
   if(scene.fog)scene.fog.color.copy(fogColor(P));
   refreshFades();
-  fitShadow(true);dirty=true;shadowDirty=true;if(typeof PIPE!=='undefined')PIPE.n=0;}
+  fitShadow(true);dirty=true;shadowDirty=true;if(typeof PIPE!=='undefined')PIPE.n=0;if(LOOK.studio)planStudio();}
 let SHC={x:1e9,z:1e9,half:0};
 function fitShadow(force){const walk=ST.view==='walk',half=walk?50:108,cx=walk?WLK.x:16,cz=walk?WLK.z:12;
   if(!force&&SHC.half===half&&Math.hypot(SHC.x-cx,SHC.z-cz)<12)return;SHC={x:cx,z:cz,half};
@@ -255,7 +257,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset];
       const s=L.shadow.camera;s.left=sc.left;s.right=sc.right;s.top=sc.top;s.bottom=sc.bottom;s.near=sc.near;s.far=sc.far;s.updateProjectionMatrix();}
     renderer.shadowMap.needsUpdate=true;}
   const ultra=isUltra()&&PIPE.enc;
-  if(ultra){if(n===0)updateInteriorShadows();
+  if(ultra){
     ULTRA.shadowers.forEach((l,j)=>{const i=n*4+j+1,a=halton(i,23)*6.283,r=n>0?Math.sqrt(halton(i,29))*.22:0;l.position.copy(l.userData.p0).add(new THREE.Vector3(Math.cos(a)*r,(halton(i,31)-.5)*.1,Math.sin(a)*r));});
     if(ULTRA.shadowers.length)renderer.shadowMap.needsUpdate=true;}
   if(SKY)SKY.position.copy(cam.position);
@@ -269,12 +271,12 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset];
   AO_MAT.uniforms.frame.value=n%97;AO_MAT.uniforms.radius.value=ST.view==='plan'?3.0:(ST.view==='walk'?1.8:2.6);fs(AO_MAT,PIPE.ao);
   // wide AO: the same pass with a much larger radius, at half resolution, for broad darkening under eaves, porches and trees
   AO_MAT.uniforms.frame.value=(n*7+3)%97;AO_MAT.uniforms.radius.value=ST.view==='walk'?8:14;fs(AO_MAT,PIPE.ao2);
-  const [hw,hh]=PIPE.half,[qw,qh]=PIPE.quarter;BRIGHT_MAT.uniforms.t.value=PIPE.rt.texture;BRIGHT_MAT.uniforms.thr.value=P.lamps?1.1:2.2;fs(BRIGHT_MAT,PIPE.b1);
+  const [hw,hh]=PIPE.half,[qw,qh]=PIPE.quarter;BRIGHT_MAT.uniforms.t.value=PIPE.rt.texture;BRIGHT_MAT.uniforms.thr.value=P.lamps?1.7:2.2;fs(BRIGHT_MAT,PIPE.b1);
   BLUR_MAT.uniforms.t.value=PIPE.b1.texture;BLUR_MAT.uniforms.dir.value.set(1/hw,0);fs(BLUR_MAT,PIPE.b2);BLUR_MAT.uniforms.t.value=PIPE.b2.texture;BLUR_MAT.uniforms.dir.value.set(0,1/hh);fs(BLUR_MAT,PIPE.b1);
   BLUR_MAT.uniforms.t.value=PIPE.b1.texture;BLUR_MAT.uniforms.dir.value.set(2/qw,0);fs(BLUR_MAT,PIPE.b3);BLUR_MAT.uniforms.t.value=PIPE.b3.texture;BLUR_MAT.uniforms.dir.value.set(0,2/qh);fs(BLUR_MAT,PIPE.b4);
   const cu=COMP_MAT.uniforms;cu.tB.value=PIPE.rt.texture;cu.tAO.value=PIPE.ao.texture;cu.tAO2.value=PIPE.ao2.texture;cu.aoS2.value=ST.view==='plan'?0:Math.min(1,LOOK.ao2*(ultra?ULTRA.aoBoost:1));cu.tL1.value=PIPE.b1.texture;cu.tL2.value=PIPE.b4.texture;cu.tAcc.value=PIPE.accA.texture;
   cu.tGI.value=ultra?PIPE.gi.texture:PIPE.ao.texture;cu.tSSR.value=ultra?PIPE.ssr.texture:PIPE.ao.texture;cu.giS.value=ultra&&ST.view!=='plan'?ULTRA.giS:0;cu.ssrS.value=ultra&&ST.view!=='plan'?ULTRA.ssrS:0;
-  cu.px.value.set(1/w,1/h);cu.w.value=1/(n+1);cu.bl.value=P.bloom;cu.aoS.value=Math.min(1,(ST.view==='three'&&!ST.cutL?.6:.78)*(ultra?ULTRA.aoBoost:1));
+  cu.px.value.set(1/w,1/h);cu.w.value=1/(n+1);cu.bl.value=P.bloom*LOOK.bloomScale;cu.aoS.value=Math.min(1,(ST.view==='three'&&!ST.cutL?.6:.78)*(ultra?ULTRA.aoBoost:1));
   fs(COMP_MAT,PIPE.accB);
   const t=PIPE.accA;PIPE.accA=PIPE.accB;PIPE.accB=t;
   OUT_MAT.uniforms.t.value=PIPE.accA.texture;OUT_MAT.uniforms.exposure.value=P.exp;OUT_MAT.uniforms.vig.value=ST.view==='plan'?0:.22;OUT_MAT.uniforms.gamt.value=ST.view==='plan'?0:1;gradeCss('');fs(OUT_MAT,null);

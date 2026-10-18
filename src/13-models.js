@@ -28,7 +28,7 @@ async function loadModels(){
     for(const m of man.models){if(m.enabled===false)continue;
       const url=(window.__MODEL_FILES&&window.__MODEL_FILES[m.file])||('assets/models/'+m.file);
       try{const g=await new Promise((res,rej)=>L.load(url,res,undefined,rej));placeModel(m,g.scene);}catch(e){console.warn('model '+m.id+' failed to load',e);}}
-    if(MODELS.length){retarget(true);updateSectionDisplay();arrLoad();shadowDirty=true;dirty=true;}}
+    if(MODELS.length){retarget(true);updateSectionDisplay();arrLoad();shadowDirty=true;dirty=true;schedulePrewarm();}}
   finally{MODELS_READY=true;}}
 function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   root.rotation.set((o.x||0)*D,(o.y||0)*D,(o.z||0)*D);root.updateMatrixWorld(true);
