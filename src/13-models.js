@@ -30,6 +30,30 @@ async function loadModels(){
       try{const g=await new Promise((res,rej)=>L.load(url,res,undefined,rej));placeModel(m,g.scene);}catch(e){console.warn('model '+m.id+' failed to load',e);}}
     if(MODELS.length){retarget(true);updateSectionDisplay();arrLoad();shadowDirty=true;dirty=true;schedulePrewarm();}}
   finally{MODELS_READY=true;}}
+// ---------- corduroy (manifest "fabric": "corduroy") ----------
+// Procedural wales, drawn in the model's own space so a model without texture coordinates can have them. The wales follow the way the
+// fabric is laid on upholstery: up and down on the front, back and outer sides (on side-facing surfaces they run along the depth), and
+// front to back across seats and arm tops. Each surface takes the set that suits its facing, blended by a sharp triplanar weight. Each
+// wale is a rounded rib with a narrow groove (bump-mapped, in view space), the grooves a little darker and the rib crowns a little
+// lighter (the pile catching the light), and the ribs fade out when they get finer than about one and a half pixels, so they never shimmer.
+const CORD_GLSL=`varying vec3 vCorP,vCorN;uniform float corPitch,corAmp;
+float corH(float s){float f=fract(s);return smoothstep(0.,.32,f)*smoothstep(1.,.68,f);}
+vec3 corPerturb(vec3 sp,vec3 sn,vec2 dH){vec3 sx=dFdx(sp),sy=dFdy(sp),r1=cross(sy,sn),r2=cross(sn,sx);float det=dot(sx,r1)*(gl_FrontFacing?1.:-1.);
+  return normalize(abs(det)*sn-sign(det)*(dH.x*r1+dH.y*r2));}`;
+// corM takes the mesh's own coordinates to the model's measured ones (a file can scale or turn its meshes inside), so the pitch is real
+function corduroy(mt,pitchUnits,M){const o=mt.onBeforeCompile,k0=mt.customProgramCacheKey.call(mt),U={corPitch:{value:pitchUnits},corAmp:{value:.006},corM:{value:M}};
+  mt.extensions=Object.assign({},mt.extensions,{derivatives:true});
+  mt.onBeforeCompile=(sh,r)=>{if(o)o(sh,r);Object.assign(sh.uniforms,U);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vCorP,vCorN;uniform mat4 corM;').replace('#include <begin_vertex>','#include <begin_vertex>\n  vCorP=(corM*vec4(position,1.)).xyz;vCorN=mat3(corM)*normal;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\n'+CORD_GLSL)
+      .replace('#include <color_fragment>',`#include <color_fragment>
+  vec3 cw=pow(abs(normalize(vCorN)),vec3(6.));cw/=cw.x+cw.y+cw.z;
+  float sx=vCorP.x/corPitch,sz=vCorP.z/corPitch;
+  float aaX=1.-smoothstep(.4,.75,fwidth(sx)),aaZ=1.-smoothstep(.4,.75,fwidth(sz));
+  float corH0=(cw.y+cw.z)*corH(sx)*aaX+cw.x*corH(sz)*aaZ,corA=(cw.y+cw.z)*aaX+cw.x*aaZ;
+  diffuseColor.rgb*=mix(1.,mix(.76,1.05,corH0),corA);`)
+      .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\n  {float h=corH0*corAmp;normal=corPerturb(-vViewPosition,normal,vec2(dFdx(h),dFdy(h)));}');};
+  mt.customProgramCacheKey=()=>'cord|'+k0;mt.needsUpdate=true;}
 function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   root.rotation.set((o.x||0)*D,(o.y||0)*D,(o.z||0)*D);root.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(root),raw={w:bb.max.x-bb.min.x,d:bb.max.z-bb.min.z,h:bb.max.y-bb.min.y},sc=modelScale(m,raw);
@@ -44,7 +68,14 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   const outer=new THREE.Group();outer.position.set(x,y,z);outer.rotation.y=ry;outer.add(inner);outer.userData.model=m.id;
   const P=PRESETS[LOOK.preset];let n=0;
   const fix=mt=>{mt.clippingPlanes=CLIPS;mt.clipShadows=true;if(mt.isMeshStandardMaterial){mt.envMap=ROOM_ENV;mt.envMapIntensity=P.envI;}MAT['model:'+m.id+':'+(n++)]=mt;if(typeof giPatch==='function')giPatch(mt);mt.needsUpdate=true;return mt;};
-  outer.traverse(c=>{if(!c.isMesh)return;c.castShadow=c.receiveShadow=true;c.userData.tag=tag;c.userData.model=m.id;
+  // a model without normals (a slimmed scan) gets smooth ones; without texture coordinates its texture can't be placed, so it takes the
+  // manifest's colour instead
+  const noUV=mt=>{if(mt.map){mt.map=null;mt.needsUpdate=true;}if(m.color)mt.color.set(m.color);};
+  outer.traverse(c=>{if(!c.isMesh)return;if(c.geometry&&!c.geometry.attributes.normal)c.geometry.computeVertexNormals();
+    if(c.geometry&&!c.geometry.attributes.uv)[].concat(c.material).forEach(noUV);else if(m.color)[].concat(c.material).forEach(mt=>mt.color.set(m.color));
+    if(m.fabric==='corduroy'){outer.updateMatrixWorld(true);const M=inner.matrixWorld.clone().invert().multiply(c.matrixWorld);
+      [].concat(c.material).forEach(mt=>{if(mt.isMeshStandardMaterial){mt.roughness=.88;mt.metalness=0;corduroy(mt,(m.walePitchIn||.2)/12/(sc.v?sc.v.x:sc.s),M);}});}
+    c.castShadow=c.receiveShadow=true;c.userData.tag=tag;c.userData.model=m.id;
     c.material=Array.isArray(c.material)?c.material.map(fix):fix(c.material);c.userData.baseMat=c.material;});
   if(rep){rep.group.visible=false;rep.hiddenByModel=true;for(const q of rep.cols){const i=COLS.indexOf(q.c);if(i>=0)COLS.splice(i,1);}}
   addTag(tag,outer);outer.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(outer);

@@ -6,10 +6,10 @@
       "file": "arhaus-rowland-two.glb",
       "scale": "m",
       "place": {
-        "x": 16.57,
-        "z": 7,
+        "x": 17.57,
+        "z": 6.42,
         "lv": 3,
-        "ry": 180
+        "ry": 90
       },
       "note": "Replaces the deleted living room sofa and ottoman, against the west wall facing the room. The file is true to scale in metres (74.8\" W x 38.4\" D x 38.7\" H). Add \"spec\" (the product's W/D/H in inches) to check it against the real piece."
     },
@@ -18,8 +18,8 @@
       "name": "Dining table",
       "file": "dining table.glb",
       "place": {
-        "x": 37.6,
-        "z": 5.4,
+        "x": 37.35,
+        "z": 5.07,
         "lv": 3,
         "ry": 0
       },
@@ -36,10 +36,10 @@
       "name": "Sideboard",
       "file": "sideboard.glb",
       "place": {
-        "x": 39.7,
-        "z": 9.64,
+        "x": 38.37,
+        "z": 9.47,
         "lv": 3,
-        "ry": 180
+        "ry": 179
       },
       "note": "Fitted to the product size given by the owner: 61.02\" W x 15.75\" D x 29.21\" H (listed as 29.21 H x 15.75 W x 61.02 D). Against wall W48.",
       "spec": {
@@ -57,7 +57,7 @@
         "x": 25,
         "z": 11.28,
         "lv": 3,
-        "ry": 0
+        "ry": 346
       },
       "note": "Fitted to the product size given by the owner (21.4\" W x 19.75\" D x 38.5\" H); at the bar, facing the kitchen.",
       "spec": {
@@ -93,7 +93,7 @@
         "x": 28.7,
         "z": 11.28,
         "lv": 3,
-        "ry": 0
+        "ry": 16
       },
       "note": "Fitted to the product size given by the owner (21.4\" W x 19.75\" D x 38.5\" H); at the bar, facing the kitchen.",
       "spec": {
@@ -126,10 +126,10 @@
       "name": "Swivel chair 1",
       "file": "swivel.glb",
       "place": {
-        "x": 20.6,
-        "z": 2.35,
+        "x": 22.43,
+        "z": 2.43,
         "lv": 3,
-        "ry": 15
+        "ry": 32
       },
       "note": "Fitted to the product size given by the owner (38.6\" W x 35.4\" D x 28.7\" H); along wall W46.",
       "spec": {
@@ -144,10 +144,10 @@
       "name": "Swivel chair 2",
       "file": "swivel.glb",
       "place": {
-        "x": 25.6,
-        "z": 2.35,
+        "x": 28.35,
+        "z": 2.93,
         "lv": 3,
-        "ry": -15
+        "ry": 330
       },
       "note": "Fitted to the product size given by the owner (38.6\" W x 35.4\" D x 28.7\" H); along wall W46.",
       "spec": {
@@ -156,6 +156,48 @@
         "h": 28.7
       },
       "fit": "axes"
+    },
+    {
+      "id": "nursery-recliner",
+      "name": "La-Z-Boy recliner (nursery)",
+      "file": "recliner-lazboy.opt.glb",
+      "scale": 1.8,
+      "place": {
+        "x": 2.1,
+        "z": 22.01,
+        "lv": 4,
+        "ry": 73
+      },
+      "note": "Owner-supplied model, slimmed from recliner-lazboy.glb (746k to 80k triangles, normals recomputed on load). No product size was given: scaled to a typical recliner, about 41\" tall (37\" W x 41\" D). Against the west wall facing into the room, per the owner's layout. Upholstered in cream corduroy (wide wale, about 3 per inch), drawn procedurally in 13-models.js.",
+      "color": "#e8dcc4",
+      "fabric": "corduroy",
+      "walePitchIn": 0.32
+    },
+    {
+      "id": "nursery-crib",
+      "name": "Crib",
+      "file": "crib.glb",
+      "scale": 4.703,
+      "place": {
+        "x": 1.64,
+        "z": 27.03,
+        "lv": 4,
+        "ry": 89
+      },
+      "note": "Owner-supplied model. No product size was given: scaled to a standard full-size crib, 53.5\" long (about 28\" W x 33\" H). Long side against the west wall, per the owner's layout."
+    },
+    {
+      "id": "nursery-daybed",
+      "name": "Daybed",
+      "file": "daybed.opt.glb",
+      "scale": "m",
+      "place": {
+        "x": 10.18,
+        "z": 23.23,
+        "lv": 4,
+        "ry": 270
+      },
+      "note": "Owner-supplied model, slimmed from daybed.glb (1.1M to 150k triangles, texture seams locked so the bedding texture stays clean, full 2048 texture kept); true to scale in metres (75\" L x 38\" D x 35\" H). Back against the east wall, per the owner's layout."
     }
   ]
 }

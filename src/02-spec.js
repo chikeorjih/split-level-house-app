@@ -19,15 +19,19 @@ function buildSpec(){
 
   // ---------- WING exterior (family room / bedrooms side) ----------
   W({lv:1,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:-14.5,y1:-5.5,ext:{side:-1,mat:'brick'},bb:[[E1,1]]});
-  W({lv:2,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:-5.5,y1:3.5,ops:[win(7.85,8.1,E2,1.2,7.3,5)],ext:{side:-1,mat:'brick'},bb:[[E2,1]]});
-  W({lv:4,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:3.5,y1:12.5,ops:[op('open0',4.05,4.5,E4+2.4,4.4)],ext:{side:-1,mat:'brick',y1:4.6},bb:[[E4,1]]});
+  // (the upper-floor primary bedroom is a nursery: all four walls painted olive, MAT.sage)
+  // the wing's back (back photo): white lap siding from the top of the lower level's brick up to the roof, over two storeys, with the
+  // family room's 5-pane window and a small 3-pane bedroom window near the top (no mansard or dormer on this side)
+  W({lv:2,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:-5.5,y1:3.5,ops:[win(7.85,8.1,E2,1.2,7.3,5)],ext:{side:-1,mat:'sidingWhite'},bb:[[E2,1]]});
+  W({lv:4,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:3.5,y1:12.65,ops:[win(6.9,5.0,E4,4.0,7.2,3)],ext:{side:-1,mat:'sidingWhite'},bb:[[E4,1]]});
   W({lv:1,x0:0,z0:0,x1:0,z1:31.6,t:TE,y0:-14.5,y1:-5.5,ops:[op('gdoor',4.5,2.7,E1,6.8,{sw:[1,1]}),win(20.95,4.4,E1,3,6.8,2),win(28.25,4.2,E1,3,6.8,2)],ext:{side:-1,mat:'brick'},bb:[[E1,1]]});
   // L2 west wall: now an interior wall shared with the addition. Existing door stays (1); window beside fireplace becomes a door (2); bedroom window covered (3).
   W({lv:2,x0:0,z0:0,x1:0,z1:31.6,t:0.6,y0:-5.5,y1:3.5,ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),op('door',15.8,2.9,E2,6.9,{sw:[1,-1],isNew:true})],bb:[[E2,1],[E2,-1]]});
-  W({lv:4,x0:0,z0:0,x1:0,z1:31.6,t:TE,y0:3.5,y1:12.5,ext:{side:-1,mat:'brick',y1:4.6},bb:[[E4,1]]});
+  W({lv:4,x0:0,z0:0,x1:0,z1:31.6,t:TE,y0:3.5,y1:12.5,ops:[op('open0',18.75,3.1,E4+2.9,3.85,{noReveal:true})],ext:{side:-1,mat:'brick',y1:8.35},bb:[[E4,1]],paint:[{side:1,a0:16.4,a1:31.3,y0:E4,y1:CEIL[4],mat:'sage'}]});   // brick up to the mansard (as on the front)
   W({lv:1,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:-14.5,y1:-5.5,ext:{side:1,mat:'stone'},bb:[[E1,-1]]});
-  W({lv:2,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:-5.5,y1:3.5,ops:[Object.assign(win(8.0,4.2,E2,2.0,6.8,2),{dh:true})],ext:{side:1,mat:'brick'},bb:[[E2,-1]]});
-  W({lv:4,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:3.5,y1:12.5,ops:[op('open0',8.0,4.3,E4+2.4,4.4)],ext:{side:1,mat:'brick',y1:4.6},bb:[[E4,-1]]});
+  // front of the wing (front photo): a 3-light window with black shutters (06-house.js) under the dormer; brick up to the mansard (8.35 ft, level with the main roof's eave)
+  W({lv:2,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:-5.5,y1:3.5,ops:[win(8.0,4.6,E2,2.6,7.2,3)],ext:{side:1,mat:'brick'},bb:[[E2,-1]]});
+  W({lv:4,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:3.5,y1:12.5,ops:[op('open0',8.0,5.3,E4+2.9,3.85,{noReveal:true})],ext:{side:1,mat:'brick',y1:8.35},bb:[[E4,-1]],paint:[{side:-1,a0:0.3,a1:12.2,y0:E4,y1:CEIL[4],mat:'sage'}]});
   // wing east wall beside the living room, shared by levels 2/3/4
   W({lv:'S',x0:14.2,z0:0,x1:14.2,z1:12.2,t:0.5,y0:-5.5,y1:12.5,bb:[[E2,-1],[E3,1],[E4,-1]]});
   W({lv:4,x0:14.2,z0:12.2,x1:14.2,z1:15.7,t:TI,y0:3.5,y1:12.5,bb:[[E4,-1]]});
@@ -58,31 +62,34 @@ function buildSpec(){
   W({lv:4,x0:0.3,z0:13.1,x1:14.2,z1:13.1,y0:4.5,y1:12.5,ops:[door(10.5,2.6,E4,[-1,-1]),door(13.2,1.6,E4,[1,1])],bb:[[E4,-1],[E4,1]]});
   W({lv:4,x0:8.8,z0:13.1,x1:8.8,z1:16.4,y0:4.5,y1:12.5,bb:[[E4,1]]});
   W({lv:4,x0:4.4,z0:13.1,x1:4.4,z1:16.4,y0:4.5,y1:12.5});
-  W({lv:4,x0:0.3,z0:16.4,x1:12.2,z1:16.4,y0:4.5,y1:12.5,ops:[op('closet',2.2,3.6,E4,6.9),op('closet',6.6,3.6,E4,6.9)],bb:[[E4,1],[E4,-1]]});
-  W({lv:4,x0:12.2,z0:16.4,x1:12.2,z1:31.6,y0:4.5,y1:12.5,ops:[door(18.0,2.4,E4,[-1,-1]),door(30.2,2.2,E4,[1,1])],bb:[[E4,-1],[E4,1]]});
+  W({lv:4,x0:0.3,z0:16.4,x1:12.2,z1:16.4,y0:4.5,y1:12.5,ops:[op('closet',2.2,3.6,E4,6.9),op('closet',6.6,3.6,E4,6.9)],bb:[[E4,1],[E4,-1]],paint:[{side:1,a0:0.3,a1:12.2,y0:E4,y1:CEIL[4],mat:'sage'}]});
+  W({lv:4,x0:12.2,z0:16.4,x1:12.2,z1:31.6,y0:4.5,y1:12.5,ops:[door(18.0,2.4,E4,[-1,-1]),door(30.2,2.2,E4,[1,1])],bb:[[E4,-1],[E4,1]],paint:[{side:-1,a0:16.4,a1:31.3,y0:E4,y1:CEIL[4],mat:'sage'}]});
   W({lv:4,x0:12.2,z0:19.6,x1:14.2,z1:19.6,y0:4.5,y1:12.5,ops:[door(13.2,1.8,E4,[-1,1])]});
   W({lv:4,x0:17.3,z0:19.6,x1:17.3,z1:26.8,y0:4.5,y1:12.5,bb:[[E4,-1]]});
   W({lv:4,x0:12.2,z0:26.8,x1:18.5,z1:26.8,y0:4.5,y1:12.5,bb:[[E4,-1],[E4,1]]});
 
   // ---------- MAIN BLOCK exterior ----------
-  W({lv:1,x0:14.2,z0:0,x1:44.6,z1:0,t:TE,y0:-14.5,y1:-1,ops:[op('slide',21.7,7.8,E1,6.9),win(39.4,6.0,E1,3,6.8,3)],ext:{side:-1,mat:'brick'},bb:[[E1,1]]});
+  W({lv:1,x0:14.2,z0:0,x1:44.6,z1:0,t:TE,y0:-14.5,y1:-2.5,ops:[op('slide',21.7,7.8,E1,6.9),win(39.4,6.0,E1,3,6.8,3)],ext:{side:-1,mat:'brick'},bb:[[E1,1]]});
   W({lv:1,x0:44.6,z0:0,x1:44.6,z1:9.2,t:TE,y0:-14.5,y1:-1,ext:{side:1,mat:'brick'},bb:[[E1,-1]]});
   W({lv:1,x0:35.9,z0:9.2,x1:44.6,z1:9.2,t:TE,y0:-14.5,y1:-1,ext:{side:1,mat:'brick'},bb:[[E1,-1]]});
   W({lv:1,x0:35.9,z0:9.2,x1:35.9,z1:31.6,t:TE,y0:-14.5,y1:-1,ext:{side:1,mat:'brick'},bb:[[E1,-1]]});
   W({lv:1,x0:18.5,z0:31.6,x1:35.9,z1:31.6,t:TE,y0:-14.5,y1:-1,ext:{side:1,mat:'stone'},bb:[[E1,-1]]});
-  W({lv:3,x0:14.2,z0:0,x1:43.8,z1:0,t:TE,y0:-1,y1:8.6,ops:[win(22.05,9.6,E3,1.4,7.3,5),win(37,5.8,E3,1.4,7.3,3)],ext:{side:-1,mat:'brick'},bb:[[E3,1]],paint:[{side:1,a0:32.0,a1:43.5,y0:0,y1:8}]});
-  W({lv:3,x0:43.8,z0:0,x1:43.8,z1:10.6,t:TE,y0:-1,y1:8.6,ops:[op('slide',5.3,6.0,E3,6.9,{isNew:true})],ext:{side:1,mat:'brick'},bb:[[E3,-1]],paint:[{side:-1,a0:0.3,a1:10.3,y0:0,y1:8}]});
+  // back of the main level: white lap siding down to about 1.5 ft below the main floor, over the lower level's brick (back photo)
+  W({lv:3,x0:14.2,z0:0,x1:43.8,z1:0,t:TE,y0:-2.5,y1:8.3,ops:[win(22.05,9.6,E3,1.4,7.3,5),win(37,5.8,E3,1.4,7.3,3)],ext:{side:-1,mat:'sidingWhite'},bb:[[E3,1]],paint:[{side:1,a0:32.0,a1:43.5,y0:0,y1:8}]});
+  W({lv:3,x0:43.8,z0:0,x1:43.8,z1:10.6,t:TE,y0:-1,y1:8.3,ops:[op('slide',5.3,6.0,E3,6.9,{isNew:true})],ext:{side:1,mat:'sidingWhite'},bb:[[E3,-1]],paint:[{side:-1,a0:0.3,a1:10.3,y0:0,y1:8}]});
   W({lv:3,x0:35.6,z0:10.6,x1:43.8,z1:10.6,t:0.5,y0:-1,y1:8.6,bb:[[E3,-1],[E3,1]],paint:[{side:-1,a0:35.6,a1:43.5,y0:0,y1:8}]});
   // kitchen / dining wall, set back in line with the bar peninsula, with a cased opening between them; meets the living/dining wall (next block) in a clean corner
   W({lv:3,x0:32.0,z0:12.6,x1:35.6,z1:12.6,t:0.4,y0:-1,y1:8.6,ops:[op('open',33.65,2.7,E3,7.0)],bb:[[E3,-1],[E3,1]],paint:[{side:-1,a0:32.0,a1:35.4,y0:0,y1:8}]});
   W({lv:3,x0:43.8,z0:10.6,x1:54.1,z1:10.6,t:TE,y0:-1,y1:8.6,ops:[win(46.9,4.2,E3,4,7,2)],ext:{side:-1,mat:'brick'}});
-  W({lv:3,x0:54.1,z0:10.6,x1:54.1,z1:28.8,t:TE,y0:-1,y1:8.6,ext:{side:1,mat:'brick'}});
-  W({lv:3,x0:35.6,z0:28.8,x1:54.1,z1:28.8,t:TE,y0:-1,y1:8.6,ops:[op('garage',40.5,8.4,E3-0.5,7.3),op('garage',49.5,8.0,E3-0.5,7.3)],ext:{side:1,mat:'brick'}});
-  W({lv:3,x0:35.6,z0:10.6,x1:35.6,z1:31.6,t:0.5,y0:-1,y1:8.6,ops:[op('door',16.65,2.7,E3,6.8,{sw:[-1,-1],dark:true,closed:true})],ext:{side:1,mat:'brick',a0:28.8,a1:31.6},bb:[[E3,-1]]});
-  W({lv:3,x0:18.5,z0:31.6,x1:35.6,z1:31.6,t:TE,y0:-1,y1:8.6,ops:[op('dbl',21.2,4.4,E3,7.0),win(29.9,4.8,E3,3.45,7.1,3)],ext:{side:1,mat:'brick'},bb:[[E3,-1]]});
+  // (walls under the front and back eaves stop at 8.3 ft, just under the roof surface at their outer face, so no brick shows through the roof)
+  // garage front flush with the kitchen's front wall (front photo), so the garage is about 2.8 ft deeper than the listing plan's 17'10"
+  W({lv:3,x0:54.1,z0:10.6,x1:54.1,z1:31.6,t:TE,y0:-1,y1:8.6,ext:{side:1,mat:'brick'}});
+  W({lv:3,x0:35.6,z0:31.6,x1:54.1,z1:31.6,t:TE,y0:-1,y1:8.3,ops:[op('garage',40.5,8.4,E3-0.5,7.3),op('garage',49.5,8.0,E3-0.5,7.3)],ext:{side:1,mat:'brick'}});
+  W({lv:3,x0:35.6,z0:10.6,x1:35.6,z1:31.6,t:0.5,y0:-1,y1:8.3,ops:[op('door',16.65,2.7,E3,6.8,{sw:[-1,-1],dark:true,closed:true})],bb:[[E3,-1]]});
+  W({lv:3,x0:18.5,z0:31.6,x1:35.6,z1:31.6,t:TE,y0:-1,y1:8.3,ops:[op('dbl',21.2,4.4,E3,7.0),win(29.9,4.8,E3,3.45,7.1,3)],ext:{side:1,mat:'brick'},bb:[[E3,-1]]});
   // garage foundation (exposed where the lot drops away at the rear)
   W({lv:'X',x0:35.6,z0:10.6,x1:54.1,z1:10.6,t:TE,y0:-17,y1:-1,ext:{side:-1,mat:'brick'}});
-  W({lv:'X',x0:54.1,z0:10.6,x1:54.1,z1:28.8,t:TE,y0:-17,y1:-1,ext:{side:1,mat:'brick'}});
+  W({lv:'X',x0:54.1,z0:10.6,x1:54.1,z1:31.6,t:TE,y0:-17,y1:-1,ext:{side:1,mat:'brick'}});
 
   // ---------- MAIN interior ----------
   W({lv:1,x0:14.7,z0:12.2,x1:35.9,z1:12.2,y0:-13.5,y1:-5.5,ops:[op('door2',23.95,3.6,E1,6.8),door(33.6,2.4,E1,[1,1])],bb:[[E1,-1],[E1,1]]});
@@ -128,11 +135,11 @@ function buildSpec(){
   F(4,0.3,12.2,16.4,31.3,'oak'); F(4,12.2,17.3,19.6,26.8,'tileBath'); F(4,12.2,18.5,26.8,31.3,'tileBath');
   F(2,A.x0+0.3,0,A.z0+0.3,18.4,'oak'); F(2,-13.7,0,18.4,A.z1-0.3,'oak'); F(2,A.x0+0.3,-13.7,18.4,A.z1-0.3,'tileBath');
   // garage slab
-  F(3,35.9,53.8,10.9,28.8,'concrete',-0.5);
+  F(3,35.9,53.8,10.9,31.3,'concrete',-0.5);
   // ---------- CEILINGS ----------
   C(1,0,44.6,0,15.7); C(1,0,14.2,15.7,31.6); C(1,25,35.9,15.7,31.6); C(1,14.2,25,19.6,31.6); C(2,0,14.2,0,31.6); C(2,14.2,18.5,19.6,31.6); C(3,14.2,43.8,0,10.6); C(3,18.5,35.6,10.6,31.6); C(3,14.2,19.2,10.6,15.7);
   C(4,0,14.2,0,31.6); C(4,14.2,19.2,15.7,19.6); C(4,12.2,18.5,19.6,31.6);
-  C(2,-21.5,0,12.9,32.5); C(3,35.6,54.1,10.6,28.8,8);
+  C(2,-21.5,0,12.9,32.5); C(3,35.6,54.1,10.6,31.6,8);
 
   // ---------- ROOMS ----------
   R(1,'Recreation room',"18'5\" × 31'4\"",0.3,18.5,15.7,31.3); R(1,'Recreation room','',0.3,14.7,0.3,15.7);
@@ -146,7 +153,7 @@ function buildSpec(){
   R(2,'Primary bedroom',"13'8\" × 14'3\"",-13.7,0,18.4,A.z1,true); R(2,'Primary bath',"8' × 14'4\"",A.x0,-13.7,18.4,A.z1,true);
   R(3,'Living room',"18'5\" × 10'7\"",14.2,31.8,0.3,12.2); R(3,'Dining area',"12'0\" × 10'3\"",31.8,43.8,0.3,10.6);R(3,'Dining area','',31.8,35.6,10.6,12.4);
   R(3,'Kitchen',"22'2\" × 22'4\"",23.6,35.6,12.2,31.3); R(3,'Foyer',"5'11\" × 11'11\"",18.5,23.6,19.6,31.3);
-  R(3,'Garage',"18'6\" × 17'10\"",35.6,54.1,10.6,28.8); R(3,'Stair hall','',19.2,23.6,12.2,19.6);
+  R(3,'Garage',"18'6\" × 20'7\" as modeled",35.6,54.1,10.6,31.6); R(3,'Stair hall','',19.2,23.6,12.2,19.6);
   R(3,'New deck',"10'4\" × 12'9\" as modeled",43.8,54.1,-2.15,10.35,true); R(3,'Entry walk',"17'11\" × 4'5\"",18.1,36,31.6,36);
   R(1,'Deck',"14'10\" × 8'8\"",14.7,29.7,-8.9,0); R(1,'Patio','',-27,0,-3.75,6.5);
   R(4,'Bedroom',"11'9\" × 12'10\"",0.3,12.2,0.3,13.1); R(4,'Primary bedroom',"11'9\" × 15'2\"",0.3,12.2,16.4,31.3);

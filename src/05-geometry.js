@@ -58,7 +58,9 @@ function quadSlab(tag,mat,pts,th,flags){
 // beam between two points
 function beam(tag,mat,a,b,w,h,flags){const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b);const d=B.clone().sub(A);const L=d.length();d.normalize();
   let side=new THREE.Vector3().crossVectors(d,new THREE.Vector3(0,1,0));if(side.lengthSq()<1e-6)side.set(1,0,0);side.normalize();
-  const up=new THREE.Vector3().crossVectors(side,d).normalize();
+  // d x side (not side x d): a right-handed basis, so the box's faces point outward (a mirrored one turned every beam inside out, and a roof
+  // slab passing through one showed its textured edge in front of the beam's far faces)
+  const up=new THREE.Vector3().crossVectors(d,side).normalize();
   const m=new THREE.Matrix4().makeBasis(side,up,d);m.setPosition(A.clone().add(B).multiplyScalar(.5));
   addGeo(tag,mat,new THREE.BoxGeometry(w,h,L),m,flags);}
 // polygon wall: pts in (a,y), extruded across thickness t around fixed coordinate c
@@ -87,12 +89,12 @@ function wallBuild(w){
     PIECES.push({tag,ax,a0:p[0],a1:p[1],c,t,y0:p[2],y1:p[3],isNew:!!w.isNew});
     if(ax==='x')addCol(p[0],p[1],c-t/2,c+t/2,p[2],p[3]);else addCol(c-t/2,c+t/2,p[0],p[1],p[2],p[3]);}
   // skins (exterior cladding / paint) clipped to their own range, honoring openings
-  const skin=(s,mat,th,off)=>{const sy0=s.y0!==undefined?s.y0:w.y0,sy1=s.y1!==undefined?s.y1:w.y1,sa0=s.a0!==undefined?s.a0:a0,sa1=s.a1!==undefined?s.a1:a1;
+  const skin=(s,mat,th,off,paint)=>{const sy0=s.y0!==undefined?s.y0:w.y0,sy1=s.y1!==undefined?s.y1:w.y1,sa0=s.a0!==undefined?s.a0:a0,sa1=s.a1!==undefined?s.a1:a1;
     const f=c+s.side*(t/2+off),cA=Math.min(f,f+s.side*th),cB=Math.max(f,f+s.side*th);
     for(const p of pieces){const pa0=Math.max(p[0],sa0),pa1=Math.min(p[1],sa1),py0=Math.max(p[2],sy0),py1=Math.min(p[3],sy1);
       if(pa1-pa0>.01&&py1-py0>.01)B(mat,pa0,pa1,cA,cB,py0,py1);}
-    // reveal returns into openings for cladding
-    if(mat!=='charcoal')for(const o of ops){if(o.k==='bay')continue;const oa0=o.c-o.w/2,oa1=o.c+o.w/2;if(oa1<sa0||oa0>sa1)continue;
+    // reveal returns into openings for cladding (not for noReveal openings: ones hidden behind something else, like the front dormer)
+    if(!paint)for(const o of ops){if(o.k==='bay'||o.noReveal)continue;const oa0=o.c-o.w/2,oa1=o.c+o.w/2;if(oa1<sa0||oa0>sa1)continue;
       const y0=Math.max(o.y0,sy0),y1=Math.min(o.y1,sy1);if(y1<=y0)continue;
       B(mat,oa0-0.01,oa0+0.05,cA,cB,y0,y1);B(mat,oa1-0.05,oa1+0.01,cA,cB,y0,y1);}
   };
@@ -102,7 +104,8 @@ function wallBuild(w){
     for(const [end,dir,reach] of [[a0,-1,e.a0===undefined||e.a0<=a0+.01],[a1,1,e.a1===undefined||e.a1>=a1-.01]]){
       if(!reach)continue;for(const p of pieces)if(p[0]<=end+.01&&p[1]>=end-.01){const y0=Math.max(p[2],sy0),y1=Math.min(p[3],sy1);
         if(y1-y0>.01)B(e.mat,dir<0?end-.02:end,dir<0?end:end+.02,cA,cB,y0,y1);}}}
-  if(w.paint)for(const pt of w.paint){skin(Object.assign({mat:'charcoal'},pt),'charcoal',0.02,0.003);
+  // paint: a thin coat of pt.mat (default the dining room's charcoal) over one side of the wall
+  if(w.paint)for(const pt of w.paint){const pm=pt.mat||'charcoal';skin(pt,pm,0.02,0.003,true);if(pm!=='charcoal')continue;
     // chair rail + baseboard in the dining room
     const f=c+pt.side*(t/2+.02);
     for(const p of pieces){const pa0=Math.max(p[0],pt.a0),pa1=Math.min(p[1],pt.a1);if(pa1-pa0<.05)continue;

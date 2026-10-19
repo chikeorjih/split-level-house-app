@@ -13,46 +13,64 @@ function hipRoof(tag,mat,x0,x1,z0,z1,y0,rise,th,fl){th=th||.35;const wx=x1-x0,wz
   else{const h=wx/2,a0=z0+h,a1=z1-h,xc=(x0+x1)/2;
     quadSlab(tag,mat,[[x1,y0,z0],[x1,y0,z1],[xc,yr,a1],[xc,yr,a0]],th,fl);quadSlab(tag,mat,[[x0,y0,z1],[x0,y0,z0],[xc,yr,a0],[xc,yr,a1]],th,fl);
     quadSlab(tag,mat,[[x0,y0,z0],[x1,y0,z0],[xc,yr,a0],[xc,yr,a0]],th,fl);quadSlab(tag,mat,[[x1,y0,z1],[x0,y0,z1],[xc,yr,a1],[xc,yr,a1]],th,fl);}}
-// dormers on the mansard: centre x, side (+1 front, -1 back), width; the mansard is left open between each dormer's base and its ceiling
-const DORMERS=[[8.0,1,5.2],[4.05,-1,5.4]],DORMER_Y0=5.55,DORMER_YH=11.35;
+// dormers on the mansard: centre (along the wall), side (+1 front, -1 back or west), width, options ({axis:'x'} for one on the west face,
+// lights: panes across the window); the mansard is left open between each dormer's base and its ceiling
+// (the back has no dormer: it is a flat siding wall, see the wing's back walls in 02-spec.js)
+// the front of the wing (front photo): brick runs up to WING_EAVE and the mansard is a short band above it; the dormer is a white box
+// that drops a little below the mansard's lower edge, with a white panel under its 3-light window
+// the primary bedroom's west window (photo from inside): a single-light casement in a small dormer on the west face, just past the
+// closet wall
+const DORMERS=[[8.0,1,5.8],[18.75,-1,3.6,{axis:'x',lights:1}]],DORMER_Y0=5.55,DORMER_YH=11.35,DORMER_WIN=[7.5,10.95],WING_EAVE=8.35;   // WING_EAVE: level with the main roof's front eave (front photo)
 function mansard(){
   const X0=0,X1=19.2,Z0=0,Z1=31.6,d0=1.2,d1=.25,YT=12.7;
-  const eave=(x,z)=>{if(x<0.3)return addRoofY(z)+.15;if(z<0)return x<=14.2?4.4:8.6;if(z>31.6)return x<18.5?4.4:9.05;return z<ROOF.RID?roofB(z):roofA(z);};
-  const Ee=[[X0-d0,Z0-d0],[X1+d0,Z0-d0],[X1+d0,Z1+d0],[X0-d0,Z1+d0]],Tt=[[X0-d1,Z0-d1],[X1+d1,Z0-d1],[X1+d1,Z1+d1],[X0-d1,Z1+d1]];
+  const eave=(x,z)=>{if(x<0.3)return WING_EAVE;if(z<0)return x<=14.2?4.4:8.6;if(z>31.6)return WING_EAVE;return z<ROOF.RID?roofB(z):roofA(z);};
+  // the back (z = 0) is a flat siding wall up to the cap, so the slate skirt runs on the other three sides only and its sides end flush
+  // with that wall
+  const Ee=[[X0-d0,Z0],[X1+d0,Z0],[X1+d0,Z1+d0],[X0-d0,Z1+d0]],Tt=[[X0-d1,Z0],[X1+d1,Z0],[X1+d1,Z1+d1],[X0-d1,Z1+d1]];
   const L=(p,q,s)=>[p[0]+(q[0]-p[0])*s,p[1]+(q[1]-p[1])*s];
-  for(let i=0;i<4;i++){const j=(i+1)%4,hz=i%2===0,a0=hz?Ee[i][0]:Ee[i][1],a1=hz?Ee[j][0]:Ee[j][1];
+  for(let i=1;i<4;i++){const j=(i+1)%4,hz=i%2===0,a0=hz?Ee[i][0]:Ee[i][1],a1=hz?Ee[j][0]:Ee[j][1];
     const ts=new Set(),n=Math.ceil(Math.abs(a1-a0)/1.5);for(let k=0;k<=n;k++)ts.add(k/n);
     // dormers on this edge (front edge is i=2, back edge i=0): their sides become breakpoints
-    const dms=hz?DORMERS.filter(d=>d[1]===(i===2?1:-1)):[];
-    for(const b of (hz?[0.3,14.2,18.5,...dms.flatMap(d=>[d[0]-d[2]/2,d[0]+d[2]/2])]:[0,ROOF.RID,31.6])){const t=(b-a0)/(a1-a0);if(t>.003&&t<.997){ts.add(t-.002);ts.add(t+.002);}}
+    const dms=hz?DORMERS.filter(d=>!(d[3]&&d[3].axis==='x')&&d[1]===(i===2?1:-1)):(i===3?DORMERS.filter(d=>d[3]&&d[3].axis==='x'):[]);
+    for(const b of [...(hz?[0.3,14.2,18.5]:[0,ROOF.RID,31.6]),...dms.flatMap(d=>[d[0]-d[2]/2,d[0]+d[2]/2])]){const t=(b-a0)/(a1-a0);if(t>.003&&t<.997){ts.add(t-.002);ts.add(t+.002);}}
     const T=[...ts].sort((p,q)=>p-q);
     for(let k=0;k<T.length-1;k++){const ea=L(Ee[i],Ee[j],T[k]),eb=L(Ee[i],Ee[j],T[k+1]),ta=L(Tt[i],Tt[j],T[k]),tb=L(Tt[i],Tt[j],T[k+1]);
-      const A=[ea[0],eave(ea[0],ea[1]),ea[1]],Bv=[eb[0],eave(eb[0],eb[1]),eb[1]],C=[tb[0],YT,tb[1]],D=[ta[0],YT,ta[1]],mx=(ea[0]+eb[0])/2;
+      const A=[ea[0],eave(ea[0],ea[1]),ea[1]],Bv=[eb[0],eave(eb[0],eb[1]),eb[1]],C=[tb[0],YT,tb[1]],D=[ta[0],YT,ta[1]],mx=hz?(ea[0]+eb[0])/2:(ea[1]+eb[1])/2;
       if(dms.some(d=>Math.abs(mx-d[0])<d[2]/2)){
         // across a dormer: keep the slope below its base and above its ceiling, open in between
         const at=(e,t,y)=>{const f=Math.min(1,Math.max(0,(y-e[1])/(t[1]-e[1])));return [e[0]+(t[0]-e[0])*f,e[1]+(t[1]-e[1])*f,e[2]+(t[2]-e[2])*f];};
-        quadSlab('roof','slateRoof',[A,Bv,at(Bv,C,DORMER_Y0),at(A,D,DORMER_Y0)],.25);quadSlab('roof','slateRoof',[at(A,D,DORMER_YH),at(Bv,C,DORMER_YH),C,D],.25);}
+        // (no slope below the dormer when it starts below the eave: that strip would have no height, and a flat slab renders black)
+        if(DORMER_Y0>Math.max(A[1],Bv[1])+.05)quadSlab('roof','slateRoof',[A,Bv,at(Bv,C,DORMER_Y0),at(A,D,DORMER_Y0)],.25);quadSlab('roof','slateRoof',[at(A,D,DORMER_YH),at(Bv,C,DORMER_YH),C,D],.25);}
       else quadSlab('roof','slateRoof',[A,Bv,C,D],.25);}}
   hipRoof('roof','roof',X0-d1-.2,X1+d1+.2,Z0-d1-.2,Z1+d1+.2,YT-.05,3.0,.3);
-  box('roof','frameDark',X0-d0-.05,18.5,4.25,4.45,Z1+.3,Z1+d0+.05);box('roof','frameDark',14.2,X1+d0+.05,8.5,8.68,Z0-d0-.05,Z0-.3);box('roof','frameDark',18.5,X1+d0+.05,8.95,9.1,Z1+.3,Z1+d0+.05);box('roof','frameDark',18.5,X1+d0+.05,8.2,9.1,Z1+d0-.05,Z1+d0+.05);box('3','brick',18.5,19.2,8.6,9.0,31.3,31.9);box('roof','frameDark',X0+.3,14.2,4.25,4.45,Z0-d0-.05,Z0-.3);
+  {const dx=DORMERS.filter(d=>!(d[3]&&d[3].axis==='x')).map(d=>[d[0]-d[2]/2,d[0]+d[2]/2]).sort((a,b)=>a[0]-b[0]);let xa=X0-d0-.05;
+    for(const [a,b] of [...dx,[X1+d0+.05,X1+d0+.05]]){if(a>xa)box('roof','trim',xa,a,WING_EAVE-.25,WING_EAVE,Z1+.3,Z1+d0+.05);xa=Math.max(xa,b);}
+    const dz=[[6.85,12.95],...DORMERS.filter(d=>d[3]&&d[3].axis==='x').map(d=>[d[0]-d[2]/2,d[0]+d[2]/2])].sort((a,b)=>a[0]-b[0]);let za=Z0;
+    for(const [a,b] of [...dz,[Z1+d0+.05,Z1+d0+.05]]){if(a>za)box('roof','trim',X0-d0-.05,X0-.3,WING_EAVE-.25,WING_EAVE,za,a);za=Math.max(za,b);}}// back: the wall between the wing and the main roof, flush with the siding around it; its east end follows the mansard's side slope
+    polyWall('roof','sidingWhite','x',(Z0-.44+Z0+.15)/2,.59,[[14.2,8.3],[X1+d0,8.3],[X1+d0,eave(X1+d0,Z0)],[X1+d1,YT-.05],[14.2,YT-.05]]);box('3','brick',18.5,19.2,8.6,9.0,31.3,31.9);
 }
-function dormer(cx,side,w){const wz=side>0?31.6:0,f=wz+side*1.05,y0=DORMER_Y0,yh=DORMER_YH,hw=w/2,ww=w-.9,wy0=6.9,wy1=10.95,fr=.14;
+function dormer(cx,side,w,opt){opt=opt||{};const ax=opt.axis==='x',lights=opt.lights||3;
+  // built in (along, depth) terms: along runs with the wall (x, or z for a west dormer), depth out from it (z, or x)
+  const wz=ax?0:(side>0?31.6:0),f=wz+side*1.05,y0=DORMER_Y0,yh=DORMER_YH,hw=w/2,ww=w-.9,wy0=DORMER_WIN[0],wy1=DORMER_WIN[1],fr=.14;
+  const bx=(tag,mat,a0,a1,b0,b1,d0,d1)=>ax?box(tag,mat,d0,d1,b0,b1,a0,a1):box(tag,mat,a0,a1,b0,b1,d0,d1);
   const Z=(a,b)=>[Math.min(a,b),Math.max(a,b)];const [za,zb]=Z(wz,f),[fa,fb]=Z(f-side*.14,f);
-  for(const s of [-1,1]){const x=cx+s*(hw-.12);box('4','dormerClad',x-.12,x+.12,y0,yh,za,zb);PIECES.push({tag:'4',ax:'z',a0:za,a1:zb,c:x,t:.24,y0,y1:yh});
-    const xi=cx+s*(hw-.26);box('4','wall',xi-.02,xi+.02,wy0,yh-.1,za,zb);}
-  box('4','dormerClad',cx-hw,cx+hw,y0,wy0,fa,fb);box('4','dormerClad',cx-hw,cx+hw,wy1,yh,fa,fb);
-  box('4','dormerClad',cx-hw,cx-ww/2,wy0,wy1,fa,fb);box('4','dormerClad',cx+ww/2,cx+hw,wy0,wy1,fa,fb);
-  box('4','trim',cx-ww/2,cx+ww/2,wy0,wy0+fr,fa,fb);box('4','trim',cx-ww/2,cx+ww/2,wy1-fr,wy1,fa,fb);
-  box('4','trim',cx-ww/2,cx-ww/2+fr,wy0,wy1,fa,fb);box('4','trim',cx+ww/2-fr,cx+ww/2,wy0,wy1,fa,fb);
-  for(const k of [-1,1]){const x=cx+k*ww/6;box('4','trim',x-.06,x+.06,wy0,wy1,fa,fb);}
-  const [ga,gb]=Z(f-side*.09,f-side*.05);box('4','glass',cx-ww/2+fr,cx+ww/2-fr,wy0+fr,wy1-fr,ga,gb);
-  PIECES.push({tag:'4',ax:'x',a0:cx-ww/2,a1:cx+ww/2,c:f-side*.07,t:.12,y0:wy0,y1:wy1,glass:true});
-  box('4','ceiling',cx-hw+.24,cx+hw-.24,yh-.1,yh,za,zb);box('4','trim',cx-hw+.24,cx+hw-.24,wy0-.1,wy0,za,zb);
-  // segmental arched roof
+  for(const s of [-1,1]){const x=cx+s*(hw-.12);bx('4','dormerClad',x-.12,x+.12,y0,yh,za,zb);PIECES.push({tag:'4',ax:ax?'x':'z',a0:za,a1:zb,c:x,t:.24,y0,y1:yh});
+    const xi=cx+s*(hw-.26);bx('4','wall',xi-.02,xi+.02,wy0,yh-.1,za,zb);}
+  bx('4','dormerClad',cx-hw,cx+hw,y0,wy0,fa,fb);bx('4','dormerClad',cx-hw,cx+hw,wy1,yh,fa,fb);
+  bx('4','dormerClad',cx-hw,cx-ww/2,wy0,wy1,fa,fb);bx('4','dormerClad',cx+ww/2,cx+hw,wy0,wy1,fa,fb);
+  bx('4','trim',cx-ww/2,cx+ww/2,wy0,wy0+fr,fa,fb);bx('4','trim',cx-ww/2,cx+ww/2,wy1-fr,wy1,fa,fb);
+  bx('4','trim',cx-ww/2,cx-ww/2+fr,wy0,wy1,fa,fb);bx('4','trim',cx+ww/2-fr,cx+ww/2,wy0,wy1,fa,fb);
+  for(let k=1;k<lights;k++){const x=cx-ww/2+ww*k/lights;bx('4','trim',x-.06,x+.06,wy0,wy1,fa,fb);}
+  const [ga,gb]=Z(f-side*.09,f-side*.05);bx('4','glass',cx-ww/2+fr,cx+ww/2-fr,wy0+fr,wy1-fr,ga,gb);
+  PIECES.push({tag:'4',ax:ax?'z':'x',a0:cx-ww/2,a1:cx+ww/2,c:f-side*.07,t:.12,y0:wy0,y1:wy1,glass:true});
+  bx('4','ceiling',cx-hw+.24,cx+hw-.24,yh-.1,yh,za,zb);bx('4','trim',cx-hw+.24,cx+hw-.24,wy0-.1,wy0,za,zb);
+  // segmental arched roof, white
   const hw2=hw+.2,rise=.8,R=(hw2*hw2+rise*rise)/(2*rise),a=Math.asin(hw2/R),cY=yh+rise-R,len=1.45,zc=wz+side*(1.05-len/2+.14);
-  addGeo('4','slateRoof',new THREE.CylinderGeometry(R,R,len,28,1,true,Math.PI-a,2*a),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(cx,cY,zc));
+  const rot=ax?new THREE.Matrix4().makeRotationY(Math.PI/2).multiply(new THREE.Matrix4().makeRotationX(Math.PI/2)):new THREE.Matrix4().makeRotationX(Math.PI/2);
+  addGeo('4','dormerClad',new THREE.CylinderGeometry(R,R,len,28,1,true,Math.PI-a,2*a),rot.setPosition(ax?zc:cx,cY,ax?cx:zc));
   const sh=new THREE.Shape();sh.absarc(0,0,R-.02,Math.PI/2+a,Math.PI/2-a,true);sh.closePath();
-  addGeo('4','dormerClad',new THREE.ExtrudeGeometry(sh,{depth:.14,bevelEnabled:false,curveSegments:24}),new THREE.Matrix4().makeTranslation(cx,cY,side>0?f-.14:f));
+  const fz=side>0?f-.14:f,face=ax?new THREE.Matrix4().makeRotationY(Math.PI/2).setPosition(fz,cY,cx):new THREE.Matrix4().makeTranslation(cx,cY,fz);
+  addGeo('4','dormerClad',new THREE.ExtrudeGeometry(sh,{depth:.14,bevelEnabled:false,curveSegments:24}),face);
 }
 // ================= HOUSE ASSEMBLY =================
 let SPEC;
@@ -62,8 +80,8 @@ function buildHouse(){
   for(const f of SPEC.floors){OWNER={key:'F@'+(f.loc?locKey(f.loc):f.x0+','+f.z0),kind:'floor',fn:'F',loc:f.loc,label:f.mat+' floor'};box(String(f.lv),f.mat,f.x0,f.x1,f.y-.9,f.y,f.z0,f.z1);addWalk(f.x0,f.x1,f.z0,f.z1,f.y);}
   for(const c of SPEC.ceils){OWNER={key:'C@'+(c.loc?locKey(c.loc):c.x0+','+c.z0),kind:'ceiling',fn:'C',loc:c.loc,label:'ceiling'};box('C'+c.lv,'ceiling',c.x0,c.x1,c.y,c.y+.12,c.z0,c.z1);}
   OWNER=null;
-  // recessed can lights (hidden with ceilings)
-  const cans=[[2,2,12.5,2,17],[3,16,30,2,10],[3,25,34,15,30],[3,19.5,22.5,13,30],[4,2,11,2,12],[4,2,11,18,30],[1,3,34,3,28],[2,-20,-2,20,31],[2,2,10,21,30]];
+  // recessed can lights (hidden with ceilings); the two upper-floor bedrooms have a ceiling fan with a light instead (07-furniture.js)
+  const cans=[[2,2,12.5,2,17],[3,16,30,2,10],[3,25,34,15,30],[3,19.5,22.5,13,30],[1,3,34,3,28],[2,-20,-2,20,31],[2,2,10,21,30]];
   for(const [lv,x0,x1,z0,z1] of cans){const y=CEIL[lv];for(let x=x0;x<=x1;x+=Math.max(3.5,(x1-x0)/3))for(let z=z0;z<=z1;z+=Math.max(3.5,(z1-z0)/3)){
     addGeo('C'+lv,'light',new THREE.CylinderGeometry(.22,.22,.04,14),M(x,y-.01,z));addGeo('C'+lv,'trim',new THREE.TorusGeometry(.25,.03,5,16),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(x,y-.02,z));}}
 
@@ -94,26 +112,39 @@ function buildHouse(){
   box('2','tvScreen',1.6,1.72,e2+5.5,e2+7.35,8.1,11.5);box('2','black',1.6,1.62,e2+5.45,e2+7.4,8.05,11.55);
 
   // ---------- roofs (matched to the street photo) ----------
-  // main block + garage: one continuous low hip, ridge east-west, hipped at the garage end
+  // main block + garage: one continuous roof, ridge east-west, ending in a gable over the garage's east wall (aerial photo)
   const RF=(pts)=>quadSlab('roof','roof',pts,.38),A=roofA,B=roofB,RY=ROOF.RY,RID=ROOF.RID,GE=roofA(29.6);
   RF([[19.2,RY,RID],[35.6,RY,RID],[35.6,A(32.4),32.4],[19.2,A(32.4),32.4]]);
-  RF([[35.6,RY,RID],[45.0,RY,RID],[54.9,GE,29.6],[35.6,GE,29.6]]);
+  // garage front: the main roof's front slope carried on to the gable, eave level with the main roof's (z 32.4)
+  RF([[35.6,RY,RID],[54.9,RY,RID],[54.9,A(32.4),32.4],[35.6,A(32.4),32.4]]);
   RF([[19.2,RY,RID],[44.6,RY,RID],[44.6,8.4,-0.8],[19.2,8.4,-0.8]]);
-  RF([[44.6,RY,RID],[45.0,RY,RID],[54.9,GE,9.8],[44.6,GE,9.8]]);
-  RF([[54.9,GE,9.8],[54.9,GE,29.6],[45.0,RY,RID],[45.0,RY,RID]]);
-  polyWall('3','brick','z',35.6,.5,[[28.8,8.6],[28.8,A(28.8)],[31.6,A(31.6)],[31.6,8.6]]);
-  polyWall('3','brick','z',44.6,.4,[[9.8,GE-.2],[9.8,B(9.8)],[RID,RY-.05]]);
-  polyWall('3','brick','z',43.8,.6,[[0,8.45],[10.6,8.45],[10.6,B(10.6)],[0,B(0)]]);
-  box('3','brick',35.6,54.4,8.6,GE+.1,28.5,29.1);box('3','brick',53.8,54.4,8.6,GE+.1,10.3,29.1);box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
+  RF([[44.6,RY,RID],[54.9,RY,RID],[54.9,GE,9.8],[44.6,GE,9.8]]);
+  // the gable: white siding over the garage's east brick wall, white rake boards along the roof's edge
+  {const Bg=z=>RY-(RID-z)*ROOF.PR;polyWall('3','sidingWhite','z',54.1,.5,[[10.3,8.6],[10.3,Bg(10.3)-.12],[RID,RY-.12],[31.9,A(31.9)-.12],[31.9,8.6]]);
+    beam('roof','trim',[54.98,A(32.4)-.2,32.45],[54.98,RY-.2,RID],.2,.48);beam('roof','trim',[54.98,RY-.2,RID],[54.98,GE-.2,9.75],.2,.48);}
+  // the dining wing's gable, standing above the garage's steeper rear slope (aerial photo): white siding with a white rake board
+  polyWall('3','sidingWhite','z',44.6,.4,[[9.8,GE-.2],[9.8,B(9.8)-.1],[RID,RY-.1]]);beam('roof','trim',[44.68,B(-0.8)-.2,-0.85],[44.68,RY-.2,RID],.2,.48);
+  polyWall('3','sidingWhite','z',43.8,.6,[[0,8.3],[10.6,8.3],[10.6,B(10.6)-.1],[0,B(0)-.1]]);   // the dining room's small gable: siding, as on the wall below
+box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
   // fascia along the front eaves
-  box('roof','frameDark',23.7,35.6,A(32.4)-.55,A(32.4)-.05,32.35,32.5);box('roof','frameDark',35.6,54.95,GE-.55,GE-.05,29.55,29.7);
+  // white fascia band (front photo): 3 in tall, flush with the band under the mansard (same height, same front face), then on across the garage
+  box('roof','trim',19.2,54.95,A(32.4)-.3,A(32.4)-.05,32.35,32.85);
+  // white fascia on the rear eaves and the roof's open ends too, over the cut edges of the roof slabs
+  box('roof','trim',19.15,44.65,8.0,8.4,-1.25,-0.75);box('roof','trim',44.6,54.95,GE-.4,GE,9.35,9.85);
+  beam('roof','trim',[19.12,8.4-.2,-0.85],[19.12,B(0.1)-.2,0.1],.2,.48);
   // upper floor: mansard with slate-look skirt, low hipped cap, arched dormers front and back
   mansard();for(const d of DORMERS)dormer(...d);
-  // entry portico: small hip on two dark posts over the front doors
-  hipRoof('roof','roof',19.0,23.6,31.6,35.5,7.75,1.1);
-  box('3','frameDark',19.0,23.6,7.35,7.8,35.0,35.5);box('3','frameDark',19.0,23.6,7.72,7.8,31.6,35.5);
-  for(const x of [19.3,23.3]){box('3','frameDark',x-.22,x+.22,-0.5,7.4,35.03,35.47);addCol(x-.22,x+.22,35.03,35.47,-0.5,7.4);}
-  for(const [x,z] of [[18.75,31.98],[45.0,29.15],[35.95,29.15]]){box('3','blackMetal',x-.22,x+.22,5.6,6.5,z,z+.32);box('3','shade',x-.17,x+.17,5.68,6.38,z+.06,z+.3);LAMPS.push({v:new THREE.Vector3(x,6.0,z+.6),k:'outdoor'});}
+  // front photo: black shutters either side of the wing's window under the dormer, and a wide white surround on the kitchen window
+  {const zf=31.6+.3+.14,e2=E[2];for(const s of [-1,1]){const xc=8.0+s*(2.3+.57);box('2','shutter',xc-.57,xc+.57,e2+2.45,e2+7.35,zf,zf+.1);
+      for(const y of [e2+3.6,e2+6.2])box('2','shutter',xc-.5,xc+.5,y,y+.08,zf+.1,zf+.13);}
+    const kx=29.9,kw=4.8/2,k0=E[3]+3.45,k1=E[3]+7.1,b=.55,z0=zf,z1=zf+.22;
+    box('3','trim',kx-kw-b,kx+kw+b,k0-b,k0,z0,z1);box('3','trim',kx-kw-b,kx+kw+b,k1,k1+b,z0,z1);box('3','trim',kx-kw-b,kx-kw,k0,k1,z0,z1);box('3','trim',kx+kw,kx+kw+b,k0,k1,z0,z1);}
+  // entry (front photo): a flat canopy at the main roof's eave, white fascia and soffit, on two slim white posts; the left post stands
+  // against the wing's corner, and both run down to the landing
+  {const ey=A(32.4),x0=18.5,x1=23.7,z1=35.5;box('roof','metalRoof',x0,x1,ey-.2,ey-.05,32.4,z1);
+    box('roof','trim',x0,x1,ey-.3,ey-.05,z1-.15,z1);box('roof','trim',x1-.15,x1,ey-.3,ey-.05,32.85,z1);box('3','trim',x0,x1,ey-.35,ey-.25,31.6,z1);
+    for(const x of [18.75,23.4]){box('3','trim',x-.17,x+.17,-0.5,ey-.35,z1-.42,z1-.08);addCol(x-.17,x+.17,z1-.42,z1-.08,-0.5,ey-.35);}}
+  for(const [x,z] of [[18.75,31.98],[45.0,31.95],[35.95,31.95]]){box('3','blackMetal',x-.22,x+.22,5.6,6.5,z,z+.32);box('3','shade',x-.17,x+.17,5.68,6.38,z+.06,z+.3);LAMPS.push({v:new THREE.Vector3(x,6.0,z+.6),k:'outdoor'});}
   // addition: brick box under a near-flat dark standing-seam roof (draining to the rear), dark fascia
   quadSlab('roof','metalRoof',[[-21.85,addRoofY(-2.0)+.12,-2.0],[0.2,addRoofY(-2.0)+.12,-2.0],[0.2,addRoofY(32.85)+.12,32.85],[-21.85,addRoofY(32.85)+.12,32.85]],.3,'new');
   polyWall('2','brick','z',-21.5,.6,[[-1.65,3.85],[32.5,3.85],[32.5,4.6],[-1.65,3.92]]);

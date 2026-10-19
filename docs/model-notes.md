@@ -27,3 +27,4 @@ The listing plan labels these "1st" to "4th floor". Every flight of stairs share
 - **Exterior style:** `assets/reference/photos/front-exterior-concept.jpg` (mansard upper floor, flat-roof brick addition, continuous hip roof over the main block and garage).
 - **Interior finishes:** the listing photos.
 - **Family room furniture:** `family-room-style-reference.jpg`.
+- **Garage depth.** The listing plan gives the garage as 18'6" × 17'10", which would leave its doors about 2.8 ft behind the kitchen's front wall. The street photo shows the garage front flush with the kitchen, so the model brings the garage front out to the kitchen's line (about 20'7" deep inside) and carries the main roof's slope and white fascia straight across it. Width and the rear wall are unchanged.

@@ -1,7 +1,7 @@
 // 08-site.js: terrain, street, driveway, fences, trees, shrubs, lawn, setback lines
 "use strict";
 // ================= SITE =================
-const FOOT=[[0,18.5,0,31.6],[14.2,44.6,0,9.2],[14.2,35.9,0,31.6],[35.6,54.1,10.6,28.8],[35.6,44.6,9.2,10.6]];
+const FOOT=[[0,18.5,0,31.6],[14.2,44.6,0,9.2],[14.2,35.9,0,31.6],[35.6,54.1,10.6,31.6],[35.6,44.6,9.2,10.6]];
 function inFoot(x,z,m){m=m||0;for(const r of FOOT)if(x>r[0]-m&&x<r[1]+m&&z>r[2]-m&&z<r[3]+m)return true;return false;}
 const SITE={rearSet:-2.15,westSet:-21.5,eastSet:54.1,frontSet:32.5,street0:62.5,street1:86.5};
 function sstep(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
@@ -58,11 +58,11 @@ function buildSiteHard(){
   const fd=(x0,x1,z0,z1,y1)=>box('X','brick',x0,x1,-18.5,y1,z0,z1);
   fd(-0.3,18.8,-0.3,0.3,-14.5);fd(-0.3,0.3,0,31.6,-14.5);fd(-0.3,18.8,31.3,31.9,-14.5);fd(18.2,18.8,31.6,31.9,-14.5);
   fd(14.2,44.9,-0.3,0.3,-14.5);fd(44.3,44.9,0,9.5,-14.5);fd(35.6,44.9,8.9,9.5,-14.5);fd(35.6,36.2,9.2,31.9,-14.5);fd(18.5,36.2,31.3,31.9,-14.5);
-  box('X','brick',35.6,54.4,-4,-1,28.5,29.1);box('X','brick',53.8,54.4,-17,-1,10.3,29.1);
+  box('X','brick',35.6,54.4,-4,-1,31.3,31.9);box('X','brick',53.8,54.4,-17,-1,10.3,31.9);
   // driveway and the street (which falls gently toward the west, like the lawn)
   // the driveway: a thin slab on top of the ground, stopping just inside the block's front face so it never shows in the soil cross-section
-  quadSlab('site','driveway',[[36.0,-.52,28.95],[53.8,-.52,28.95],[53.8,-1.0,SITE.street0-.08],[36.0,-1.0,SITE.street0-.08]],.35);
-  addWalk(36,53.8,28.95,SITE.street0,-.8);
+  quadSlab('site','driveway',[[36.0,-.52,31.95],[53.8,-.52,31.95],[53.8,-1.0,SITE.street0-.08],[36.0,-1.0,SITE.street0-.08]],.35);
+  addWalk(36,53.8,31.95,SITE.street0,-.8);
   quadSlab('site','concrete',[[33.5,-.6,29.3],[36.0,-.6,29.3],[36.0,-.6,33.5],[33.5,-.6,33.5]],1.5);
   for(let x=-95;x<135;x+=5){const a=yStreet(x),b=yStreet(x+5);
     quadSlab('site','asphalt',[[x,a,SITE.street0+.6],[x+5,b,SITE.street0+.6],[x+5,b,SITE.street1],[x,a,SITE.street1]],3);

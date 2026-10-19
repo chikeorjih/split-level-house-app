@@ -23,7 +23,7 @@ const PRESETS={
 };
 // bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
 const LOOK={bloomScale:.5,dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
-const EXT_MATS=new Set(['brick','siding','sidingNew','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
+const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
   'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','glass','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
 const FOG_D=.0014;
@@ -68,19 +68,19 @@ const LAMPV=[],_lf=new THREE.Vector3();let LAMP_SIG='';
 // by day the lamps are off, except in the 3/4 cutaway, where the rooms are shown as if their ceilings were on (see SHADOW_PROXY in
 // 12-app.js) and the lamps glow at LAMP_DAY of their evening strength alongside the window light
 const LAMP_DAY=.3,lampsDim=()=>!PRESETS[LOOK.preset].lamps&&ST.view==='three'&&!ST.pending&&!!ST.cutL;
-function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6,2.3,25],[22,7,6],[6,11.4,7],[6,11.4,24],[8,-6.6,20],[25,-6.6,6],[37.6,7,5.4]];
+function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6,2.3,25],[22,7,6],[8,-6.6,20],[25,-6.6,6],[37.6,7,5.4]];
   const pr={chandelier:0,pendant:1,ceiling:2,lamp:3,outdoor:4};const L=LAMPS.slice().sort((a,b)=>pr[a.k]-pr[b.k]);let pend=null;const out=[];
   for(const l of L){if(l.k==='pendant'){if(!pend){pend=l.v.clone();out.push({v:pend,k:'pendant'});}else pend.lerp(l.v,.5);continue;}out.push(l);}
   for(const f of fills)out.push({v:new THREE.Vector3(...f),k:'fill'});
-  for(const l of out.slice(0,22)){const v={position:l.v.clone(),color:l.k==='outdoor'?0xffa75c:0xffb36b,i:l.k==='fill'?.55:(l.k==='outdoor'?.9:1.1),d:l.k==='fill'?22:16};
+  for(const l of out){const v={k:l.k,position:l.v.clone(),color:l.k==='outdoor'?0xffa75c:0xffb36b,i:l.k==='fill'?.55:(l.k==='outdoor'?.9:1.1),d:l.k==='fill'?22:16};
     LAMPV.push(v);if(l.inst)l.inst.lights.push({light:v,v0:l.v.clone()});}
   for(let i=0;i<(COARSE?5:10);i++){const p=new THREE.PointLight(0xffb36b,0,16,1.6);scene.add(p);LOOK.lights.push(p);}}
 // point the pool at the lamps nearest the view (the walker, or the 3/4 view's target); only touches the lights when that set changes
 function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?1:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
   const pick=on?LAMPV.slice().sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
-  let sig=on?(dim?'dim':'on'):'off';for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
+  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':'on'):'off')+og;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
   if(sig===LAMP_SIG)return;LAMP_SIG=sig;
-  LOOK.lights.forEach((p,i)=>{const v=pick[i];if(v){p.position.copy(v.position);p.color.setHex(v.color);p.intensity=v.i*k;p.distance=v.d;}else p.intensity=0;});
+  LOOK.lights.forEach((p,i)=>{const v=pick[i];if(v){p.position.copy(v.position);p.color.setHex(v.color);p.intensity=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1);p.distance=v.d;}else p.intensity=0;});
   MAT.shade.emissiveIntensity=P.lamps?1.4:(dim?.8:.35);if(typeof syncDerived==='function')syncDerived();
   if(isUltra())updateInteriorShadows();shadowDirty=true;dirty=true;}
 // ---------- kitchen lights: the recessed cans as downlights and the black drum's diffuser, on in every preset (as in the listing photo) ----------
@@ -101,6 +101,7 @@ function skyColorAt(d,out){const P=PRESETS[LOOK.preset],y=Math.max(d.y,0);out.se
   return out.add(new THREE.Color(P.hor).multiplyScalar(.22*Math.exp(-y*16)));}
 // high quality swaps most of the unshadowed sky light for the shadowed sky lights; fast mode keeps the original balance
 function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ(),uf=ultraFill(),ul=isUltra();
+  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
   for(const L of SKYL)L.visible=hq;LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;if(EXT_MATS.has(k))m.envMapIntensity=P.envE*(hq?LIGHT_HQ.env*uf.env:1);else if(m.envMap)m.envMapIntensity=P.envI*uf.envI*cutFill();
     if(m.userData.cc)m.clearcoat=ul?m.userData.cc[0]:0;}
@@ -121,7 +122,7 @@ function applyPreset(name){if(typeof giAbort==='function')giAbort();const P=PRES
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?null:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
   applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;if(MAT.ledStrip)MAT.ledStrip.emissiveIntensity=P.lamps?2.2:.1;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
   LAMP_SIG='';updateLampPool();
-  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
+  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
   if(scene.fog)scene.fog.color.copy(fogColor(P));
   syncDerived();
   fitShadow(true);dirty=true;shadowDirty=true;if(typeof PIPE!=='undefined')PIPE.n=0;if(LOOK.studio)planStudio();}
@@ -148,6 +149,8 @@ const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.
   fill:{hemi:.5,env:.7,envI:.6},vol:{morning:.18,midday:.08,afternoon:.15,golden:.2,dusk:0},volOut:.08,volG:.45,volMax:30,volOn:false,giPasses:2,giSprobe:.5,
   // exposure for the room light: 1 = as captured (lifting it made interiors blow out when the room light came on)
   giGain:1,
+  // overhead lights (ceiling fixtures, cans, pendants, chandeliers, the kitchen's cans and drum) are this much brighter in Ultra
+  overhead:2.2,
   refl:{oak:.02,slate:.06,tileBath:.14,subway:.18,showerTile:.16,barTile:.14,cab:.05,cabDark:.05,quartz:.14,walnutDark:.12,oakFurn:.09,oakLight:.08,porcelain:.2,
     ceramicWhite:.12,washer:.12,blackGlass:.25,tvScreen:.3,mirror:1,doorWhite:.06,doorGrey:.06,trim:.05,leather:.06,tread:.1}};
 // the rooms' flat fill (their environment light) in the 3/4 cutaway, where they are lit as if their ceilings were on

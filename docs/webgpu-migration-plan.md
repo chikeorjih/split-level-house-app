@@ -1,0 +1,118 @@
+# WebGPU migration plan
+
+Status: **not started**. Saved 2026-10-19, for an unattended (overnight) run later.
+
+## Goal
+
+Move the walkthrough from three.js **r128 (WebGL only)** to a current three.js release with the **WebGPU renderer**, keeping a WebGL fallback. Then, optionally, add a path-traced Ultra mode.
+
+A straight port won't look noticeably better. It makes Ultra faster: room-light builds should go from about 5 s to about 1 s, and the shader-compile stalls go away. The large jump in quality comes from phase 3 (path tracing).
+
+## Ground rules for the run
+
+- **Work on a branch:** `webgpu-migration`, created from `main`. Never commit to `main`. Never push and never deploy. The owner reviews the branch in the morning.
+- **Commit at checkpoints:** commit at the end of each step below with a clear message, so a bad step can be reverted on its own.
+- **Read `CLAUDE.md` first.** Its architecture notes describe the current code: classic scripts, tags, buckets, `T(...)` furniture, Debug IDs and Arrange mode. The upgrade changes the r128-only rules in it; update `CLAUDE.md` as you go.
+- **Keep data files out of it:** `02-spec.js` (house data), `07-furniture.js` and `13-models.js` placement, and the manifests in `assets/`. Don't change those, except where an API rename forces it.
+- **Run the tests:** `npm test` after each step, and `npm run build` at the end of each phase. Record failures you can't fix in the log below; don't hide them.
+- **Check visual parity with screenshots.** Before starting, capture reference shots from `main`; the scratch scripts used so far were Playwright, `chromium.launch` with `--use-angle=d3d11`. Shots to capture:
+  - **Walk view:** living room at golden hour, kitchen at "Evening, cozy", family room in the afternoon.
+  - **¾ view:** whole house in the afternoon; Main + Addition cut open at "Evening, cozy".
+  - **Floor plan:** one shot.
+  - **Back of the house:** straight on.
+
+  Capture each in Fast, High and Ultra. After each phase, re-shoot and compare side by side. Note differences in the log.
+- **Stop rather than guess** if a step needs a design decision that isn't covered here. Write the question in the log and move on to the next independent step.
+
+## Phase 1: upgrade three.js on WebGL (3–5 days of work)
+
+1. **Update three.js and its loading**
+   - Bump the `three` dependency to the current release.
+   - Update `scripts/vendor-three.mjs` and how `index.html` loads three and `GLTFLoader`. Current three ships as ES modules only, so add a small module entry that puts `THREE` and `GLTFLoader` on `window`. Keep the `src/*.js` files as classic scripts unless that proves impossible.
+   - Update `scripts/build.mjs` (the single-file build) to match. Keep `<title>` on line 6 of `index.html`.
+2. **Mechanical API changes**
+   - Rename the colour-space settings: `outputEncoding` → `outputColorSpace`, `sRGBEncoding` → `SRGBColorSpace`, and `texture.encoding` → `colorSpace` (in `03`, `04`, `08` and `12`).
+   - Rename geometry merging: `BufferGeometryUtils.mergeBufferGeometries` → `mergeGeometries`, wherever `05-geometry.js` merges.
+   - Update `WebGLCubeRenderTarget`/`CubeCamera` usage, the `DataTexture3D` naming, and `PMREMGenerator` (`makeEnvs`, `envMap()`).
+   - Remove `renderer.debug.checkShaderErrors` handling only if it no longer applies.
+3. **Lighting units.** Current three uses physically based light units by default.
+   - **Retune:** all five presets in `PRESETS` (sun `si`, `hemi`, `sky`, `exp`, `envE`, `envI`), the lamp pool (`buildLamps`/`LAMPV` strengths and decay), the kitchen lights, `LIGHT_HQ` and `ULTRA.fill`.
+   - **Method:** match brightness against the reference shots preset by preset.
+4. **Rewrite every shader patch** (the shader chunk names and contents changed). Current list:
+   - `03-textures.js`: `physify` (clear coats, copies `onBeforeCompile`) and `antiTile`.
+   - `08-site.js`: `farPatch` (the diorama's far-tree discard) and the grass blades shader (`gBase` uniforms).
+   - `12-app.js`:
+     - `washOf`/`washPatch`/`calmPatch` (site wash in level presentation);
+     - `fadeMat` (copies patches onto faded clones);
+     - `buildPaper` (blueprint unroll, `uRev`).
+   - `09-look-pipeline.js`: `giPatch` (room-light probes). It hooks `lights_fragment_maps` and uses `irradiance`/`iblIrradiance`, which changed the most.
+   - Keep the shared-uniform design: patches share uniform objects, so changing a setting never recompiles.
+5. **Full-screen passes.** Check `SM(...)` materials and `SKY_MAT` against GLSL3 and the new `ShaderMaterial` defaults:
+   - The passes: `AO_MAT`, `BRIGHT_MAT`, `BLUR_MAT`, `COMP_MAT`, `OUT_MAT`, `GI_MAT`, `SSR_MAT`, `VOL_MAT`, `FOCUS_MAT`, `SHP_MAT` and `DIL_MAT`.
+   - Also check depth-texture formats and half-float targets.
+6. **Re-verify behaviour that relies on r128 internals:**
+   - **Shadow layers:** the shadow pass uses the *main camera's* layers in r128, which is why `SHADOW_PROXY` uses invisible materials rather than a layer. Re-check how the new version picks shadow casters.
+   - **Shader cache keys:** `customProgramCacheKey` usage.
+   - **Prewarm:** `renderer.compile` with a stand-in scene. Current three has `compileAsync`; prefer it.
+   - **Light counts:** whether the light count still forces recompiles (it drove the lamp-pool design).
+7. **Checkpoint**
+   - `npm test` passes.
+   - The reference shots match in Fast, High and Ultra.
+   - Debug IDs, Arrange (incl. Save to code), model loading and `npm run build` all work.
+   - Commit: "Phase 1: three.js upgrade on WebGL".
+
+## Phase 2: WebGPU renderer (1–2 weeks of work)
+
+1. **Switch renderers.** Use `WebGPURenderer` with its automatic WebGL 2 fallback. Keep **Fast** working on the fallback.
+2. **Port the shaders to TSL/node materials.**
+   - **Material patches:** wash/calm, anti-tiling, far trees, grass, paper reveal, room-light probes, clear coats and the clipping-based diorama/cutaway.
+   - **Sky:** the sky shader, including the studio backdrop (`st`, `stc`) and the plan "paper" blend (`pm`).
+   - **The High/Ultra pipeline,** as a node post-processing chain:
+     - AO (two radii), bloom, composite, accumulation with jitter and depth of field;
+     - SSR, single-bounce SSGI (from the current frame only, never the accumulation: that fed back and blew out the image);
+     - sunbeams (indoor-only, using the room mask) and autofocus;
+     - output: ACES, grade, chromatic aberration, vignette and dither.
+   - **Use multiple render targets:** write colour, normal/gloss and albedo in one pass, replacing `encPass` and the albedo `overridePass`.
+3. **Room-light probes.**
+   - Move the SH reduction (`SHP_MAT`) and dilation (`DIL_MAT`) to compute shaders.
+   - Use render bundles for the six-face captures, to cut draw-call overhead.
+   - Keep the per-slice capture-state save and restore (`giSlice`), or replace it with a dedicated capture scene.
+   - Keep the rules learned so far:
+     - no exposure gain (it blew interiors out);
+     - glowing fixtures captured dark;
+     - room light off in the evening preset;
+     - capture with ceilings on.
+4. **Shadows and limits.** Lift the three-light cap on Ultra's room-light shadows if WebGPU's texture limits allow it (see `ultraLights`). If you raise it, avoid any scheme that uses negative light: it flashed black while refining.
+5. **Checkpoint**
+   - Parity shots in Chrome, plus Safari if available.
+   - The WebGL fallback is tested by forcing it.
+   - `npm test` and `npm run build` pass.
+   - Commit: "Phase 2: WebGPU renderer".
+
+## Phase 3 (optional): path-traced Ultra (2–3 weeks of work)
+
+1. **Build the ray-intersection structure.** Build a BVH over the merged architecture buckets, the furniture groups and the imported models. Rebuild only the furniture part after Arrange moves.
+2. **Write a progressive path tracer** in compute:
+   - Lights and materials: sun, sky (from the preset), the lamp pool and kitchen lights as real emitters; PBR materials from `MAT`, including clear coat and glass.
+   - Lights: next-event estimation for the lamps.
+   - Denoising: a simple temporal denoiser plus an edge-aware spatial one while it refines.
+3. **Fit it into the app.**
+   - It replaces Ultra's raster refinement once the camera rests. Moving the camera shows the fast preview.
+   - It respects cutaway clipping, fades and the diorama.
+   - It renders the ¾ cutaway with the ceilings on (see `SHADOW_PROXY`).
+4. **Checkpoint**
+   - Side-by-side shots against phase 2 Ultra.
+   - Time to a clean image noted per view.
+   - Commit: "Phase 3: path-traced Ultra".
+
+## Known traps (from the work so far)
+
+- **Light count:** don't change the number of lights at runtime. It recompiled every shader on preset changes; hence the fixed lamp pool.
+- **Clipping planes on clones:** `material.clone()` copies clipping planes by value, so re-share the `CLIPS` arrays on clones.
+- **Live reload:** the dev server reloads only on real file changes (mtime/size), because Windows `fs.watch` fires on reads.
+- **Night bounce:** room light that includes lamp bounce from lamps that aren't lit on screen looks wrong. Keep the evening rule.
+- **Big compiles:** spread compiles over frames, or the browser shows "page unresponsive".
+
+## Run log
+
+(Append dated entries here: what was done, test results, parity notes, open questions.)

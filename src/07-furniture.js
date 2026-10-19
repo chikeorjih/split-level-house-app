@@ -91,6 +91,17 @@ function chandelier(tag,x,z,yc){LAMPS.push({v:new THREE.Vector3(x,yc-2.3,z),k:'c
   for(let i=0;i<6;i++){const a=i*Math.PI/3,r=1.15,cx=Math.cos(a)*r,cz=Math.sin(a)*r;
     beam(tag,'brass',[x,yb-.05,z],[x+cx*.95,yb-.05,z+cz*.95],.05,.05);p.c('brass',cx,yb-.15,cz,.06,.04,.12,8);p.c('ceramicWhite',cx,yb-.03,cz,.045,.045,.48,8);p.s('flame',cx,yb+.5,cz,.05,1,1.6,1);}}
 function flushDrum(tag,x,z,yc,r){LAMPS.push({v:new THREE.Vector3(x,yc-1,z),k:'ceiling'});const p=P(tag,x,0,z,0);p.c('black',0,yc-.5,0,r,r,.45,28);p.c('shade',0,yc-.52,0,r-.04,r-.04,.04,28);p.c('black',0,yc-.06,0,.2,.2,.06,12);}
+// 52" hugger ceiling fan with a light kit (upper-floor bedrooms): bronze canopy and motor, four bronze paddle blades pitched 12 degrees,
+// and a frosted dome underneath that lights the room
+function ceilingFan(tag,x,z,yc){LAMPS.push({v:new THREE.Vector3(x,yc-1.3,z),k:'ceiling'});const p=P(tag,x,0,z,0);
+  p.c('bronze',0,yc-.12,0,.32,.36,.12,24);p.c('bronze',0,yc-.3,0,.18,.26,.18,20);p.c('bronze',0,yc-.62,0,.56,.5,.32,32);p.c('bronze',0,yc-.68,0,.5,.5,.06,32);
+  p.g('shade',new THREE.SphereGeometry(.46,24,10,0,Math.PI*2,Math.PI/2,Math.PI/2),0,yc-.68,0,0,0,0,[1,.42,1]);
+  const sh=new THREE.Shape(),L=1.75,pts=[];for(let i=0;i<=12;i++){const t=i/12;pts.push([t*L,.13+.15*Math.sin(Math.PI*Math.min(1,t*1.05))+.03*t]);}
+  sh.moveTo(0,-.13);for(const [a,w] of pts)sh.lineTo(a,-w*.9);for(let i=pts.length-1;i>=0;i--)sh.lineTo(pts[i][0],pts[i][1]);sh.closePath();
+  const blade=new THREE.ExtrudeGeometry(sh,{depth:.035,bevelEnabled:false});blade.rotateX(-Math.PI/2+.21);
+  for(let k=0;k<4;k++){const a=k*Math.PI/2+.3,ca=Math.cos(a),sa=Math.sin(a);
+    p.g('bronze',new THREE.BoxGeometry(.5,.05,.16),ca*.62,yc-.5,-sa*.62,0,a,0);
+    p.g('fanBlade',blade,ca*.42,yc-.5,-sa*.42,0,a,0);}}
 function schoolhouse(tag,x,z,yc){LAMPS.push({v:new THREE.Vector3(x,yc-1,z),k:'ceiling'});const p=P(tag,x,0,z,0);p.c('brass',0,yc-.15,0,.25,.25,.15,16);p.g('frost',new THREE.SphereGeometry(.42,18,12,0,Math.PI*2,0,Math.PI*.62),0,yc-.55,0,Math.PI,0,0);}
 // ----- decor -----
 function art(tag,x,y,z,ry,w,h,mat,frame){const p=P(tag,x,y,z,ry);p.b(frame||'gold',0,-h/2,.03,w,h,.08);p.b('mat',0,-h/2+.12,.08,w-.24,h-.24,.02);
@@ -357,6 +368,8 @@ function buildFurniture(){
   {const p=T('3',22.65,e3,27.6,-Math.PI/2);dresser(p,2.9,1.45,2.8,'doorGrey',{rows:3,cols:1,pull:'brass'});tableLamp(p,.6,2.8,0,'stacked');}
   art('3',23.28,e3+6.4,27.6,-Math.PI/2,1.4,1.8,'artLine','black');
   schoolhouse('C3',21.0,28.8,CEIL[3]);schoolhouse('C3',21.3,16.0,CEIL[3]);
+  // upper-floor bedrooms: a ceiling fan with a light, centred in each room, and no other ceiling lights
+  ceilingFan('C4',6.25,6.7,CEIL[4]);ceilingFan('C4',6.25,23.85,CEIL[4]);
   // ================= FOUR-SEASONS ROOM, gallery, suite (level 2, new) =================
   rug('2','rugLiving',-11.4,e2,5.9,11,8.2);
   {const p=T('2',-11.4,e2,9.7,Math.PI,'four-seasons sofa');sofa(p,8.2,3.0,{mat:'fabricGrey',pillows:['pillowBlue','pillowOchre','pillowCream']});}
@@ -390,6 +403,31 @@ function buildFurniture(){
   {const p=T('4',14.85,e4,27.95,0);toilet(p);}
   showerTileWalls('4',[[15.8,18.25,31.25,31.3],[18.2,18.25,27.0,31.3]],e4,e4+7);box('4','showerTile',15.8,18.25,e4,e4+.12,27,31.3);
   glassPanel('4','z',15.8,27.1,31.25,e4+.15,e4+6.9);showerHead('4',18.1,e4+6.4,29.2,-1,0);
+  // upper-floor primary bedroom, a nursery (owner's layout; colours and feel from the inspiration photo). The recliner, crib and daybed
+  // are imported models (assets/models/manifest.json)
+  // an 8' x 10' rug, its long side across the room, under the front of the crib, recliner and daybed
+  {const p=T('4',6.25,e4,26.4,0,'nursery rug');p.b('rugNurseryBig',0,0,0,10,.03,8);}
+  // two-column toy cubbies under the west window, beside the closets (their back to the wall)
+  {const p=T('4',.78,e4,18.75,-Math.PI/2,'toy cubbies'),cols=2,t=.07,W=2*1.38+t,H=2.0,D=.95;
+    p.b('oakLight',0,0,0,W,t,D);p.b('oakLight',0,H-t,0,W,t,D);p.b('oakLight',0,H/2-t/2,0,W,t,D);p.b('oakLight',0,0,D/2-.03,W,H,.06);
+    for(let k=0;k<=cols;k++)p.b('oakLight',-W/2+t/2+k*(W-t)/cols,0,0,t,H,D);
+    const bins=[['fabricCream',0,0],['olive',1,0],['linen2',0,1]],cw=(W-t)/cols;
+    for(const [m,c,r] of bins)p.r(m,-W/2+t+cw*(c+.5)-t/2,t+.02+r*(H/2),-.06,cw-.2,H/2-t-.22,D-.2,.05);
+    p.col(0,0,W,D,0,H);}
+  // Babyletto Gelato 3-drawer changer dresser, White Washed Natural (33.5" W x 19.25" D x 36.5" H with its removable changing tray,
+  // babyletto.com): a white case with softly rounded edges on four short round natural-wood feet with gold tips, three natural-wood drawer
+  // fronts with a pair of round knobs each, and the white tray on top holding a contoured changing pad. Against the front wall under
+  // the front window (the bathroom door, in the corner beyond it, keeps its swing clear)
+  {const p=T('4',8.4,e4,30.5,0,'Babyletto Gelato dresser'),W=33.5/12,D=19.25/12,H=36.5/12,leg=.36,top=34.5/12,zf=-D/2;
+    p.r('doorWhite',0,leg,0,W,top-leg,D,.09);
+    const d0=leg+.12,d1=top-.12,gap=.035,dh=(d1-d0-2*gap)/3;
+    for(let i=0;i<3;i++){const y=d0+i*(dh+gap);p.r('oakLight',0,y,zf-.03,W-.24,dh,.07,.025);
+      for(const kx of [-W*.25,W*.25])p.c('oakLight',kx,y+dh/2-.06,zf-.12,.065,.055,.12,20,Math.PI/2);}
+    for(const sx of [-1,1])for(const sz of [-1,1]){const x=sx*(W/2-.22),z=sz*(D/2-.2);p.c('oakLight',x,.05,z,.075,.055,leg-.05,18);p.c('gold',x,0,z,.056,.056,.06,18);}
+    const tw=32.5/12,td=17.5/12,th=top+.04,rh=H-top,rw=.07;p.r('doorWhite',0,top,0,tw,.05,td,.02);
+    for(const sz of [-1,1])p.r('doorWhite',0,top,sz*(td/2-rw/2),tw,rh,rw,.03);for(const sx of [-1,1])p.r('doorWhite',sx*(tw/2-rw/2),top,0,rw,rh,td,.03);
+    p.r('linen2',0,th,0,tw-2*rw-.03,.13,td-2*rw-.03,.06);for(const sz of [-1,1])p.r('linen2',0,th,sz*(td/2-rw-.12),tw-2*rw-.05,.24,.2,.09);
+    p.col(0,0,W,D,0,H);}
   cap('3',32.8,35.3,18.3,21.3,0,6);cap('3',23.85,25.75,20.6,27.35,0,7.6);cap('3',32.75,35.3,21.35,21.9,0,7.95);
   cap('2',0.3,1.6,7.0,12.6,e2,CEIL[2]);cap('X',-1.85,-0.3,6.9,12.9,-17,18.2);
   cap('1',19.4,21.4,28.6,30.6,e1,e1+5);cap('1',22.1,24.3,28.8,31.2,e1,e1+5.2);
