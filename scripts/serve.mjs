@@ -106,14 +106,24 @@ const server = http.createServer((req, res) => {
 
 if (liveReload) {
   let timer = null;
-  const ping = (_e, name) => {
+  // reload only when a file's size or modified time really changed: on Windows, fs.watch also fires when a file is merely read
+  // (serving the models and textures did that), which reloaded the page right after it loaded
+  const seen = new Map(), sigOf = f => { try { const st = fs.statSync(f); return st.isDirectory() ? null : st.mtimeMs + ':' + st.size; } catch (e) { return 'gone'; } };
+  const snapshot = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) { if (!/^\.|node_modules/.test(e.name)) snapshot(f); } else seen.set(f, sigOf(f)); } };
+  const ping = base => (_e, name) => {
     if (name && /(^|[\\/])\.|node_modules|dist[\\/]/.test(name)) return;
+    const f = name ? path.join(base, name) : base, sig = sigOf(f);
+    if (sig === null || seen.get(f) === sig) return;
+    seen.set(f, sig);
     clearTimeout(timer);
     timer = setTimeout(() => { for (const c of clients) c.write('data: reload\n\n'); }, 120);
   };
   for (const p of ['src', 'assets', 'index.html']) {
     const full = path.join(root, p);
-    if (fs.existsSync(full)) fs.watch(full, { recursive: fs.statSync(full).isDirectory() }, ping);
+    if (!fs.existsSync(full)) continue;
+    const dir = fs.statSync(full).isDirectory();
+    if (dir) snapshot(full); else seen.set(full, sigOf(full));
+    fs.watch(full, { recursive: dir }, ping(dir ? full : root));
   }
 }
 

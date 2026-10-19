@@ -145,11 +145,16 @@ function normalFrom(map,strength,invert){if(!map||!map.image)return null;const s
   g.putImageData(o,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.copy(map.repeat);t.center.copy(map.center);t.rotation=map.rotation;t.anisotropy=MAXANISO;return t;}
 function addRelief(){const R=[['oak',1.6],['brick',3.5,1],['brickWhite',2.5],['siding',2.5],['sidingNew',2.5],['roof',3],['slateRoof',3.5],['slate',3],['tileBath',2.5],['subway',2.5],['showerTile',2.5],
     ['paver',3],['deckOld',3],['deckNew',3],['flagstone',3],['metalRoof',2],['soldier',3,1],['grass',1.4],['bark',3],['concrete',1.2],['drive',1.2],['asphalt',1.5],['stone',1.6],['beam',2],['roofBrown',3],['olive',1.6],['pillowTaupe',1.4],['pillowRust',1.2],['knitIvory',3.5],['knitMustard',3.5],['rugShag',2.6],['linen2',1]];
-  for(const [k,st,inv] of R){const m=MAT[k];if(m&&m.map){const n=normalFrom(m.map,st,!!inv);if(n){m.normalMap=n;m.needsUpdate=true;}}}}
+  for(const [k,st,inv] of R){const m=MAT[k];if(m&&m.map){const n=normalFrom(m.map,st*.5,!!inv);if(n){m.normalMap=n;m.needsUpdate=true;}}}}
 const MAT={};
 const CLIP_TOP=new THREE.Plane(new THREE.Vector3(0,-1,0),1e5), CLIP_BOT=new THREE.Plane(new THREE.Vector3(0,1,0),1e5);
-const CLIPS=[CLIP_TOP,CLIP_BOT];
+// the diorama's sides: everything outside the block is cut away in the 3/4 view (constants are 1e5 when off)
+const CLIP_X0=new THREE.Plane(new THREE.Vector3(1,0,0),1e5),CLIP_X1=new THREE.Plane(new THREE.Vector3(-1,0,0),1e5),CLIP_Z0=new THREE.Plane(new THREE.Vector3(0,0,1),1e5),CLIP_Z1=new THREE.Plane(new THREE.Vector3(0,0,-1),1e5);
+const CLIPS=[CLIP_TOP,CLIP_BOT,CLIP_X0,CLIP_X1,CLIP_Z0,CLIP_Z1],CLIPS_V=[CLIP_TOP,CLIP_BOT];
 function std(o,clip){const m=new THREE.MeshStandardMaterial(Object.assign({roughness:.8,metalness:0},o));if(clip!==false)m.clippingPlanes=CLIPS;return m;}
+function physify(k,cc,ccr){const m=MAT[k];if(!m||!m.isMeshStandardMaterial||m.isMeshPhysicalMaterial)return;const p=new THREE.MeshPhysicalMaterial();
+  THREE.MeshStandardMaterial.prototype.copy.call(p,m);p.defines={STANDARD:'',PHYSICAL:''};p.onBeforeCompile=m.onBeforeCompile;p.customProgramCacheKey=m.customProgramCacheKey;
+  p.clearcoat=0;p.clearcoatRoughness=ccr;p.userData.cc=[cc,ccr];MAT[k]=p;m.dispose();}
 function makeMaterials(){
   const T=n=>n;
   MAT.oak=std({map:oakTex(),roughness:.55});
@@ -169,6 +174,7 @@ function makeMaterials(){
   MAT.barTile=std({map:barTileTex(),roughness:.35});
   MAT.concrete=std({map:plainNoise('#a7a59f',6,20),roughness:.95});
   MAT.drive=std({map:plainNoise('#b2afa7',8,18),roughness:.95});
+  MAT.driveway=std({map:plainNoise('#a9a69e',8,18),roughness:.95});
   MAT.asphalt=std({map:plainNoise('#3d3f41',8,22),roughness:.95});
   MAT.paver=std({map:gridTileTex(2,2,()=>hsl(30,8,rr(55,64)),'#6e6a63',8,false),roughness:.9});
   MAT.deckOld=std({map:deckTex(14,42,30),roughness:.8});
@@ -204,6 +210,7 @@ function makeMaterials(){
   MAT.mirror=std({color:0xdfe6ea,metalness:1,roughness:.04});
   MAT.shade=std({color:0xf4ecd8,roughness:.9,emissive:0xffe3b0,emissiveIntensity:.35,side:THREE.DoubleSide});
   MAT.light=std({color:0xffffff,emissive:0xfff3dc,emissiveIntensity:1.2});
+  MAT.ledStrip=std({color:0xfff2dc,emissive:0xffc98a,emissiveIntensity:.1});
   MAT.flame=std({color:0xfff2c8,emissive:0xffd890,emissiveIntensity:1.5});
   MAT.curtain=std({color:0xf3f0e8,roughness:.95,side:THREE.DoubleSide});
   MAT.plantGreen=std({color:0x4d6b37,roughness:.8,side:THREE.DoubleSide});
@@ -232,7 +239,11 @@ function makeMaterials(){
   MAT.gold=std({color:0xc49a52,metalness:.85,roughness:.3});
   addFacadeMaterials();addLivingMaterials();
   addRelief();
-  antiTile(MAT.grass,true,.16);for(const k of ['drive','concrete','asphalt'])antiTile(MAT[k],false,.16);for(const k of ['brick','roof','slateRoof'])antiTile(MAT[k],false,.1);
+  // clear coats (Ultra only): floors, cabinets, counters, tile and lacquered or leather furniture become physical materials with a coat of
+  // [strength, roughness]; applyLightBalance turns the coat on in Ultra (at 0 the physical shader looks the same as the standard one)
+  for(const [k,cc,ccr] of [['oak',.11,.12],['cab',.2,.15],['cabDark',.2,.15],['quartz',.6,.04],['walnutDark',.6,.07],['oakFurn',.5,.1],['oakLight',.4,.12],['leather',.3,.25],
+    ['tileBath',.6,.04],['subway',.7,.03],['showerTile',.6,.04],['barTile',.6,.05],['porcelain',.8,.03],['ceramicWhite',.6,.05],['washer',.5,.06],['doorWhite',.25,.15],['tread',.4,.1],['slate',.35,.15]])physify(k,cc,ccr);
+  antiTile(MAT.grass,true,.16);for(const k of ['drive','driveway','concrete','asphalt'])antiTile(MAT[k],false,.16);for(const k of ['brick','roof','slateRoof'])antiTile(MAT[k],false,.1);
 }
 // break up visible texture repeats: optionally blend in a second, rotated and rescaled sample of the same texture through a noise mask,
 // and add broad light/dark patches. Settings are uniforms, so every patched material shares one shader program.

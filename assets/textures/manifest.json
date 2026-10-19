@@ -81,6 +81,28 @@
       "repeatFt": 6.56,
       "rotateDeg": 90,
       "note": "new deck off the dining room (on the side wall at x 43.8): boards turned 90 degrees to run along that wall"
+    },
+    {
+      "material": "driveway",
+      "map": "gravel_concrete_diff_2k.jpg",
+      "normal": "gravel_concrete_nor_gl_2k.jpg",
+      "roughness": "gravel_concrete_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 6.96,
+      "source": "Gravel Concrete by Charlotte Baglioni and Dario Barresi, Poly Haven (CC0), https://polyhaven.com/a/gravel_concrete; 2.12 m square",
+      "note": "the driveway only (the entry walk keeps its own concrete)"
+    },
+    {
+      "material": "soil",
+      "map": "forest_ground_06_diff_2k.jpg",
+      "normal": "forest_ground_06_nor_gl_2k.jpg",
+      "roughness": "forest_ground_06_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 27.68,
+      "source": "Forest Ground 06 by Charlotte Baglioni, Poly Haven (CC0), https://polyhaven.com/a/forest_ground_06; 2.11 m square",
+      "note": "the soil on all four sides of the diorama block, lit and shadowed like the rest of the scene with a very faint glow of its own (selfLit .08) so it never goes fully black; each copy covers four times the photo's real size (27.68 ft) to show fewer repeats",
+      "selfLit": 0.15
+    
     }
   ]
 }

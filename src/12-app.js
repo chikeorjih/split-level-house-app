@@ -18,7 +18,9 @@ function initRenderer(){
   renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
   renderer.localClippingEnabled=true;$('stage').appendChild(renderer.domElement);
-  MAXANISO=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  // checking each new shader for errors makes the browser finish compiling it on the spot; off unless the page is opened with ?shadercheck
+  renderer.debug.checkShaderErrors=/[?&]shadercheck/.test(location.search);
+  MAXANISO=Math.min(16,renderer.capabilities.getMaxAnisotropy());
 }
 function envMap(){const s=new THREE.Scene();const g=new THREE.SphereGeometry(50,32,16);const c=[];const p=g.attributes.position;
   const top=new THREE.Color(0xbcd3ea),hor=new THREE.Color(0xf2efe6),bot=new THREE.Color(0x4a4438),t=new THREE.Color();
@@ -45,8 +47,11 @@ function calmPatch(sh){sh.uniforms.washAmt=WASH;sh.fragmentShader=sh.fragmentSha
   .replace('#include <emissivemap_fragment>','  if(washAmt>0.){float cl=dot(diffuseColor.rgb,vec3(.3,.59,.11));diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(cl),diffuseColor.rgb,.72)*.88+cl*.14,washAmt);}\n#include <emissivemap_fragment>');}
 const WASH_PALE=new THREE.Color(.74,.73,.7),WASH_SAGE=new THREE.Color(0xa9b39a).convertSRGBToLinear();
 // a washable clone of a site material (or, for the lawn blades, a calmed one); its maps follow the original's (photo textures load later)
-function washOf(b,mode){let w=WASHED.get(b);if(w)return w;w=b.clone();const o=b.onBeforeCompile,key=o?String(o):'',col={value:mode==='sage'?WASH_SAGE:WASH_PALE};
+function washOf(b,mode){let w=WASHED.get(b);if(w)return w;w=b.clone();w.clippingPlanes=b.clippingPlanes;const o=b.onBeforeCompile,key=o?String(o):'',col={value:mode==='sage'?WASH_SAGE:WASH_PALE};
   w.onBeforeCompile=sh=>{if(o)o(sh);if(mode==='calm')calmPatch(sh);else washPatch(sh,col);};w.customProgramCacheKey=()=>(mode==='calm'?'calm|':'wash|')+key;WASHED.set(b,w);return w;}
+// a light preset changes the base materials' environment and glow: their faded and washed copies follow in place, with no recompile
+function syncDerived(){const cp=(c,b)=>{c.envMap=b.envMap;c.envMapIntensity=b.envMapIntensity;if(b.isMeshPhysicalMaterial&&c.isMeshPhysicalMaterial)c.clearcoat=b.clearcoat;if(b.emissive&&c.emissive){c.emissive.copy(b.emissive);c.emissiveIntensity=b.emissiveIntensity;}};
+  WASHED.forEach((w,b)=>cp(w,b));FADE.forEach(c=>{if(c.userData.base)cp(c,c.userData.base);});}
 function syncWashed(){WASHED.forEach((w,b)=>{for(const k of ['map','normalMap','roughnessMap','color','roughness']){if(k==='color'){if(b.color&&w.color)w.color.copy(b.color);}else if(w[k]!==b[k])w[k]=b[k];}w.needsUpdate=true;});}
 function ghostOf(tag){let g=GHOST.get(tag);if(!g){g=new THREE.MeshStandardMaterial({color:0xf3f1ec,roughness:1,transparent:true,depthWrite:false,side:THREE.DoubleSide,clippingPlanes:CLIPS,clipShadows:true});GHOST.set(tag,g);}return g;}
 function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
@@ -57,23 +62,28 @@ function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
   if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv>L)return 0;if(lv!==undefined&&!shownLv().includes(lv))return FADE_OPACITY;}
   return 1;}
 function fadeMat(tag,b){const k=tag+'|'+b.uuid;let c=FADE.get(k);
-  if(!c){c=b.clone();c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
+  if(!c){c=b.clone();c.userData.base=b;c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
     if(b.customProgramCacheKey!==THREE.Material.prototype.customProgramCacheKey)c.customProgramCacheKey=b.customProgramCacheKey;FADE.set(k,c);}
   return c;}
 // ---------- prewarm: compile, ahead of time, every shader a transition can switch to (faded copies, pale massing, cut caps, section
 // fill, the blueprint), so animations never stall on a shader compile. Runs once the app is idle and again after materials change.
-let PREWARM_T=0;
-function schedulePrewarm(ms){clearTimeout(PREWARM_T);PREWARM_T=setTimeout(prewarm,ms||800);}
-function prewarm(){const cam=activeCam(),undo=[],show=o=>{if(!o.visible){o.visible=true;undo.push(()=>{o.visible=false;});}};
-  try{buildPaper();
-    for(const pass of ['fade','ghost']){const swap=[];
-      for(const tag in TAGS){if(tag==='trees'||tag==='grass'||tag==='site')continue;for(const m of meshesOf(tag)){const b=m.userData.baseMat||m.material;if(Array.isArray(b))continue;
-        const to=pass==='fade'?fadeMat(tag,b):ghostOf(tag);swap.push([m,m.material,m.visible]);m.material=to;m.visible=true;}}
-      for(const t of ['trees','grass','site'])for(const m of meshesOf(t)){const b=m.userData.baseMat||m.material;if(Array.isArray(b)||pass!=='fade')continue;swap.push([m,m.material,m.visible]);m.material=fadeMat(t,b);m.visible=true;}
-      renderer.compile(scene,cam);for(const [m,mt,v] of swap){m.material=mt;m.visible=v;}}
-    for(const k in CAPGRP)show(CAPGRP[k]);for(const tw of TWINS)show(tw);if(PAPER.mesh){show(PAPER.mesh);show(PAPER.roll);}
-    renderer.compile(scene,cam);}
-  catch(e){console.warn('prewarm',e);}finally{for(const f of undo)f();dirty=true;}}
+// It works through a list of (mesh, material) pairs a few at a time: each batch compiles in a stand-in scene that holds the real lights
+// (so the shaders match the ones the render will ask for), and stops after about 10 ms, so the page stays responsive throughout.
+let PREWARM_T=0,PREWARM_JOB=null;
+function schedulePrewarm(ms){clearTimeout(PREWARM_T);PREWARM_JOB=null;PREWARM_T=setTimeout(prewarm,ms||800);}
+function prewarm(){try{buildPaper();}catch(e){console.warn('prewarm',e);}
+  const job=[],seen=new Set(),add=(m,mt)=>{const k=mt.uuid+(m.isInstancedMesh?'i':'');if(!seen.has(k)){seen.add(k);job.push([m,mt]);}};
+  for(const tag in TAGS){if(tag==='trees'||tag==='grass'||tag==='site')continue;for(const m of meshesOf(tag)){const b=m.userData.baseMat||m.material;if(Array.isArray(b))continue;add(m,fadeMat(tag,b));add(m,ghostOf(tag));}}
+  for(const t of ['trees','grass','site'])for(const m of meshesOf(t)){const b=m.userData.baseMat||m.material;if(!Array.isArray(b))add(m,fadeMat(t,b));}
+  const extra=[...Object.values(CAPGRP),...TWINS];if(PAPER.mesh)extra.push(PAPER.mesh,PAPER.roll);
+  for(const o of extra)o.traverse(c=>{if(c.isMesh&&!Array.isArray(c.material))add(c,c.material);});
+  PREWARM_JOB=job;let i=0;
+  const step=()=>{if(PREWARM_JOB!==job)return;const t0=performance.now(),cam=activeCam(),lights=[];scene.traverseVisible(o=>{if(o.isLight)lights.push(o);});
+    const tmp=new THREE.Scene();tmp.fog=scene.fog;tmp.environment=scene.environment;
+    while(i<job.length&&performance.now()-t0<10){const [m,mt]=job[i++],m0=m.material,kids=m.children;m.material=mt;m.children=[];tmp.children=[...lights,m];
+      try{renderer.compile(tmp,cam);}catch(e){console.warn('prewarm',e);}finally{m.material=m0;m.children=kids;}}
+    tmp.children=[];if(i<job.length)setTimeout(step,0);else{PREWARM_JOB=null;dirty=true;}};
+  step();}
 function setTagOpacity(tag,o){FCUR[tag]=o;const ghost=presenting()&&fadeTarget(tag)===FADE_OPACITY;
   for(const m of meshesOf(tag)){if(!m.userData.baseMat)m.userData.baseMat=m.material;const b=m.userData.baseMat,wasVis=m.visible;
     if(o<=.003){m.visible=false;m.userData.faded=true;}
@@ -129,7 +139,7 @@ function buildScene(){
     addTag(inst.tag,grp);inst.buckets=null;}
   TERRAIN=new THREE.Mesh(buildTerrain(),MAT.grass);TERRAIN.receiveShadow=true;addTag('site',TERRAIN);
   {const sk=new THREE.Mesh(buildSkirt(),MAT.grass);sk.receiveShadow=true;sk.userData.skirt=true;addTag('site',sk);}
-  TREES=buildTrees();addTag('trees',TREES);
+  TREES=buildTrees();addTag('trees',TREES);DIO.grp=buildDiorama();scene.add(DIO.grp);
   SETBACK=setbackLines();SETBACK.visible=false;scene.add(SETBACK);
   const GR=buildGrass();MAT.grassBlades=GR.userData.mat;addTag('grass',GR);
   for(const t of WASH_TAGS)for(const m of meshesOf(t)){if(Array.isArray(m.material))continue;m.material=washOf(m.material,t==='grass'?'calm':m.material===MAT.grass?'sage':'pale');m.userData.baseMat=m.material;}
@@ -209,7 +219,7 @@ function buildPaper(){if(PAPER.mesh)return;const m=new THREE.MeshStandardMateria
     R.rotation.z=Math.PI/2;R.castShadow=false;R.receiveShadow=true;scene.add(R);
     // compile both shaders now, so the first trip into the plan doesn't stall on it
     const k0=PAPER_REV.value;P.visible=R.visible=true;PAPER_REV.value=1;try{renderer.compile(scene,camO);}catch(e){}P.visible=R.visible=false;PAPER_REV.value=k0;}
-function updatePaper(){const k=SKY_MAT.uniforms.pm.value;let P=PAPER.mesh;
+function updatePaper(){const k=SKY_MAT.uniforms.pm.value;let P=PAPER.mesh;if(DIO.grp)DIO.grp.visible=DIO.on&&k<.5;
   if(k<.003){if(P){P.visible=false;PAPER.roll.visible=false;}return;}
   if(!P){buildPaper();P=PAPER.mesh;}
   const L=ST.cutL||2,y=E[L]-1.1,u=ease(Math.min(1,Math.max(0,(k-.08)/.92)));P.position.y=y;P.visible=true;PAPER_REV.value=u;
@@ -217,19 +227,44 @@ function updatePaper(){const k=SKY_MAT.uniforms.pm.value;let P=PAPER.mesh;
   const R=PAPER.roll,r=.22+1.5*(1-u);R.visible=u<.999;R.scale.set(r,1,r);R.position.set((PAPER.x0+PAPER.x1)/2,y+r,PAPER.z0+(PAPER.z1-PAPER.z0)*u);
   R.material.transparent=o<1;R.material.opacity=o;}
 // studio light for the plan: a fixed high sun from the upper left of the sheet, so the shadow falls down and to the right
-function presetSun(){const P=PRESETS[LOOK.preset],e=P.elev*Math.PI/180;LOOK.sunDir.set(P.h.x*Math.cos(e),Math.sin(e),P.h.z*Math.cos(e)).normalize();
+function presetSun(){const P=PRESETS[LOOK.preset];sunDirFor(P,LOOK.sunDir);
   sun.color.setHex(P.sun);LOOK.hemi.color.setHex(P.zen).lerp(new THREE.Color(1,1,1),.6);applyLightBalance();fitShadow(true);shadowDirty=true;dirty=true;}
 function planStudio(){LOOK.sunDir.copy(STUDIO_DIR);sun.color.setHex(0xfff8f0);sun.intensity=1.6;LOOK.hemi.intensity=.42;LOOK.hemi.color.setHex(0xf4f8ff);fitShadow(true);shadowDirty=true;dirty=true;}
+// diorama on in the 3/4 view and the plan (the plan hides the site anyway), off when walking or when Surroundings is on
+function setDiorama(on){DIO.on=on;const k=on?1:-1e5;
+  CLIP_X0.constant=on?-DIO.x0:1e5;CLIP_X1.constant=on?DIO.x1:1e5;CLIP_Z0.constant=on?-DIO.z0:1e5;CLIP_Z1.constant=on?DIO.z1:1e5;
+  FAR_TREES.value=on?1:0;SKY_MAT.uniforms.st.value=on?1:0;shadowDirty=true;dirty=true;}
+// ---------- the 3/4 cutaway, lit as if the house were whole: an invisible, unclipped copy of the architecture (roofs, ceilings, every
+// level's walls and floors) that only casts shadows (its material writes neither colour nor depth; Ultra's extra passes skip it), so the
+// cut-away roof, ceilings and upper walls still keep the sun and sky out and light reaches the rooms through their windows only. The
+// rooms' flat fill is turned down to match (CUT_FILL in applyLightBalance), and by day their lamps glow dimly (lampsDim).
+let SHADOW_PROXY=null;
+function syncShadowProxy(on){if(!on&&!SHADOW_PROXY)return;
+  if(!SHADOW_PROXY){SHADOW_PROXY=new THREE.Group();const mats={};
+    for(const tag of ['1','2','3','4','S','X','roof','C1','C2','C3','C4'])for(const m of meshesOf(tag)){if(m.userData.inst||!m.castShadow)continue;const b=m.userData.baseMat||m.material;if(Array.isArray(b))continue;
+      const side=b.side,mt=mats[side]||(mats[side]=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false,side}));
+      m.updateMatrixWorld();const q=new THREE.Mesh(m.geometry,mt);q.matrixAutoUpdate=false;q.matrix.copy(m.matrixWorld);q.castShadow=true;q.receiveShadow=false;q.userData.shadowOnly=true;SHADOW_PROXY.add(q);}
+    scene.add(SHADOW_PROXY);}
+  if(SHADOW_PROXY.visible!==on){SHADOW_PROXY.visible=on;shadowDirty=true;dirty=true;if(LOOK.hemi)applyLightBalance();}}
 function setVis(instant){const vv0=ST.pending||ST.view;
   if(vv0==='three'){if(ST.level==='all')ST.levels=[];else if(!ST.levels.includes(ST.level))ST.levels=[ST.level];if(ST.levels.length)ST.level=Math.max(...ST.levels);}
   const vv=vv0,L=ST.level,cutL=(vv==='plan')?(L==='all'?2:L):(vv==='three'&&L!=='all'?L:null),plan=vv==='plan';
+  syncShadowProxy(vv==='three'&&!!cutL);
   ST.cutL=cutL;retarget(instant);retargetClip(instant);
   if(plan!==!!LOOK.studio){LOOK.studio=plan;if(plan)planStudio();else presetSun();}
   if(isUltra())updateInteriorShadows();
+  setDiorama(!ST.surround&&vv!=='walk');
   SKYT.from=SKY_MAT.uniforms.pm.value;SKYT.to=plan?1:0;SKYT.t=instant?SKYT.dur:0;if(instant)SKY_MAT.uniforms.pm.value=SKYT.to;
   SETBACK.visible=ST.site;if(SKY)SKY.visible=true;scene.background=null;if(!scene.fog)scene.fog=makeFog();scene.fog.color.copy(fogColor(PRESETS[LOOK.preset]));updateFog();
   for(const L2 of SETBACK.children)L2.material.depthTest=!plan&&vv!=='three'?true:false;
   fitShadow(true);updateSectionDisplay();shadowDirty=true;dirty=true;updateUI();}
+// changing the light or the view can still stall for a moment (a first visit to a preset builds its environments; a shader the prewarm
+// hasn't reached yet compiles): the page takes no input from the click until the first frame after the change has been drawn, and blurs
+// behind a spinner if that takes long enough to notice (the spinner turns on the compositor meanwhile; camera moves step by at most
+// 50 ms a frame, so a stall doesn't skip the start of a transition)
+let BUSY_N=0;const raf2=f=>requestAnimationFrame(()=>requestAnimationFrame(f));
+function busyRun(fn){const el=$('todBusy');BUSY_N++;el.hidden=false;
+  raf2(()=>{try{fn();}catch(e){console.warn(e);}finally{raf2(()=>raf2(()=>{if(--BUSY_N<=0){BUSY_N=0;el.hidden=true;}}));}});}
 function setView(v){
   if(ST.pending){if(v==='three'){ST.pending=null;const to=ORB_SAVED?{...ORB_SAVED,t:ORB_SAVED.t.clone()}:null;CT=null;setVis();if(to)startCam(to);return;}
     const d=CT&&CT.done;CT=null;if(d)d();}
@@ -333,28 +368,38 @@ function updateUI(){document.querySelectorAll('.seg button[data-view]').forEach(
   $('allbtn').setAttribute('aria-pressed',String(ST.view==='three'&&ST.level==='all'));
   {const vh=ST.pending||ST.view;$('lvlHint').textContent=vh==='walk'?'Pick a level to go there.':vh==='plan'?'Pick the level to draw.':'Pick levels to cut open. Pick more than one to combine them.';}
   $('help').textContent=ARR.on?'Arrange: tap a piece of furniture, drag it to move it, drag the pink ring to turn it. Hold Shift to snap; Q and E turn 15°. Moves are saved in this browser.':DBG.on?'Debug mode: tap any surface or ID label to inspect it, then copy it into your message. Pick a level or walk into a room to label everything there. IDs match this published version.':HELP[ST.view];$('joy').style.display=(ST.view==='walk'&&COARSE)?'block':'none';
-  $('tSite').setAttribute('aria-pressed',String(ST.site));$('tTrees').setAttribute('aria-pressed',String(ST.trees));$('tLabels').setAttribute('aria-pressed',String(ST.labels));
+  $('tSite').setAttribute('aria-pressed',String(ST.site));$('tSurround').setAttribute('aria-pressed',String(!!ST.surround));$('tTrees').setAttribute('aria-pressed',String(ST.trees));$('tLabels').setAttribute('aria-pressed',String(ST.labels));
   lastWhere='';}
 function buildUI(){
-  const sec=$('section');const H=sec.clientHeight||164;const yOf=e=>(1-(e+13.5)/18)*(H-36)+2;
+  // the level picker is a little section drawing of the house: roofs over the upper floors, the ground line with soil below it, and each
+  // level a floor block stacked as in a split-level (rows 34 px apart; the lower level sits under the family room, below grade)
+  const sec=$('section'),Y={4:24,3:58,2:92,1:126},yOf=e=>Y[[1,2,3,4].find(k=>E[k]===e)];
+  sec.innerHTML='<svg class="secart" viewBox="0 0 100 160" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="secSoil" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0" class="s0"/><stop offset="1" class="s1"/></linearGradient></defs><rect x="0" y="90" width="100" height="70" fill="url(#secSoil)"/>'+
+    '<path class="roof" d="M28 23 L51 6 L74 23"/><path class="roof" d="M71 45 L101 57"/><line class="grade" x1="0" y1="90" x2="100" y2="90"/></svg>';
   const mk=(lv,txt,sub,l,w,y,cls,room)=>{const b=document.createElement('button');b.className='lvl'+(cls?' '+cls:'');b.dataset.lv=lv;b.style.left=l+'%';b.style.width=w+'%';b.style.top=y+'px';
     b.innerHTML='<span>'+txt+'<small>'+sub+'</small></span>';b.addEventListener('click',()=>{if(room&&ST.view==='walk')teleportRoom(SPEC.rooms.find(q=>q.name===room));else setLevel(+lv);});sec.appendChild(b);};
   mk(4,'Bedrooms','level 4',31,40,yOf(E[4]));mk(3,'Main','level 3',62,38,yOf(E[3]));mk(2,'Family rm','level 2',31,40,yOf(E[2]));
   mk(2,'Addition','new',0,29,yOf(E[2]),'new','Four-seasons room');mk(1,'Lower','level 1',31,69,yOf(E[1]));
-  $('allbtn').addEventListener('click',()=>{if(ST.view==='three'&&!ST.pending){setLevel('all');}else{ST.level='all';setView('three');}});
+  $('allbtn').addEventListener('click',()=>{if(ST.view==='three'&&!ST.pending){setLevel('all');}else{ST.level='all';busyRun(()=>setView('three'));}});
   // minimise buttons: each panel collapses to a small labelled pill; remembered in this browser
   let mins={};try{mins=JSON.parse(localStorage.getItem('panelMin')||'{}')||{};}catch(e){}
   for(const [id,name] of [['top','Controls'],['levels','Levels'],['hud','Help']]){const pnl=$(id),b=document.createElement('button');b.className='pmin';pnl.prepend(b);
     const set=on=>{pnl.classList.toggle('min',on);b.textContent=on?name:'−';b.title=b.ariaLabel=(on?'Show ':'Minimise ')+name.toLowerCase();b.setAttribute('aria-expanded',String(!on));mins[id]=on;try{localStorage.setItem('panelMin',JSON.stringify(mins));}catch(e){}};
     b.addEventListener('click',()=>set(!pnl.classList.contains('min')));set(!!mins[id]);}
-  document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+  document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;if(v!==(ST.pending||ST.view))busyRun(()=>setView(v));}));
   const tod=$('tod');for(const k in PRESETS){const o=document.createElement('option');o.value=k;o.textContent=PRESETS[k].label;tod.appendChild(o);}tod.value=LOOK.preset;
-  tod.addEventListener('change',()=>{applyPreset(tod.value);tod.blur();});
+  tod.addEventListener('change',()=>{const v=tod.value;tod.blur();busyRun(()=>applyPreset(v));});
+  // Sun: turns the preset's sun around the house (plan view keeps its studio light)
+  const sunT=$('sunTurn'),sunV=$('sunTurnV');
+  sunT.addEventListener('input',()=>{LOOK.sunTurn=+sunT.value;sunV.textContent=(LOOK.sunTurn>0?'+':'')+LOOK.sunTurn+'°';giAbort();
+    if(!LOOK.studio){sunDirFor(PRESETS[LOOK.preset],LOOK.sunDir);SKY_MAT.uniforms.sunDir.value.copy(LOOK.sunDir);fitShadow(true);}shadowDirty=true;dirty=true;});
+  sunT.addEventListener('dblclick',()=>{sunT.value=0;sunT.dispatchEvent(new Event('input'));});
   document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>setQuality(b.dataset.q)));
   $('tTrees').addEventListener('click',()=>{ST.trees=!ST.trees;setVis();});
   $('tLabels').addEventListener('click',()=>{ST.labels=!ST.labels;updateUI();dirty=true;});
   $('tDims').addEventListener('click',()=>{const on=!document.body.classList.toggle('nodims');$('tDims').setAttribute('aria-pressed',String(on));});
-  $('tSite').addEventListener('click',()=>{ST.site=!ST.site;setVis();});
+  $('tSite').addEventListener('click',()=>{ST.site=!ST.site;setVis();});$('tSurround').addEventListener('click',()=>{ST.surround=!ST.surround;setVis();});
   $('tDebug').addEventListener('click',dbgToggle);$('tArrange').addEventListener('click',arrToggle);
   $('arrL').addEventListener('click',()=>arrTurn(15));$('arrR').addEventListener('click',()=>arrTurn(-15));$('arr90').addEventListener('click',()=>arrTurn(90));
   $('arrReset').addEventListener('click',()=>arrReset(ARR.sel));$('arrDone').addEventListener('click',()=>arrSelect(null));$('arrCopy').addEventListener('click',()=>arrCopy(false));
@@ -402,12 +447,16 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   animate(dt);updatePaper();
   if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
   updateFog();
-  const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;}if(dirty){PIPE.n=0;dirty=false;}
-  if(PIPE.n<PIPE.max){
+  giFrame(now);updateLampPool();
+  const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;LOOK.lastMove=now;}
+  // 3/4 view: room labels fade out after 2 s without camera movement and come back as soon as it moves
+  {const idle=ST.view==='three'&&!ST.pending&&now-(LOOK.lastMove||0)>2000,el=$('labels');if(el.classList.contains('idle')!==idle)el.classList.toggle('idle',idle);}if(dirty){PIPE.n=0;dirty=false;}
+  if(PIPE.n<PIPE.max&&!giBuilding(now)){
     if(isHQ()){try{renderHigh(cam);}catch(e){console.warn(e);if(isUltra())setQuality('high','Ultra could not run on this device, so high quality is on.');else{setQuality('fast','High quality could not run on this device, so the fast renderer is on.');renderFast(cam);}}}
     else renderFast(cam);
     updateLabels();dbgTick();const w=whereText();if(w!==lastWhere){$('where').textContent=w;lastWhere=w;}
     const r=$('refine');const show=isHQ()&&PIPE.n>1&&PIPE.n<PIPE.max;r.textContent=show?'Refining the view, '+Math.round(PIPE.n/PIPE.max*100)+'%':'';r.style.display=show?'block':'none';}
+  giAfterFrame(now);
   requestAnimationFrame(frame);}
 // real photo textures: list them in assets/textures/manifest.json (only works when served over http, e.g. `npm run dev`)
 async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))return;let list;try{const r=await fetch('assets/textures/manifest.json',{cache:'no-store'});if(!r.ok)return;list=(await r.json()).textures||[];}catch(e){return;}
@@ -421,11 +470,11 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);if(srgb&&t.saturate!==undefined)tx=satur(tx,t.saturate);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
     if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.encoding=THREE.sRGBEncoding;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
   for(const t of list){const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
-    const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(nm)m.normalMap=nm;if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}
+    const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}
   refreshFades();dirty=true;}
 function start(){
   if(!window.THREE){$('loading').textContent='The 3D library could not load. Check your connection and reload the page.';return;}
-  initRenderer();buildScene();
+  initRenderer();buildScene();giPatchAll();
   camO=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.5,1600);camW=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.25,650);
   camP=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);
   buildUI();buildLabels();bindInput();

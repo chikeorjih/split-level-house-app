@@ -303,6 +303,9 @@ function buildFurniture(){
   upper('z',34.25,-1,21.9,24.35,e3+4.6,e3+6.9,C-.02,2);            // cooktop wall, by the fridge
   upper('z',34.25,-1,24.35,26.75,e3+6.0,e3+6.9,C-.02,2);           // over the cooktop (shorter, above the hood)
   upper('z',34.25,-1,26.75,30.25,e3+4.6,e3+6.9,C-.02,2);           // cooktop wall, by the window
+  // warm LED strips under the uppers (they glow in the evening preset)
+  for(const [x0,x1] of [[25.75,27.1],[32.7,35.25]])box('3','ledStrip',x0,x1,e3+4.57,e3+4.6,30.35,30.55);
+  for(const [z0,z1] of [[21.95,24.3],[26.8,30.2]])box('3','ledStrip',34.35,34.55,e3+4.57,e3+4.6,z0,z1);
   // slim under-cabinet hood: stainless body with a front lip and a light strip underneath
   box('3','hoodSteel',33.95,35.3,e3+5.55,e3+6.0,24.4,26.7);box('3','hoodSteel',33.9,33.98,e3+5.5,e3+5.75,24.4,26.7);box('3','light',34.3,35.1,e3+5.54,e3+5.55,24.7,26.4);
   // backsplash (white subway): counter to the uppers, under and above the window, and up to the hood

@@ -13,46 +13,43 @@
 <div id="stage"></div>
 <div id="labels"></div>
 <div id="loading">Building the house…</div>
+<div id="todBusy" role="status" aria-label="Loading" hidden><span class="busy"></span></div>
 <div id="err" class="panel"></div>
 
+<div id="bar" class="panel">
+  <div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8M9.5 20v-5.5h5V20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg></span>
+    <div><h1>Split-level house</h1><p>Dunwoody Drive · <span class="newkey">blue</span> is new construction</p></div></div>
+  <div class="seg view" role="group" aria-label="View">
+    <button data-view="walk" aria-pressed="false">Walk</button>
+    <button data-view="plan" aria-pressed="false">Floor plan</button>
+    <button data-view="three" aria-pressed="true">¾ view</button>
+  </div>
+  <div class="barend">
+    <label class="field">Light <select id="tod"></select></label>
+    <label class="field sunf" title="Turn the sun around the house (double-click to reset)">Sun <input type="range" id="sunTurn" min="-180" max="180" step="5" value="0"><span id="sunTurnV">0°</span></label>
+    <div class="seg q" role="group" aria-label="Render quality">
+      <button data-q="ultra" aria-pressed="false" title="Bounce light, real reflections, soft shadows from room lights, supersampling. Takes longer to settle.">Ultra</button>
+      <button data-q="high" aria-pressed="true">High</button>
+      <button data-q="fast" aria-pressed="false">Fast</button>
+    </div>
+  </div>
+  <p id="qnote" style="display:none"></p>
+</div>
+
 <div id="top" class="panel">
-  <header class="ph">
-    <h1>Split-level house</h1>
-    <p>With the four-seasons addition and new deck. <span class="newkey">Blue</span> marks new construction.</p>
-  </header>
-  <section class="grp" aria-labelledby="gView"><h3 id="gView">View</h3>
-    <div class="ctl">
-      <div class="seg" role="group" aria-label="View">
-        <button data-view="walk" aria-pressed="false">Walk</button>
-        <button data-view="plan" aria-pressed="false">Floor plan</button>
-        <button data-view="three" aria-pressed="true">¾ view</button>
-      </div>
-      <label class="field">Jump to <select id="goto"></select></label>
-    </div>
-  </section>
   <section class="grp" aria-labelledby="gShow"><h3 id="gShow">Show</h3>
-    <div class="ctl">
-      <button class="chip" id="tTrees" aria-pressed="true">Trees</button>
-      <button class="chip" id="tLabels" aria-pressed="true">Room names</button>
-      <button class="chip" id="tDims" aria-pressed="true">Measurements</button>
-      <button class="chip" id="tSite" aria-pressed="false">Setback lines</button>
-    </div>
-  </section>
-  <section class="grp" aria-labelledby="gLook"><h3 id="gLook">Look</h3>
-    <div class="ctl">
-      <label class="field">Light <select id="tod"></select></label>
-      <div class="seg q" role="group" aria-label="Render quality">
-        <button data-q="ultra" aria-pressed="false" title="Bounce light, real reflections, soft shadows from room lights, supersampling. Takes longer to settle.">Ultra</button>
-        <button data-q="high" aria-pressed="true">High quality</button>
-        <button data-q="fast" aria-pressed="false">Fast</button>
-      </div>
-      <p id="qnote" style="display:none"></p>
+    <div class="ctl col">
+      <button class="chip sw" id="tTrees" aria-pressed="true">Trees</button>
+      <button class="chip sw" id="tLabels" aria-pressed="true">Room names</button>
+      <button class="chip sw" id="tDims" aria-pressed="true">Measurements</button>
+      <button class="chip sw" id="tSite" aria-pressed="false">Setback lines</button>
+      <button class="chip sw" id="tSurround" aria-pressed="false">Surroundings</button>
     </div>
   </section>
   <section class="grp" aria-labelledby="gTools"><h3 id="gTools">Tools</h3>
-    <div class="ctl">
-      <button class="chip" id="tDebug" aria-pressed="false">Debug IDs</button>
-      <button class="chip" id="tArrange" aria-pressed="false">Arrange furniture</button>
+    <div class="ctl col">
+      <label class="field">Jump to <select id="goto"></select></label>
+      <div class="row"><button class="chip" id="tArrange" aria-pressed="false">Arrange furniture</button><button class="chip" id="tDebug" aria-pressed="false">Debug IDs</button></div>
     </div>
   </section>
 </div>
