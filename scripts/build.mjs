@@ -1,28 +1,31 @@
-// Builds dist/house-walkthrough.html: one self-contained file (styles and every src/*.js inlined,
-// three.js r128 from the CDN) that can be published as a claude.ai artifact or opened anywhere.
+// Builds dist/house-walkthrough.html: one self-contained file (styles and every src/*.js inlined, three.js from the CDN through an import
+// map) that can be published as a claude.ai artifact or opened anywhere. three.js is an ES module, so the app's classic code is held as
+// text and run by the inlined boot module once THREE is ready; window.__APP_LINE0 tells Debug IDs which line of this file it starts on.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 
 const css = fs.readFileSync(path.join(root, 'src/styles.css'), 'utf8');
 html = html.replace('<link rel="stylesheet" href="src/styles.css">', '<style>\n' + css.replace(/\s+$/, '') + '\n</style>');
 
-html = html.replace('<script src="vendor/three.min.js"></script>',
-  '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>');
-html = html.replace(/<script>if\(!window\.THREE\)\{document\.write\('<script src="https:\/\/cdnjs[^\n]*<\/script>/,
-  `<script>if(!window.THREE){document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\\/script>')}</script>`);
-
-html = html.replace('<script src="vendor/GLTFLoader.js"></script>',
-  '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>');
-
-const tags = [...html.matchAll(/<script src="(src\/[^"]+\.js)"><\/script>\n?/g)];
+const THREE_VER = JSON.parse(fs.readFileSync(path.join(root, 'node_modules/three/package.json'), 'utf8')).version, CDN = 'https://cdn.jsdelivr.net/npm/three@' + THREE_VER;
+html = html.replace(/<script type="importmap">[^\n]*<\/script>/, () => '<script type="importmap">' + JSON.stringify({ imports: { three: CDN + '/build/three.module.js', 'three/webgpu': CDN + '/build/three.webgpu.js', 'three/tsl': CDN + '/build/three.tsl.js', 'three/addons/': CDN + '/examples/jsm/' } }) + '</script>');
+const bootTag = '<script type="module" src="src/three-boot.mjs"></script>\n';
+if (!html.includes(bootTag)) throw new Error('No three-boot.mjs module tag in index.html');
+html = html.replace(bootTag, '');
+const tags = [...html.matchAll(/<script defer src="(src\/[^"]+\.js)"><\/script>\n?/g)];
 if (!tags.length) throw new Error('No src/*.js script tags found in index.html');
 const code = tags.map(m => fs.readFileSync(path.join(root, m[1]), 'utf8').replace(/\s+$/, '')).join('\n');
 const first = tags[0].index, last = tags[tags.length - 1];
-html = html.slice(0, first) + '<script>\n' + code + '\n</script>\n' + html.slice(last.index + last[0].length);
+html = html.slice(0, first) + '<script type="text/plain" id="app-src">\n' + code + '\n</script>\n' + html.slice(last.index + last[0].length);
+// the boot module, inlined after the app code (so its line numbers stay put), runs the app code once three.js has loaded
+{ const tagLine = html.slice(0, html.indexOf('<script type="text/plain" id="app-src">')).split('\n').length;
+  const boot = fs.readFileSync(path.join(root, 'src/three-boot.mjs'), 'utf8').replace(/\s+$/, '');
+  const tail = html.lastIndexOf('</body>');
+  html = html.slice(0, tail) + '<script>window.__APP_LINE0=' + tagLine + ';</script>\n<script type="module">\n' + boot + '\nconst __s = document.createElement(\'script\'); __s.textContent = document.getElementById(\'app-src\').textContent; document.body.appendChild(__s);\n</script>\n' + html.slice(tail); }
 
 // imported models: embed the manifest and each GLB as a data URI, after the app code so Debug ID line numbers don't move
 const manPath = path.join(root, 'assets/models/manifest.json');

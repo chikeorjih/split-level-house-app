@@ -45,7 +45,7 @@ async function photoCapture(){if(PHOTO.busy||ST.view!=='walk')return null;
     if(LOOK.quality!=='ultra')throw new Error('Ultra is not available on this device');
     // the room light for this preset and sun (built in the background once the view is still), so the photo has it
     const t0=performance.now();LOOK.lastMove=0;
-    for(;;){await photoRaf();const want=!PRESETS[LOOK.preset].lamps&&renderer.capabilities.isWebGL2&&!!PIPE.enc;
+    for(;;){await photoRaf();const want=!PRESETS[LOOK.preset].lamps&&true&&!!PIPE.enc;
       if(!want||GI.atlas[giKey()]||performance.now()-t0>90000)break;
       say(GI.job?'Lighting the rooms, '+Math.round((GI.job.pass+GI.job.i/GI.probes.length)/ULTRA.giPasses*100)+'%':'Lighting the rooms…');}
     // the photo: its own camera, render size and a full Ultra accumulation, with the lens effects off

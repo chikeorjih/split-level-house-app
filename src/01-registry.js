@@ -10,7 +10,8 @@ const __SRC_LINES=__SRC_TEXT.split('\n'),__MARK_IDX=Math.max(0,__SRC_LINES.findI
 function parseStack(st){const out=[];for(const l of String(st||'').split('\n')){const s=l.trim();if(!s||/^Error/.test(s))continue;
     const m=s.match(/^(?:at\s+)?(?:(.*?)\s+\(|([^@\s]*)@)?(.*?):(\d+):(\d+)\)?$/);if(!m)continue;
     let fn=(m[1]||m[2]||'').replace(/^async\s+/,'').replace(/^new\s+/,'');fn=fn.split('.').pop();out.push({fn,line:+m[4],col:+m[5],url:m[3]||''});}return out;}
-function fileLine(rep){return rep-__LINE_OFFSET;}
+// (in the single-file build the app code runs as an injected script whose line 1 is the build file's line __APP_LINE0)
+function fileLine(rep){return (typeof window.__APP_LINE0==='number'?rep+window.__APP_LINE0-1:rep)-__LINE_OFFSET;}
 const __MARK_LINE=fileLine(__MARK_REPORTED);
 const DIST_NAME='house-walkthrough.html',SRC_CACHE={};
 // in the multi-file project each script is its own file; fetch their text once so the inspector can show code snippets

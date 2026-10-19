@@ -89,7 +89,7 @@ function leafTex(small){const S=TX(256),C=S/2,[c,g]=cv(S,S);g.clearRect(0,0,S,S)
       g.save();g.translate(x,y);g.rotate(r);g.fillStyle=hsl(rr(78,118),rr(30,55),rr(small?16:20,small?32:42));g.beginPath();g.moveTo(-L,0);g.quadraticCurveTo(0,-W,L,0);g.quadraticCurveTo(0,W,-L,0);g.fill();
       g.strokeStyle='rgba(255,255,220,.18)';g.lineWidth=.6;g.beginPath();g.moveTo(-L*.8,0);g.lineTo(L*.8,0);g.stroke();g.restore();}
     g.restore();}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 // ---------- the 3/4 view's diorama: the lot cut out as a block of earth standing on a plain studio floor, in a soft lavender studio.
 // Outside the block the ground and buildings are clipped away (CLIP_X0..Z1), and the woods beyond it and the horizon tree band are
 // hidden (FAR_TREES); the trees on the block, behind and beside the house, stay.
@@ -105,13 +105,13 @@ function soilTex(){const S=TX(512),[c,g]=cv(S,S);const gr=g.createLinearGradient
 // the studio floor under the block: plain soft lilac, fading out toward its edges into the backdrop
 function studioFloorTex(){const W=TX(512),[c,g]=cv(W,W),C=W/2,rg=g.createRadialGradient(C,C,0,C,C,C);
   rg.addColorStop(0,'rgba(233,230,245,1)');rg.addColorStop(.55,'rgba(226,223,242,1)');rg.addColorStop(1,'rgba(220,217,240,0)');g.fillStyle=rg;g.fillRect(0,0,W,W);
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 // the block's contact shadow on the studio floor: dark right at its foot, falling off quickly, plus a wide soft ambient-occlusion halo.
 // The texture covers the footprint grown by S feet on every side; alpha comes from each pixel's distance (feet) outside the footprint.
 function contactShadowTex(w,d,S){const R=TX(512),[c,g]=cv(R,R),im=g.createImageData(R,R),W=w+2*S,D=d+2*S;
   for(let j=0;j<R;j++)for(let i=0;i<R;i++){const x=Math.max(0,Math.abs((i+.5)/R*W-W/2)-w/2),z=Math.max(0,Math.abs((j+.5)/R*D-D/2)-d/2),e=Math.hypot(x,z);
     const a=Math.min(1,.9*Math.exp(-e/.7)+.225*Math.exp(-e/4.5))*Math.max(0,1-e/S),k=(j*R+i)*4;im.data[k]=im.data[k+1]=im.data[k+2]=12;im.data[k+3]=Math.round(a*255);}
-  g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
+  g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 function buildDiorama(){const grp=new THREE.Group(),P=[],N=[],U=[],B=DIO.base;
   const quad=(a,b,c2,d,n)=>{for(const v of [a,b,c2,a,c2,d]){P.push(v[0],v[1],v[2]);N.push(...n);U.push(v[3],v[1]);}};
   const side=(ax,fixed,a0,a1,n)=>{for(let a=a0;a<a1-1e-6;a+=2){const b=Math.min(a1,a+2),pt=t=>ax==='x'?[t,fixed]:[fixed,t],[xa,za]=pt(a),[xb,zb]=pt(b),ya=terrainH(xa,za)+.06,yb=terrainH(xb,zb)+.06;
@@ -205,7 +205,7 @@ function buildTrees(){
     for(let i=0;i<150;i++){const x=rr(0,1024),r=rr(16,38),cy=256-rr(70,205);g.fillStyle=hsl(rr(80,108),rr(22,36),rr(17,28));
       g.fillRect(x-r*.8,cy,r*1.6,256-cy);for(let k=0;k<4;k++){g.beginPath();g.arc(x+rr(-r*.6,r*.6),cy+rr(-r*.4,r*.3),r*rr(.55,.85),0,6.283);g.fill();}}
     for(const dx of [-1024,1024])g.drawImage(c,dx,0);
-    const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;t.repeat.set(7,1);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=THREE.RepeatWrapping;t.repeat.set(7,1);
     MAT.treeline=farPatch(new THREE.MeshStandardMaterial({map:t,alphaTest:.5,side:THREE.BackSide,roughness:1,color:0xd8e0c8}));
     const band=new THREE.Mesh(new THREE.CylinderGeometry(560,560,70,72,1,true),MAT.treeline);band.position.set(20,-46+35,25);band.userData.horizon=true;grp.add(band);}
   return grp;
@@ -267,7 +267,7 @@ function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chu
   const gBase={value:lin(0x3e4f1f)};
   mat.onBeforeCompile=sh=>{sh.uniforms.gBase=gBase;
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 gBase;')
-      .replace('#include <color_fragment>','#include <color_fragment>\n  diffuseColor.rgb=mix(gBase,diffuseColor.rgb,smoothstep(0.,.9,vUv.y));')
+      .replace('#include <color_fragment>','#include <color_fragment>\n  diffuseColor.rgb=mix(gBase,diffuseColor.rgb,smoothstep(0.,.9,vMapUv.y));')
       .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n  normal=normalize(vNormal);');};
   const grp=new THREE.Group();grp.userData.mat=mat;
   for(const A of chunks.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));

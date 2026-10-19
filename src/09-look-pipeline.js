@@ -42,7 +42,7 @@ const SKY_MAT=new THREE.ShaderMaterial({uniforms:{st:{value:0},stc:{value:new TH
     vec3 sd=y>0.?mix(vec3(.93,.92,.98),vec3(.70,.68,.90),pow(clamp(y,0.,1.),.7)):mix(vec3(.93,.92,.98),vec3(.80,.78,.93),clamp(pow(-y*1.6,.6),0.,1.));c=mix(c,sd*stc,st);
     gl_FragColor=vec4(mix(c,paper,pm),1.);
     #include <tonemapping_fragment>
-    #include <encodings_fragment>
+    #include <colorspace_fragment>
   }`,side:THREE.BackSide,depthWrite:false,depthTest:false});
 let SKY,ROOM_ENV=null,SKY_ENV=null;
 function buildSky(){SKY=new THREE.Mesh(new THREE.SphereGeometry(450,40,20),SKY_MAT);SKY.renderOrder=-1000;SKY.frustumCulled=false;scene.add(SKY);}
@@ -127,7 +127,8 @@ function applyPreset(name){if(typeof giAbort==='function')giAbort();const P=PRES
   const u=SKY_MAT.uniforms;u.stc.value.fromArray(P.stc||[1,1,1]);u.sunDir.value.copy(LOOK.sunDir);u.zen.value.setHex(P.zen);u.hor.value.setHex(P.hor);u.gnd.value.setHex(P.gnd);u.sunCol.value.setHex(P.sun);u.sunI.value=P.lamps?.15:1;
   sun.color.setHex(P.sun);sun.intensity=P.si;LOOK.hemi.intensity=P.hemi;LOOK.hemi.color.setHex(P.zen).lerp(new THREE.Color(1,1,1),.6);LOOK.amb.intensity=P.lamps?.03:.05;
   makeEnvs(P,name);
-  for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?null:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
+  // (outdoor materials take the sky map explicitly: since r163 a material using scene.environment ignores its envMapIntensity)
+  for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?SKY_ENV:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
   applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;if(MAT.ledStrip)MAT.ledStrip.emissiveIntensity=P.lamps?2.2:.1;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
   LAMP_SIG='';updateLampPool();
   for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
@@ -440,7 +441,7 @@ function gradeCss(f){const el=renderer.domElement;if(el.style.filter!==f)el.styl
 function renderFast(cam){const P=PRESETS[LOOK.preset];gradeCss(ST.view==='plan'?'':LOOK.gradeCss||'');renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=P.exp;
   if(LOOK.sunBase)sun.position.copy(LOOK.sunBase);if(shadowDirty){renderer.shadowMap.needsUpdate=true;shadowDirty=false;}
   if(SKY)SKY.position.copy(cam.position);renderer.setRenderTarget(null);renderer.render(scene,cam);PIPE.n=PIPE.max;}
-function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q!=='fast'&&!renderer.capabilities.isWebGL2){q='fast';why='High quality and Ultra need WebGL 2, which this browser does not offer, so the fast renderer is on.';}
+function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q!=='fast'&&!true){q='fast';why='High quality and Ultra need WebGL 2, which this browser does not offer, so the fast renderer is on.';}
   LOOK.quality=q;renderer.setPixelRatio(qualityPR(q));renderer.setSize(innerWidth,innerHeight);if(q!=='fast')setupPipe();
   // ultra: a 256-frame accumulation and an 8192 sun shadow map where the GPU allows it
   PIPE.max=q==='ultra'?ULTRA.frames:64;
@@ -471,7 +472,7 @@ const GI_FRAG_APPLY=`
   if(uGI>0.){mat3 vT=transpose(mat3(viewMatrix));vec3 wp=vT*(-vViewPosition-viewMatrix[3].xyz),wn=normalize(vT*normal),q=wp+wn*.5;float inR=roomIn(q)*uGI;
     if(inR>0.){irradiance=mix(irradiance,giIrr(q,wn)*giGain,inR);iblIrradiance*=1.-inR;}}`;
 // interior materials read the probe light (WebGL 2 only; off unless Ultra's grid is built). The patch joins any shader patch already there.
-function giPatch(m,k){if(!m||!m.isMeshStandardMaterial||m.userData.gi||(k&&EXT_MATS.has(k))||!renderer.capabilities.isWebGL2)return;
+function giPatch(m,k){if(!m||!m.isMeshStandardMaterial||m.userData.gi||(k&&EXT_MATS.has(k))||!true)return;
   const o=m.onBeforeCompile,k0=m.customProgramCacheKey.call(m);m.userData.gi=true;
   m.onBeforeCompile=(sh,r)=>{if(o)o(sh,r);Object.assign(sh.uniforms,GI_U);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\n'+GI_FRAG_PARS).replace('#include <lights_fragment_maps>','#include <lights_fragment_maps>\n'+GI_FRAG_APPLY);};
@@ -540,7 +541,7 @@ function giSlice(ms){const J=GI.job,N=GI.N,t0=performance.now(),P=PRESETS[LOOK.p
 // every frame, before drawing: switch the probe light on (this preset and sun turn built), off, or start a build
 // not in the evening: the room light there would carry lamp bounce from every lamp in the house, while only the lamps nearest the view
 // light it directly, so the rooms jumped brighter a few seconds after the camera stopped
-function giFrame(now){const want=isUltra()&&!PRESETS[LOOK.preset].lamps&&ST.view!=='plan'&&!LOOK.studio&&renderer.capabilities.isWebGL2&&!!PIPE.enc;
+function giFrame(now){const want=isUltra()&&!PRESETS[LOOK.preset].lamps&&ST.view!=='plan'&&!LOOK.studio&&true&&!!PIPE.enc;
   if(!want){giAbort();if(GI_U.uGI.value){GI_U.uGI.value=0;dirty=true;}return;}
   const key=giKey();if(GI.job&&GI.job.key!==key)giAbort();
   if(GI.atlas[key]){GI_U.giGain.value=giGainNow();if(GI.key!==key||!GI_U.uGI.value){GI.key=key;GI_U.tGIa.value=GI.atlas[key].texture;GI_U.uGI.value=1;dirty=true;}return;}

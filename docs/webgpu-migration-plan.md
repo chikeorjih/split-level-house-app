@@ -116,3 +116,31 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
 ## Run log
 
 (Append dated entries here: what was done, test results, parity notes, open questions.)
+
+### 2026-10-19: Phase 1 (three.js r128 → r186, WebGL)
+
+- **Branch and worktree:** `webgpu-migration`, checked out at `../split-level-house-webgpu`, so `main` and its folder are untouched. The branch dev server runs on port 5180.
+- **Loading three:** three 0.186.1 loads as ES modules through an import map (`index.html`). `src/three-boot.mjs` imports it, applies the r128 compatibility settings and sets `window.THREE`. The classic `src/*.js` scripts run after it (`defer`). `scripts/vendor-three.mjs` copies the module builds (WebGL and WebGPU) and the add-ons into `vendor/three/`.
+- **r128 look kept:**
+  - `ColorManagement` off.
+  - Shader chunks patched back to legacy light units: direct, hemisphere and ambient light × π, and the old smooth distance falloff.
+  - Alpha-to-coverage restored to r128's behaviour.
+  - Outdoor materials take the sky map explicitly. Since r163, a material that falls back to `scene.environment` ignores its `envMapIntensity`, and that was making the exterior hazy.
+- **Code changes:**
+  - Colour encoding: `.encoding = sRGBEncoding` → `.colorSpace = SRGBColorSpace`.
+  - Renamed chunks: `output_fragment` → `opaque_fragment`, `encodings_fragment` → `colorspace_fragment`.
+  - Map UVs: `vUv` → `vMapUv` in the anti-tiling, grass and blueprint patches.
+  - Removed `isWebGL2` checks (WebGL 2 is always used now).
+  - `PCFSoftShadowMap` → `PCFShadowMap`, since r186 removed the soft variant.
+- **Single-file build:** the app code is held as `text/plain` and run by the inlined boot module once three has loaded. `window.__APP_LINE0` keeps Debug ID line numbers mapping to the built file; 400 of 400 elements were checked and map to the right line.
+- **Parity:** the same four shots (¾ afternoon, walk afternoon, walk dusk, plan) were taken from `main` and from the branch, and the mean absolute pixel difference is out of 255.
+
+  | Quality | Difference | Brightness | Notes |
+  |---|---|---|---|
+  | High | 0.9–4.7 | within 3% | |
+  | Ultra | 0.9–2.7 | within 2% | |
+  | Fast, interiors and plan | 0.8–5.1 | | |
+  | Fast, ¾ exterior | 13 | lawn about 14% brighter | Not a lighting difference: r186 decodes sRGB textures on the GPU, so distant texture mips are averaged in linear space. That is the more correct result, so it is accepted. |
+
+- **Speed:** the branch loads in about 18–20 s, against 33–35 s on `main` under the same headless GPU.
+- **Open:** the single-file build is about 40 MB because of the 8 embedded GLB models. That is not caused by the migration (`main` has it too), but it is over the 16 MB artifact limit.

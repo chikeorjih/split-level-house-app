@@ -15,7 +15,7 @@
     "postinstall": "node scripts/vendor-three.mjs"
   },
   "dependencies": {
-    "three": "0.128.0"
+    "three": "0.186.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0"

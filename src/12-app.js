@@ -15,8 +15,8 @@ const COARSE=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
 function initRenderer(){
   renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(innerWidth,innerHeight);
-  renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
-  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
+  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
   renderer.localClippingEnabled=true;$('stage').appendChild(renderer.domElement);
   // checking each new shader for errors makes the browser finish compiling it on the spot; off unless the page is opened with ?shadercheck
   renderer.debug.checkShaderErrors=/[?&]shadercheck/.test(location.search);
@@ -206,13 +206,13 @@ function blueprintTex(){const P=PAPER,ppf=TX(2048)/(P.x1-P.x0),W=Math.round((P.x
     g.font='700 '+Math.round(ppf*1.5)+'px Archivo, system-ui, sans-serif';g.fillText('SPLIT-LEVEL RESIDENCE',x+ppf*.8,y+ppf*2.0);
     g.font='500 '+Math.round(ppf*.95)+'px Archivo, system-ui, sans-serif';g.fillText('DUNWOODY DRIVE  ·  ADDITION AND DECK',x+ppf*.8,y+ppf*3.4);
     g.fillText('FLOOR PLANS',x+ppf*.8,y+h-ppf*1.1);g.fillText('GRID 1 FT',x+w*.62+ppf*.8,y+h-ppf*1.1);}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 // the sheet unrolls from the back edge toward the street as the plan comes in (and rolls back up on the way out): the part not yet
 // unrolled is cut away in the shader, and a paper roll, thinner as it unwinds, rides along the reveal edge
 const PAPER_REV={value:0};
 function buildPaper(){if(PAPER.mesh)return;const m=new THREE.MeshStandardMaterial({map:blueprintTex(),roughness:.92,transparent:true});
     m.onBeforeCompile=sh=>{sh.uniforms.uRev=PAPER_REV;sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uRev;')
-      .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n  if(vUv.y<1.-uRev)discard;');};
+      .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n  if(vMapUv.y<1.-uRev)discard;');};
     const P=PAPER.mesh=new THREE.Mesh(new THREE.PlaneGeometry(PAPER.x1-PAPER.x0,PAPER.z1-PAPER.z0),m);
     P.rotation.x=-Math.PI/2;P.position.set((PAPER.x0+PAPER.x1)/2,0,(PAPER.z0+PAPER.z1)/2);P.receiveShadow=true;P.renderOrder=-1;scene.add(P);
     const R=PAPER.roll=new THREE.Mesh(new THREE.CylinderGeometry(1,1,PAPER.x1-PAPER.x0,40),new THREE.MeshStandardMaterial({color:0xc9d8ea,roughness:.85}));
@@ -469,7 +469,7 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   const paint=(tx,col)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter='grayscale(1) contrast(.4) brightness(2.1)';g.drawImage(im,0,0);g.filter='none';
     g.globalCompositeOperation='multiply';g.fillStyle=col;g.fillRect(0,0,c.width,c.height);tx.dispose();return new THREE.CanvasTexture(c);};
   const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);if(srgb&&t.saturate!==undefined)tx=satur(tx,t.saturate);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
-    if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.encoding=THREE.sRGBEncoding;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
+    if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
   for(const t of list){const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
     const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}
   refreshFades();dirty=true;}

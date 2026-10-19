@@ -91,24 +91,22 @@
   <div id="dbgConfirm" style="display:none"></div>
 </div>
 
-<script src="vendor/three.min.js"></script>
-<script>if(!window.THREE){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')}</script>
-<script src="vendor/GLTFLoader.js"></script>
-<script>if(!THREE.GLTFLoader){document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"><\/script>')}</script>
-<script src="src/00-boot.js"></script>
-<script src="src/01-registry.js"></script>
-<script src="src/02-spec.js"></script>
-<script src="src/03-textures.js"></script>
-<script src="src/04-textures-living.js"></script>
-<script src="src/05-geometry.js"></script>
-<script src="src/06-house.js"></script>
-<script src="src/07-furniture.js"></script>
-<script src="src/08-site.js"></script>
-<script src="src/09-look-pipeline.js"></script>
-<script src="src/10-debug.js"></script>
-<script src="src/11-arrange.js"></script>
-<script src="src/12-app.js"></script>
-<script src="src/13-models.js"></script>
-<script src="src/14-photo.js"></script>
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/webgpu":"./vendor/three/build/three.webgpu.js","three/tsl":"./vendor/three/build/three.tsl.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+<script type="module" src="src/three-boot.mjs"></script>
+<script defer src="src/00-boot.js"></script>
+<script defer src="src/01-registry.js"></script>
+<script defer src="src/02-spec.js"></script>
+<script defer src="src/03-textures.js"></script>
+<script defer src="src/04-textures-living.js"></script>
+<script defer src="src/05-geometry.js"></script>
+<script defer src="src/06-house.js"></script>
+<script defer src="src/07-furniture.js"></script>
+<script defer src="src/08-site.js"></script>
+<script defer src="src/09-look-pipeline.js"></script>
+<script defer src="src/10-debug.js"></script>
+<script defer src="src/11-arrange.js"></script>
+<script defer src="src/12-app.js"></script>
+<script defer src="src/13-models.js"></script>
+<script defer src="src/14-photo.js"></script>
 </body>
 </html>

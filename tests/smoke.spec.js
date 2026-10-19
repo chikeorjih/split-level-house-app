@@ -18,7 +18,7 @@ test('scene builds without errors', async ({ page }) => {
   const stats = await page.evaluate(() => ({ elements: REG.size, furniture: INSTS.length, walls: SPEC.walls.length, err: document.getElementById('err').textContent }));
   expect(stats.err).toBe('');
   expect(stats.elements).toBeGreaterThan(300);
-  expect(stats.furniture).toBeGreaterThan(50);
+  expect(stats.furniture).toBeGreaterThan(40);   // 47 pieces after the owner's removals (was > 50)
 });
 
 const routes = [
@@ -62,7 +62,8 @@ test('Debug IDs point at the code that builds each element', async ({ page }) =>
 test('single-file build works', async ({ page }) => {
   execSync('node scripts/build.mjs');
   const html = fs.readFileSync('dist/house-walkthrough.html', 'utf8');
-  expect(html).toContain('three.js/r128/three.min.js');
+  expect(html).toContain('cdn.jsdelivr.net/npm/three@');
+  expect(html).toContain('id="app-src"');
   expect(html).not.toContain('src="src/');
   expect(html.split('\n')[5].startsWith('<title>')).toBeTruthy();
 });

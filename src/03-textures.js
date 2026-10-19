@@ -8,7 +8,7 @@ function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;r
 function hsl(h,s,l){return `hsl(${h},${s}%,${l}%)`;}
 let MAXANISO=4;
 function tex(c,ftW,ftH,opts){const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;
-  t.repeat.set(1/ftW,1/(ftH||ftW));t.anisotropy=MAXANISO;t.encoding=THREE.sRGBEncoding;
+  t.repeat.set(1/ftW,1/(ftH||ftW));t.anisotropy=MAXANISO;t.colorSpace=THREE.SRGBColorSpace;
   if(opts&&opts.rot){t.center.set(.5,.5);t.rotation=opts.rot;} return t;}
 function noise(g,w,h,amt,alpha){const d=g.getImageData(0,0,w,h);const p=d.data;for(let i=0;i<p.length;i+=4){const n=(rnd()-.5)*amt;p[i]+=n;p[i+1]+=n;p[i+2]+=n;}g.putImageData(d,0,0);}
 // White-oak wide plank (photos: light, slightly warm, long boards ~7")
@@ -57,14 +57,14 @@ function nurseryRugTex(){const W=512,[c,g]=cv(W,W);g.fillStyle='#ebe4d5';g.fillR
   g.fillStyle='rgba(196,182,155,.55)';for(let gy=0;gy<6;gy++)for(let gx=0;gx<6;gx++){const x=(gx+.5+(gy%2)*.5)*W/6,y=(gy+.5)*W/6;if(x>W-10)continue;
     g.beginPath();g.ellipse(x,y+5,9,7,0,0,7);g.fill();for(const [dx,dy] of [[-10,-8],[-4,-13],[4,-13],[10,-8]]){g.beginPath();g.arc(x+dx,y+dy,3.2,0,7);g.fill();}}
   g.strokeStyle='rgba(205,193,170,.8)';g.lineWidth=6;g.strokeRect(10,10,W-20,W-20);
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 // the nursery's large rug: heathered oat wool, a fine lattice tone-on-tone, a soft olive double border (sized for an 11 x 11 ft rug)
 function nurseryBigRugTex(){const W=1024,[c,g]=cv(W,W);g.fillStyle='#e2d8c4';g.fillRect(0,0,W,W);
   for(let i=0;i<40000;i++){g.fillStyle=rnd()<.5?'rgba(250,244,230,.3)':'rgba(150,135,105,.14)';g.fillRect(rr(0,W),rr(0,W),rr(1,4),rr(1,2));}
   g.strokeStyle='rgba(185,170,140,.35)';g.lineWidth=2;const n=14,st=(W-160)/n;
   for(let i=0;i<=n;i++)for(let j=0;j<=n;j++){const x=80+i*st,y=80+j*st;g.beginPath();g.moveTo(x,y-st/2);g.lineTo(x+st/2,y);g.lineTo(x,y+st/2);g.lineTo(x-st/2,y);g.closePath();g.stroke();}
   g.strokeStyle='rgba(122,128,92,.85)';g.lineWidth=14;g.strokeRect(34,34,W-68,W-68);g.lineWidth=4;g.strokeRect(62,62,W-124,W-124);
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 // the round play mat on top of it: soft cream padding in quilted rings, the outer ring olive, little paw prints in the middle ring
 function playMatTex(){const W=512,[c,g]=cv(W,W),C=W/2;g.fillStyle='#f3eee2';g.fillRect(0,0,W,W);
   const ring=(r,col)=>{g.fillStyle=col;g.beginPath();g.arc(C,C,r,0,7);g.fill();};ring(C,'#9fa27f');ring(C*.86,'#f3eee2');ring(C*.62,'#e7dcc5');ring(C*.42,'#f3eee2');
@@ -72,12 +72,12 @@ function playMatTex(){const W=512,[c,g]=cv(W,W),C=W/2;g.fillStyle='#f3eee2';g.fi
   g.fillStyle='rgba(175,160,130,.6)';for(let k=0;k<10;k++){const a=k/10*6.283,x=C+Math.cos(a)*C*.52,y=C+Math.sin(a)*C*.52;g.beginPath();g.ellipse(x,y+4,7,5.5,0,0,7);g.fill();
     for(const [dx,dy] of [[-8,-6],[-3,-10],[3,-10],[8,-6]]){g.beginPath();g.arc(x+dx,y+dy,2.6,0,7);g.fill();}}
   for(let i=0;i<5000;i++){g.fillStyle=rnd()<.5?'rgba(255,255,255,.25)':'rgba(120,110,90,.08)';g.fillRect(rr(0,W),rr(0,W),rr(1,3),rr(1,3));}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 // fine straight-grained wood for furniture faces (per-face 0-1 UVs: the grain runs along u), in a given base colour
 function woodGrainTex(base){const W=512,[c,g]=cv(W,W);g.fillStyle=base;g.fillRect(0,0,W,W);
   for(let i=0;i<220;i++){const y=rr(0,W),h=rr(1,5);g.fillStyle=rnd()<.6?'rgba(95,55,25,'+rr(.04,.14)+')':'rgba(255,225,180,'+rr(.04,.12)+')';
     g.beginPath();g.moveTo(0,y);for(let x=0;x<=W;x+=32)g.lineTo(x,y+Math.sin(x*.012+i)*rr(1,4));g.lineTo(W,y+h);for(let x=W;x>=0;x-=32)g.lineTo(x,y+h+Math.sin(x*.012+i)*2);g.fill();}
-  noise(g,W,W,5);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  noise(g,W,W,5);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 function rugTex(kind){const W=512,H=640,[c,g]=cv(W,H);
   const P={family:{f:'#cdc9bd',m:'#5d77a3',d:'#38507e',b:'#d8d2c2'},living:{f:'#d3d0c9',m:'#8d8f92',d:'#55595e',b:'#c9c5bc'},dining:{f:'#ddd6c8',m:'#a9a6a0',d:'#7f8c9e',b:'#e3dccd'}}[kind];
   g.fillStyle=P.f;g.fillRect(0,0,W,H);
@@ -88,7 +88,7 @@ function rugTex(kind){const W=512,H=640,[c,g]=cv(W,H);
     for(let i=0;i<220;i++){const x=rr(60,W-60),y=rr(60,H-60);g.fillStyle=rnd()<.6?P.m:P.d;g.globalAlpha=rr(.2,.6);g.save();g.translate(x,y);g.rotate(rr(0,6));g.beginPath();g.ellipse(0,0,rr(4,12),rr(2,5),0,0,7);g.fill();g.restore();}
     g.globalAlpha=1;g.fillStyle=P.d;g.beginPath();g.ellipse(W/2,H/2,40,58,0,0,7);g.fill();}
   for(let i=0;i<9000;i++){g.fillStyle=`rgba(255,255,255,${rr(0,.12)})`;g.fillRect(rr(0,W),rr(0,H),rr(1,6),1);}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#6a7f33';g.fillRect(0,0,S,S);
   for(let i=0;i<S*S/40;i++){g.fillStyle=hsl(rr(62,74),rr(26,36),rr(29,34));g.fillRect(rr(0,S),rr(0,S),rr(2,6),rr(2,6));}
   for(let i=0;i<S*S/22;i++){const x=rr(0,S),y=rr(0,S),l=rr(3,8)*TEXQ,a=rr(-.5,.5);g.strokeStyle=hsl(rr(66,86),rr(30,42),rr(30,40));g.lineWidth=rr(.6,1.0)*TEXQ;
@@ -98,7 +98,7 @@ function grassTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#6a7f33';g.fillRe
 // brushed stainless: fine streaks of slightly varying brightness
 function brushedTex(){const S=TX(256),[c,g]=cv(S,S);g.fillStyle='#e9eaeb';g.fillRect(0,0,S,S);
   for(let i=0;i<S*2.5;i++){const y=rr(0,S);g.fillStyle=`rgba(${rnd()<.5?'255,255,255':'120,124,128'},${rr(.015,.05)})`;g.fillRect(0,y,S,rr(.3,.8));}
-  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,4);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,4);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;return t;}
 function plainNoise(col,ft,amt){const S=TX(256),[c,g]=cv(S,S);g.fillStyle=col;g.fillRect(0,0,S,S);noise(g,S,S,amt);return tex(c,ft,ft);}
 function deckTex(h,s,l){const S=TX(512),[c,g]=cv(S,S);const ppf=S/4,bw=0.46*ppf;g.fillStyle='#1a1410';g.fillRect(0,0,S,S);
   for(let y=0;y<S;y+=bw){g.fillStyle=hsl(h+rr(-4,4),s+rr(-6,6),l+rr(-5,5));g.fillRect(0,y+2,S,bw-4);
@@ -108,7 +108,7 @@ function beamTex(){const S=TX(256),[c,g]=cv(S,S);g.fillStyle='#6b4a2f';g.fillRec
   noise(g,S,S,20);return tex(c,3,3);}
 function barkTex(){const S=TX(128),[c,g]=cv(S,S);g.fillStyle='#4f4740';g.fillRect(0,0,S,S);
   for(let i=0;i<90;i++){g.fillStyle=`rgba(${rr(20,90)},${rr(20,80)},${rr(15,60)},.5)`;g.fillRect(rr(0,S),0,rr(1,4),S);}noise(g,S,S,25);
-  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,4);t.encoding=THREE.sRGBEncoding;return t;}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,4);t.colorSpace=THREE.SRGBColorSpace;return t;}
 function artTex(kind,w,h){const [c,g]=cv(w,h);
   if(kind==='botanical'){g.fillStyle='#f3efe4';g.fillRect(0,0,w,h);g.strokeStyle='#6c7a4e';g.lineWidth=3;
     for(let i=0;i<3;i++){const x=w*(.35+.15*i);g.beginPath();g.moveTo(x,h*.85);g.quadraticCurveTo(x+rr(-20,20),h*.5,x+rr(-10,10),h*.25);g.stroke();
@@ -120,7 +120,7 @@ function artTex(kind,w,h){const [c,g]=cv(w,h);
   else if(kind==='landscape'){const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#c9b48a');gr.addColorStop(.55,'#8c7a55');gr.addColorStop(1,'#4b3f2c');g.fillStyle=gr;g.fillRect(0,0,w,h);
     g.fillStyle='rgba(60,70,50,.6)';for(let i=0;i<8;i++){g.beginPath();g.arc(rr(0,w),h*.55,rr(8,20),0,7);g.fill();}}
   else {g.fillStyle='#ece9e2';g.fillRect(0,0,w,h);g.strokeStyle='#30343a';g.lineWidth=2;for(let i=0;i<14;i++){g.beginPath();g.moveTo(rr(0,w),rr(0,h));g.quadraticCurveTo(rr(0,w),rr(0,h),rr(0,w),rr(0,h));g.stroke();}}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 
 
 function slateTex(){const S=TX(512),[c,g]=cv(S,S);const ppf=S/6,row=0.5*ppf,tw=0.95*ppf;g.fillStyle='#24272a';g.fillRect(0,0,S,S);
@@ -139,7 +139,7 @@ function flagTex(){const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#5b5145';g.fillRec
   noise(g,S,S,16);return tex(c,6,6);}
 function chainTex(){const S=128,[c,g]=cv(S,S);g.clearRect(0,0,S,S);g.strokeStyle='rgba(175,180,182,.95)';g.lineWidth=2.2;
   const d=S/4;for(let i=-4;i<8;i++){g.beginPath();g.moveTo(i*d,0);g.lineTo(i*d+S,S);g.stroke();g.beginPath();g.moveTo(i*d+S,0);g.lineTo(i*d,S);g.stroke();}
-  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=MAXANISO;t.encoding=THREE.sRGBEncoding;return t;}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=MAXANISO;t.colorSpace=THREE.SRGBColorSpace;return t;}
 function brownShingleTex(){const S=TX(512),[c,g]=cv(S,S);const ppf=S/6,row=0.42*ppf;g.fillStyle='#4a3428';g.fillRect(0,0,S,S);
   for(let y=0;y<S;y+=row){let x=-rr(0,40);while(x<S){const w=rr(.6,1.4)*ppf;g.fillStyle=hsl(rr(14,24),rr(30,45),rr(24,34));g.fillRect(x,y,w-2,row-3);x+=w;}
     g.fillStyle='rgba(0,0,0,.45)';g.fillRect(0,y+row-3,S,3);}noise(g,S,S,16);return tex(c,6,6);}
@@ -215,8 +215,8 @@ function makeMaterials(){
   // (updateGlassEnv in 09-look-pipeline.js), and from the scene itself in Ultra (the reflection pass draws glass too)
   MAT.glass=std({color:0x0b100f,transparent:true,opacity:.035,roughness:.03,metalness:0,depthWrite:false,envMapIntensity:1.3,
     blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,blendEquation:THREE.AddEquation});
-  MAT.glass.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <output_fragment>',
-    '{float gNdV=clamp(abs(dot(normalize(vViewPosition),normal)),0.,1.);float gF=.04+.96*pow(1.-gNdV,5.);diffuseColor.a=clamp(opacity+(1.-opacity)*gF,0.,1.);}\n#include <output_fragment>');};
+  MAT.glass.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <opaque_fragment>',
+    '{float gNdV=clamp(abs(dot(normalize(vViewPosition),normal)),0.,1.);float gF=.04+.96*pow(1.-gNdV,5.);diffuseColor.a=clamp(opacity+(1.-opacity)*gF,0.,1.);}\n#include <opaque_fragment>');};
   MAT.glass.customProgramCacheKey=()=>'fresnelGlass';
   MAT.frost=std({color:0xf2f4f4,transparent:true,opacity:.82,roughness:.4});
   MAT.cab=std({color:0x2e3134,roughness:.42});
@@ -296,9 +296,9 @@ uniform float atSwap,atMacro;
 float atH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float atN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(atH(i),atH(i+vec2(1.,0.)),f.x),mix(atH(i+vec2(0.,1.)),atH(i+vec2(1.,1.)),f.x),f.y);}`)
     .replace('#include <map_fragment>',`#ifdef USE_MAP
-  vec4 texelColor=mapTexelToLinear(texture2D(map,vUv));
-  if(atSwap>.5){vec2 uB=mat2(.82,-.57,.57,.82)*vUv*.43+vec2(.31,.17);vec4 tB=mapTexelToLinear(texture2D(map,uB));
-    texelColor=mix(texelColor,tB,smoothstep(.3,.7,atN(vUv*.13)*.65+atN(vUv*.41)*.35));}
-  texelColor.rgb*=1.+atMacro*(atN(vUv*.05)+atN(vUv*.17)*.5-.75);
+  vec4 texelColor=texture2D(map,vMapUv);
+  if(atSwap>.5){vec2 uB=mat2(.82,-.57,.57,.82)*vMapUv*.43+vec2(.31,.17);vec4 tB=texture2D(map,uB);
+    texelColor=mix(texelColor,tB,smoothstep(.3,.7,atN(vMapUv*.13)*.65+atN(vMapUv*.41)*.35));}
+  texelColor.rgb*=1.+atMacro*(atN(vMapUv*.05)+atN(vMapUv*.17)*.5-.75);
   diffuseColor*=texelColor;
 #endif`);};}
