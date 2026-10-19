@@ -31,7 +31,8 @@ const fogColor=P=>new THREE.Color(P.hor).lerp(new THREE.Color(P.zen),.12);
 function makeFog(){return new THREE.FogExp2(fogColor(PRESETS[LOOK.preset]).getHex(),FOG_D);}
 function updateFog(){if(scene.fog&&scene.fog.isFogExp2)scene.fog.density=(ST.pending||ST.view)==='plan'||DIO.on?0:FOG_D*(ST.view==='three'?Math.min(1,170/ORB.d):1);}
 // ---------- sky ----------
-const SKY_MAT=new THREE.ShaderMaterial({uniforms:{st:{value:0},stc:{value:new THREE.Color(1,1,1)},pm:{value:0},paper:{value:new THREE.Color(.9,.91,.875)},sunDir:{value:new THREE.Vector3(0,1,0)},zen:{value:new THREE.Color()},hor:{value:new THREE.Color()},gnd:{value:new THREE.Color()},sunCol:{value:new THREE.Color()},sunI:{value:1}},
+let SKY_MAT_GPU=null;
+const SKY_MAT_GL=new THREE.ShaderMaterial({uniforms:{st:{value:0},stc:{value:new THREE.Color(1,1,1)},pm:{value:0},paper:{value:new THREE.Color(.9,.91,.875)},sunDir:{value:new THREE.Vector3(0,1,0)},zen:{value:new THREE.Color()},hor:{value:new THREE.Color()},gnd:{value:new THREE.Color()},sunCol:{value:new THREE.Color()},sunI:{value:1}},
   vertexShader:'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader:`uniform vec3 sunDir,zen,hor,gnd,sunCol,paper,stc;uniform float sunI,pm,st;varying vec3 vDir;
   void main(){vec3 d=normalize(vDir);float y=d.y;vec3 c=mix(hor,zen,pow(clamp(y,0.,1.),.42));c+=hor*.22*exp(-abs(y)*16.);
@@ -44,6 +45,21 @@ const SKY_MAT=new THREE.ShaderMaterial({uniforms:{st:{value:0},stc:{value:new TH
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`,side:THREE.BackSide,depthWrite:false,depthTest:false});
+let SKY_MAT=SKY_MAT_GL;
+// under WebGPU the sky is a node material with the same uniforms (TSL uniform nodes, which also have .value), so the code that drives it
+// is the same for both renderers
+if(window.GPU){const {Fn,uniform,positionLocal,vec3,float,mix,pow,clamp,exp,abs,max,dot,smoothstep,step,select}=TSL,U=SKY_MAT_GL.uniforms,u={};
+  for(const k in U)u[k]=uniform(U[k].value);
+  const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,depthTest:false,fog:false});
+  m.colorNode=Fn(()=>{const d=positionLocal.normalize(),y=d.y,y0=clamp(y,0,1);
+    let c=mix(u.hor,u.zen,pow(y0,.42)).add(u.hor.mul(.22).mul(exp(abs(y).mul(-16))));
+    c=select(y.lessThan(0),mix(u.hor.mul(.8),u.gnd,clamp(pow(y.negate().mul(2.5).max(0),.55),0,1)),c);
+    const mu=max(dot(d,u.sunDir),0);c=c.add(u.sunCol.mul(pow(mu,5).mul(.10).add(pow(mu,48).mul(.32))).mul(u.sunI));
+    c=c.add(u.sunCol.mul(smoothstep(.99986,.99993,mu)).mul(45).mul(u.sunI).mul(step(-.02,u.sunDir.y)));
+    const sdUp=mix(vec3(.93,.92,.98),vec3(.70,.68,.90),pow(y0,.7)),sdDn=mix(vec3(.93,.92,.98),vec3(.80,.78,.93),clamp(pow(y.negate().mul(1.6).max(0),.6),0,1));
+    c=mix(c,select(y.greaterThan(0),sdUp,sdDn).mul(u.stc),u.st);
+    return mix(c,u.paper,u.pm);})();
+  m.uniforms=u;SKY_MAT_GPU=m;SKY_MAT=m;}
 let SKY,ROOM_ENV=null,SKY_ENV=null;
 function buildSky(){SKY=new THREE.Mesh(new THREE.SphereGeometry(450,40,20),SKY_MAT);SKY.renderOrder=-1000;SKY.frustumCulled=false;scene.add(SKY);}
 // each preset's environments are built once and kept: rebuilding them (PMREM) on every change of light was a noticeable stall
@@ -441,11 +457,11 @@ function gradeCss(f){const el=renderer.domElement;if(el.style.filter!==f)el.styl
 function renderFast(cam){const P=PRESETS[LOOK.preset];gradeCss(ST.view==='plan'?'':LOOK.gradeCss||'');renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=P.exp;
   if(LOOK.sunBase)sun.position.copy(LOOK.sunBase);if(shadowDirty){renderer.shadowMap.needsUpdate=true;shadowDirty=false;}
   if(SKY)SKY.position.copy(cam.position);renderer.setRenderTarget(null);renderer.render(scene,cam);PIPE.n=PIPE.max;}
-function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q!=='fast'&&!true){q='fast';why='High quality and Ultra need WebGL 2, which this browser does not offer, so the fast renderer is on.';}
+function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q!=='fast'&&window.GPU&&!window.GPU_HQ){q='fast';why='The WebGPU renderer has the fast mode only so far.';}
   LOOK.quality=q;renderer.setPixelRatio(qualityPR(q));renderer.setSize(innerWidth,innerHeight);if(q!=='fast')setupPipe();
   // ultra: a 256-frame accumulation and an 8192 sun shadow map where the GPU allows it
   PIPE.max=q==='ultra'?ULTRA.frames:64;
-  if(typeof sun!=='undefined'&&sun){const mx=renderer.capabilities.maxTextureSize,sz=q==='ultra'&&mx>=8192?8192:(mx>=4096?4096:2048);
+  if(typeof sun!=='undefined'&&sun){const mx=maxTexSize(),sz=q==='ultra'&&mx>=8192?8192:(mx>=4096?4096:2048);
     if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}shadowDirty=true;}}
   if(LOOK.hemi)updateInteriorShadows();ULTRA.focus=0;
   PIPE.n=0;dirty=true;applyGrade();if(LOOK.hemi)applyLightBalance();const note=document.getElementById('qnote');if(note){note.textContent=why||'';note.style.display=why?'block':'none';}
@@ -472,7 +488,7 @@ const GI_FRAG_APPLY=`
   if(uGI>0.){mat3 vT=transpose(mat3(viewMatrix));vec3 wp=vT*(-vViewPosition-viewMatrix[3].xyz),wn=normalize(vT*normal),q=wp+wn*.5;float inR=roomIn(q)*uGI;
     if(inR>0.){irradiance=mix(irradiance,giIrr(q,wn)*giGain,inR);iblIrradiance*=1.-inR;}}`;
 // interior materials read the probe light (WebGL 2 only; off unless Ultra's grid is built). The patch joins any shader patch already there.
-function giPatch(m,k){if(!m||!m.isMeshStandardMaterial||m.userData.gi||(k&&EXT_MATS.has(k))||!true)return;
+function giPatch(m,k){if(window.GPU)return;if(!m||!m.isMeshStandardMaterial||m.userData.gi||(k&&EXT_MATS.has(k))||!true)return;
   const o=m.onBeforeCompile,k0=m.customProgramCacheKey.call(m);m.userData.gi=true;
   m.onBeforeCompile=(sh,r)=>{if(o)o(sh,r);Object.assign(sh.uniforms,GI_U);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\n'+GI_FRAG_PARS).replace('#include <lights_fragment_maps>','#include <lights_fragment_maps>\n'+GI_FRAG_APPLY);};

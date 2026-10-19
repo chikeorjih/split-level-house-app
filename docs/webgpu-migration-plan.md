@@ -144,3 +144,20 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
 
 - **Speed:** the branch loads in about 18–20 s, against 33–35 s on `main` under the same headless GPU.
 - **Open:** the single-file build is about 40 MB because of the 8 embedded GLB models. That is not caused by the migration (`main` has it too), but it is over the 16 MB artifact limit.
+
+### 2026-10-19: Phase 2 started (WebGPU renderer), in progress
+
+- **Done:**
+  - `three-boot.mjs` loads both the WebGL and WebGPU builds. `?renderer=webgpu`, or `localStorage.renderer`, selects WebGPURenderer; **WebGL stays the default** until WebGPU matches it.
+  - The light nodes are patched to r128 units: `AnalyticLightNode.update` and `HemisphereLightNode.update` × π, and the legacy distance falloff in the point and spot `setupDirect`.
+  - Renderer creation is async (`await renderer.init()`), with `maxAniso()` and `maxTexSize()` helpers.
+  - The sky is ported to a TSL node material sharing the same uniforms.
+  - New `src/02b-nodes.js`: under WebGPU, `THREE.Mesh*Material` are node materials, and a small patch system (`npAdd` / `npApply` / `npU`) gives every GLSL `onBeforeCompile` patch a node equivalent. Ported so far: anti-tiling, Fresnel glass, far trees, grass base colour, wash and calm, blueprint reveal, fade clones.
+- **Verified:**
+  - WebGPU runs headless here with Playwright's bundled Chromium (`channel: 'chromium'`, on the NVIDIA GPU) and loads in about 5 s, against about 20 s on WebGL.
+  - The WebGL path still matches `main` (High mean difference 0.9–4.7).
+- **Key finding:** a classic material with a GLSL `onBeforeCompile` silently renders without its texture under WebGPU, so every patch needs a node version. Don't set `onBeforeCompile` to null: the renderer's cache key calls `toString()` on it.
+- **Next:**
+  1. **Fast mode parity.** WebGPU Fast is currently about 40% darker and cooler than WebGL, and leaf cards draw without their alpha cut. Check, in order: tone mapping and output colour space on WebGPURenderer, `envMapIntensity` on the PMREM maps, alphaTest / alphaToCoverage on node materials, and the CSS grade.
+  2. **Remaining patches:** corduroy (13-models), the GI probe patch (09; skipped under WebGPU).
+  3. **The High/Ultra pipeline** in TSL (`RenderPipeline` / `pass` / `mrt`), then the remaining steps in this plan.

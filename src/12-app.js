@@ -12,16 +12,19 @@ const shownLv=()=>((ST.pending||ST.view)==='three'&&ST.levels.length)?ST.levels:
 const TWINS=[];let renderer,scene,camO,camW,camP,sun,TAGS={},TREES,SETBACK,TERRAIN,CAPGRP={},dirty=true,shadowDirty=true;
 const $=id=>document.getElementById(id);
 const COARSE=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
+// WebGPU (window.GPU, see three-boot.mjs): WebGPURenderer, which must finish an async init() before it renders (start() awaits it)
 function initRenderer(){
-  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+  renderer=window.GPU?new THREE.WebGPURenderer({antialias:true,powerPreference:'high-performance'}):new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
   renderer.localClippingEnabled=true;$('stage').appendChild(renderer.domElement);
   // checking each new shader for errors makes the browser finish compiling it on the spot; off unless the page is opened with ?shadercheck
-  renderer.debug.checkShaderErrors=/[?&]shadercheck/.test(location.search);
-  MAXANISO=Math.min(16,renderer.capabilities.getMaxAnisotropy());
+  if(!window.GPU)renderer.debug.checkShaderErrors=/[?&]shadercheck/.test(location.search);
 }
+// renderer facts both renderers answer differently
+function maxAniso(){return window.GPU?(renderer.getMaxAnisotropy?renderer.getMaxAnisotropy():16):renderer.capabilities.getMaxAnisotropy();}
+function maxTexSize(){if(!window.GPU)return renderer.capabilities.maxTextureSize;const d=renderer.backend&&renderer.backend.device;return d&&d.limits?d.limits.maxTextureDimension2D:8192;}
 function envMap(){const s=new THREE.Scene();const g=new THREE.SphereGeometry(50,32,16);const c=[];const p=g.attributes.position;
   const top=new THREE.Color(0xbcd3ea),hor=new THREE.Color(0xf2efe6),bot=new THREE.Color(0x4a4438),t=new THREE.Color();
   for(let i=0;i<p.count;i++){const y=p.getY(i)/50;if(y>0)t.copy(hor).lerp(top,Math.pow(y,.6));else t.copy(hor).lerp(bot,Math.min(1,-y*3));c.push(t.r,t.g,t.b);}
@@ -48,7 +51,9 @@ function calmPatch(sh){sh.uniforms.washAmt=WASH;sh.fragmentShader=sh.fragmentSha
 const WASH_PALE=new THREE.Color(.74,.73,.7),WASH_SAGE=new THREE.Color(0xa9b39a).convertSRGBToLinear();
 // a washable clone of a site material (or, for the lawn blades, a calmed one); its maps follow the original's (photo textures load later)
 function washOf(b,mode){let w=WASHED.get(b);if(w)return w;w=b.clone();w.clippingPlanes=b.clippingPlanes;const o=b.onBeforeCompile,key=o?String(o):'',col={value:mode==='sage'?WASH_SAGE:WASH_PALE};
-  w.onBeforeCompile=sh=>{if(o)o(sh);if(mode==='calm')calmPatch(sh);else washPatch(sh,col);};w.customProgramCacheKey=()=>(mode==='calm'?'calm|':'wash|')+key;WASHED.set(b,w);return w;}
+  w.onBeforeCompile=sh=>{if(o)o(sh);if(mode==='calm')calmPatch(sh);else washPatch(sh,col);};npClonePatches(b,w);
+  npAdd(w,{color:c=>{const {dot,vec3,mix,float}=NP,a=npU(WASH),l=dot(c.rgb,vec3(.3,.59,.11));
+    return NP.vec4(mode==='calm'?mix(c.rgb,mix(vec3(l),c.rgb,.72).mul(.88).add(l.mul(.14)),a):mix(c.rgb,mix(vec3(l),npU(col,'color'),.62),a.mul(.85)),c.a);}});w.customProgramCacheKey=()=>(mode==='calm'?'calm|':'wash|')+key;WASHED.set(b,w);return w;}
 // a light preset changes the base materials' environment and glow: their faded and washed copies follow in place, with no recompile
 function syncDerived(){const cp=(c,b)=>{c.envMap=b.envMap;c.envMapIntensity=b.envMapIntensity;if(b.isMeshPhysicalMaterial&&c.isMeshPhysicalMaterial)c.clearcoat=b.clearcoat;if(b.emissive&&c.emissive){c.emissive.copy(b.emissive);c.emissiveIntensity=b.emissiveIntensity;}};
   WASHED.forEach((w,b)=>cp(w,b));FADE.forEach(c=>{if(c.userData.base)cp(c,c.userData.base);});}
@@ -62,7 +67,7 @@ function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
   if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv>L)return 0;if(lv!==undefined&&!shownLv().includes(lv))return FADE_OPACITY;}
   return 1;}
 function fadeMat(tag,b){const k=tag+'|'+b.uuid;let c=FADE.get(k);
-  if(!c){c=b.clone();c.userData.base=b;c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
+  if(!c){c=b.clone();c.userData.base=b;c.transparent=true;c.depthWrite=false;c.clippingPlanes=CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;npClonePatches(b,c);if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
     if(b.customProgramCacheKey!==THREE.Material.prototype.customProgramCacheKey)c.customProgramCacheKey=b.customProgramCacheKey;FADE.set(k,c);}
   return c;}
 // ---------- prewarm: compile, ahead of time, every shader a transition can switch to (faded copies, pale massing, cut caps, section
@@ -149,7 +154,7 @@ function buildScene(){
   for(const tag in TAGS){if(tag==='roof'||tag[0]==='C'||tag==='site'||tag==='trees'||tag==='grass')continue;for(const m of meshesOf(tag)){if(NOTWIN.has(Object.keys(MAT).find(k=>MAT[k]===m.material)))continue;
       const tw=new THREE.Mesh(m.geometry,TWM);tw.userData.twinOf=m;tw.userData.isTwin=true;tw.visible=false;TWINS.push(tw);(m.parent&&m.parent!==scene?m.parent:scene).add(tw);}}
   sun=new THREE.DirectionalLight(0xfff0d8,1.75);sun.position.set(-48,95,62).add(new THREE.Vector3(16,-5,15));sun.target.position.set(16,-5,15);
-  sun.castShadow=true;const sz=renderer.capabilities.maxTextureSize>=4096?4096:2048;sun.shadow.mapSize.set(sz,sz);
+  sun.castShadow=true;const sz=maxTexSize()>=4096?4096:2048;sun.shadow.mapSize.set(sz,sz);
   Object.assign(sun.shadow.camera,{left:-95,right:95,top:95,bottom:-95,near:10,far:330});sun.shadow.bias=-.0003;sun.shadow.normalBias=.04;
   scene.add(sun,sun.target);buildSky();buildLamps();buildKitchenLights();buildSkyLights();
   for(const L of [1,2,3,4]){CAPGRP['plan'+L]=caps(L,PLAN_TAGS[L]);CAPGRP['cut'+L]=caps(L,[String(L),'S'],CUT3(L),true);}
@@ -213,6 +218,7 @@ const PAPER_REV={value:0};
 function buildPaper(){if(PAPER.mesh)return;const m=new THREE.MeshStandardMaterial({map:blueprintTex(),roughness:.92,transparent:true});
     m.onBeforeCompile=sh=>{sh.uniforms.uRev=PAPER_REV;sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uRev;')
       .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n  if(vMapUv.y<1.-uRev)discard;');};
+    npAdd(m,{mask:()=>NP.uv().y.greaterThanEqual(NP.float(1).sub(npU(PAPER_REV)))});
     const P=PAPER.mesh=new THREE.Mesh(new THREE.PlaneGeometry(PAPER.x1-PAPER.x0,PAPER.z1-PAPER.z0),m);
     P.rotation.x=-Math.PI/2;P.position.set((PAPER.x0+PAPER.x1)/2,0,(PAPER.z0+PAPER.z1)/2);P.receiveShadow=true;P.renderOrder=-1;scene.add(P);
     const R=PAPER.roll=new THREE.Mesh(new THREE.CylinderGeometry(1,1,PAPER.x1-PAPER.x0,40),new THREE.MeshStandardMaterial({color:0xc9d8ea,roughness:.85}));
@@ -473,9 +479,9 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   for(const t of list){const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
     const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}
   refreshFades();dirty=true;}
-function start(){
+async function start(){
   if(!window.THREE){$('loading').textContent='The 3D library could not load. Check your connection and reload the page.';return;}
-  initRenderer();buildScene();giPatchAll();
+  initRenderer();if(window.GPU)await renderer.init();MAXANISO=Math.min(16,maxAniso());buildScene();giPatchAll();
   camO=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.5,1600);camW=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.25,650);
   camP=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);
   buildUI();buildLabels();bindInput();bindPhoto();

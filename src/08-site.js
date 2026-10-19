@@ -97,7 +97,7 @@ const DIO={x0:-40,x1:72,z0:-52,z1:62.5,base:-25,on:false,grp:null},FAR_TREES={va
 const inDio=(x,z,m)=>{m=m||0;return x>DIO.x0+m&&x<DIO.x1-m&&z>DIO.z0+m&&z<DIO.z1-m;};
 function farPatch(m){const o=m.onBeforeCompile;m.onBeforeCompile=sh=>{if(o)o(sh);sh.uniforms.uFar=FAR_TREES;
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uFar;').replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n  if(uFar>.5)discard;');};
-  m.customProgramCacheKey=()=>'far|'+(o?String(o):'');return m;}
+  m.customProgramCacheKey=()=>'far|'+(o?String(o):'');npAdd(m,{mask:()=>npU(FAR_TREES).lessThan(.5)});return m;}
 function soilTex(){const S=TX(512),[c,g]=cv(S,S);const gr=g.createLinearGradient(0,0,0,S);gr.addColorStop(0,'#5a4130');gr.addColorStop(1,'#3b2a20');g.fillStyle=gr;g.fillRect(0,0,S,S);
   let y=0;while(y<S){const h=rr(6,30)*S/512;g.fillStyle='rgba('+(rnd()<.5?'120,90,60':'40,28,20')+','+rr(.05,.18)+')';g.fillRect(0,y,S,h);y+=h;}
   for(let i=0;i<S*3;i++){g.fillStyle='rgba('+(rnd()<.5?'150,120,90':'25,18,12')+','+rr(.1,.35)+')';g.fillRect(rr(0,S),rr(0,S),rr(1,3),rr(1,2));}
@@ -269,6 +269,8 @@ function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chu
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 gBase;')
       .replace('#include <color_fragment>','#include <color_fragment>\n  diffuseColor.rgb=mix(gBase,diffuseColor.rgb,smoothstep(0.,.9,vMapUv.y));')
       .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n  normal=normalize(vNormal);');};
+  npAdd(mat,{color:c=>NP.vec4(NP.mix(npU(gBase,'color'),c.rgb,NP.smoothstep(0,.9,NP.uv().y)),c.a)});
+  if(window.GPU)mat.normalNode=NP.normalView;
   const grp=new THREE.Group();grp.userData.mat=mat;
   for(const A of chunks.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
     g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));g.setIndex(A.i);g.computeBoundingSphere();

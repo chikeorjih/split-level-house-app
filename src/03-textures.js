@@ -180,7 +180,7 @@ const CLIP_X0=new THREE.Plane(new THREE.Vector3(1,0,0),1e5),CLIP_X1=new THREE.Pl
 const CLIPS=[CLIP_TOP,CLIP_BOT,CLIP_X0,CLIP_X1,CLIP_Z0,CLIP_Z1],CLIPS_V=[CLIP_TOP,CLIP_BOT];
 function std(o,clip){const m=new THREE.MeshStandardMaterial(Object.assign({roughness:.8,metalness:0},o));if(clip!==false)m.clippingPlanes=CLIPS;return m;}
 function physify(k,cc,ccr){const m=MAT[k];if(!m||!m.isMeshStandardMaterial||m.isMeshPhysicalMaterial)return;const p=new THREE.MeshPhysicalMaterial();
-  THREE.MeshStandardMaterial.prototype.copy.call(p,m);p.defines={STANDARD:'',PHYSICAL:''};p.onBeforeCompile=m.onBeforeCompile;p.customProgramCacheKey=m.customProgramCacheKey;
+  THREE.MeshStandardMaterial.prototype.copy.call(p,m);if(!window.GPU)p.defines={STANDARD:'',PHYSICAL:''};p.onBeforeCompile=m.onBeforeCompile;p.customProgramCacheKey=m.customProgramCacheKey;npClonePatches(m,p);
   p.clearcoat=0;p.clearcoatRoughness=ccr;p.userData.cc=[cc,ccr];MAT[k]=p;m.dispose();}
 function makeMaterials(){
   const T=n=>n;
@@ -218,6 +218,8 @@ function makeMaterials(){
   MAT.glass.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <opaque_fragment>',
     '{float gNdV=clamp(abs(dot(normalize(vViewPosition),normal)),0.,1.);float gF=.04+.96*pow(1.-gNdV,5.);diffuseColor.a=clamp(opacity+(1.-opacity)*gF,0.,1.);}\n#include <opaque_fragment>');};
   MAT.glass.customProgramCacheKey=()=>'fresnelGlass';
+  npAdd(MAT.glass,{opacity:()=>{const {positionView,normalView,abs,dot,pow,clamp,float}=NP,ndv=clamp(abs(dot(positionView.normalize(),normalView)),0,1);
+    return NP.materialOpacity.add(float(1).sub(NP.materialOpacity).mul(float(.04).add(float(.96).mul(pow(float(1).sub(ndv),5))))).clamp(0,1);}});
   MAT.frost=std({color:0xf2f4f4,transparent:true,opacity:.82,roughness:.4});
   MAT.cab=std({color:0x2e3134,roughness:.42});
   MAT.cabGap=std({color:0x131415,roughness:.8});MAT.cabGlass=std({color:0x2b3034,transparent:true,opacity:.32,roughness:.04,metalness:.1,depthWrite:false});MAT.hoodSteel=std({map:brushedTex(),color:0x6f7377,metalness:.55,roughness:.5});MAT.cabInner=std({color:0x4a4d51,roughness:.5});
@@ -290,6 +292,14 @@ function makeMaterials(){
 // break up visible texture repeats: optionally blend in a second, rotated and rescaled sample of the same texture through a noise mask,
 // and add broad light/dark patches. Settings are uniforms, so every patched material shares one shader program.
 function antiTile(m,swap,macro){if(!m)return;const U={atSwap:{value:swap?1:0},atMacro:{value:macro}};
+  // WebGPU: the same blend, in nodes (the texture sampled again at a turned, rescaled UV, mixed in by value noise, plus broad patches)
+  npAdd(m,{color:(c,mt)=>{const {texture,uv,vec2,mat2,mix,smoothstep,fract,sin,dot,floor,float}=NP;if(!mt.map)return c;
+    const h=q=>fract(sin(dot(q,vec2(127.1,311.7))).mul(43758.5453)),n=q=>{const i=floor(q),f=fract(q),w=f.mul(f).mul(f.mul(-2).add(3));
+      return mix(mix(h(i),h(i.add(vec2(1,0))),w.x),mix(h(i.add(vec2(0,1))),h(i.add(vec2(1,1))),w.x),w.y);};
+    const u=mt.map.matrix?NP.uniform(mt.map.matrix).mul(NP.vec3(uv(),1)).xy:uv();let t=texture(mt.map,u);
+    if(swap){const uB=mat2(.82,-.57,.57,.82).mul(u).mul(.43).add(vec2(.31,.17));t=mix(t,texture(mt.map,uB),smoothstep(.3,.7,n(u.mul(.13)).mul(.65).add(n(u.mul(.41)).mul(.35))));}
+    const k=float(1).add(float(macro).mul(n(u.mul(.05)).add(n(u.mul(.17)).mul(.5)).sub(.75)));
+    return NP.vec4(NP.uniform(mt.color).mul(t.rgb).mul(k),t.a);}});
   m.onBeforeCompile=s=>{Object.assign(s.uniforms,U);
     s.fragmentShader=s.fragmentShader.replace('#include <common>',`#include <common>
 uniform float atSwap,atMacro;
