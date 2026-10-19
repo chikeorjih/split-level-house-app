@@ -362,7 +362,7 @@ function whereText(){if(ST.view==='walk'){let best=null;for(const r of SPEC.room
   if(ST.levels.length>1)return ST.levels.slice().reverse().map(l=>LEVEL_NAMES[l].replace(/ level$/,'')).join(' + ')+' levels, cut open';
   return ST.cutL?LEVEL_NAMES[ST.cutL]+', cut open':'Whole house';}
 let lastWhere='';
-function updateUI(){document.querySelectorAll('.seg button[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===(ST.pending||ST.view))));
+function updateUI(){{const b=$('tPhoto');if(b)b.style.display=(ST.pending||ST.view)==='walk'?'':'none';}document.querySelectorAll('.seg button[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===(ST.pending||ST.view))));
   const active=ST.view==='walk'?null:(ST.view==='plan'?ST.cutL:ST.level);
   document.querySelectorAll('#section .lvl').forEach(b=>b.setAttribute('aria-pressed',String(ST.view==='three'?ST.levels.includes(+b.dataset.lv):String(active)===b.dataset.lv)));
   $('allbtn').setAttribute('aria-pressed',String(ST.view==='three'&&ST.level==='all'));
@@ -444,10 +444,11 @@ function bindInput(){const c=renderer.domElement;c.tabIndex=0;c.setAttribute('ar
 let last=performance.now(),lastSig='';
 function camSig(c){c.updateMatrixWorld();return c.matrixWorld.elements.map(v=>v.toFixed(4)).join()+c.projectionMatrix.elements.map(v=>v.toFixed(5)).join();}
 function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(typeof PHOTO!=='undefined'&&PHOTO.busy){requestAnimationFrame(frame);return;}   // the Photo for Gemini capture is using the renderer
   animate(dt);updatePaper();
   if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
   updateFog();
-  giFrame(now);updateLampPool();
+  giFrame(now);updateLampPool();updateGlassEnv(false);
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;LOOK.lastMove=now;}
   // 3/4 view: room labels fade out after 2 s without camera movement and come back as soon as it moves
   {const idle=ST.view==='three'&&!ST.pending&&now-(LOOK.lastMove||0)>2000,el=$('labels');if(el.classList.contains('idle')!==idle)el.classList.toggle('idle',idle);}if(dirty){PIPE.n=0;dirty=false;}
@@ -477,7 +478,7 @@ function start(){
   initRenderer();buildScene();giPatchAll();
   camO=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.5,1600);camW=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.25,650);
   camP=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);
-  buildUI();buildLabels();bindInput();
+  buildUI();buildLabels();bindInput();bindPhoto();
   setQuality(COARSE?'fast':'high',COARSE?'':undefined);applyPreset('afternoon');resize();setVis(true);updateOrbitCam();arrLoad();loadTextureOverrides();loadModels();dbgAfterReload();
   requestAnimationFrame(t=>{last=t;frame(t);$('loading').style.display='none';});
   schedulePrewarm(1500);}

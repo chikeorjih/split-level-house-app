@@ -13,7 +13,7 @@
 <div id="stage"></div>
 <div id="labels"></div>
 <div id="loading">Building the house…</div>
-<div id="todBusy" role="status" aria-label="Loading" hidden><span class="busy"></span></div>
+<div id="todBusy" role="status" aria-label="Loading" hidden><div class="busyBox"><span class="busy"></span><p id="busyText"></p></div></div>
 <div id="err" class="panel"></div>
 
 <div id="bar" class="panel">
@@ -66,6 +66,12 @@
   <div id="where"></div>
   <div class="help" id="help"></div>
   <div id="refine" style="display:none"></div>
+  <button class="chip" id="tPhoto" title="A 24 mm, level, fully rendered photo of this view for Gemini (Nano Banana), copied to the clipboard">Photo for Gemini</button>
+</div>
+<div id="shot" class="panel" role="dialog" aria-label="Photo for Gemini" style="display:none">
+  <img id="shotImg" alt="The captured photo">
+  <p id="shotMsg"></p>
+  <div class="row"><button class="chip" id="shotCopy">Copy image</button><button class="chip" id="shotNotes">Copy shot notes</button><button class="chip" id="shotSave">Download</button><button class="chip" id="shotClose">Close</button></div>
 </div>
 <div id="joy"><i></i></div>
 <div id="arr" class="panel" role="region" aria-label="Arrange furniture" style="display:none">
@@ -103,5 +109,6 @@
 <script src="src/11-arrange.js"></script>
 <script src="src/12-app.js"></script>
 <script src="src/13-models.js"></script>
+<script src="src/14-photo.js"></script>
 </body>
 </html>

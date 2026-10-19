@@ -92,10 +92,11 @@ function buildSpec(){
   W({lv:'X',x0:54.1,z0:10.6,x1:54.1,z1:31.6,t:TE,y0:-17,y1:-1,ext:{side:1,mat:'brick'}});
 
   // ---------- MAIN interior ----------
-  W({lv:1,x0:14.7,z0:12.2,x1:35.9,z1:12.2,y0:-13.5,y1:-5.5,ops:[op('door2',23.95,3.6,E1,6.8),door(33.6,2.4,E1,[1,1])],bb:[[E1,-1],[E1,1]]});
-  W({lv:1,x0:28,z0:12.2,x1:28,z1:17.1,y0:-13.5,y1:-5.5,ops:[door(14.6,2.2,E1,[-1,1])],bb:[[E1,-1]]});
-  W({lv:1,x0:31.1,z0:12.2,x1:31.1,z1:17.1,y0:-13.5,y1:-5.5});
-  W({lv:1,x0:28,z0:17.1,x1:35.9,z1:17.1,y0:-13.5,y1:-5.5,bb:[[E1,1]]});
+  // the two closets at the foot of the stairs are gone, and so is the double door to the hall (owner's change): the sitting room, the foot
+  // of the stairs and the closets' old space are one open area. This wall stops where the double door began, still screening the space
+  // under the stairs; the closets' back wall stays as the wall to the laundry
+  W({lv:1,x0:14.7,z0:12.2,x1:22.15,z1:12.2,y0:-13.5,y1:-5.5,bb:[[E1,-1],[E1,1]]});
+  W({lv:1,x0:28,z0:17.1,x1:35.9,z1:17.1,y0:-13.5,y1:-5.5,bb:[[E1,1],[E1,-1]]});
   W({lv:1,x0:19.2,z0:19.6,x1:25,z1:19.6,y0:-13.5,y1:-1,bb:[[E1,1]]});
   W({lv:1,x0:25,z0:19.6,x1:28,z1:19.6,y0:-13.5,y1:-5.5,ops:[door(26.55,2.6,E1,[1,1])],bb:[[E1,1]]});
   W({lv:1,x0:28,z0:17.1,x1:28,z1:19.6,y0:-13.5,y1:-5.5});
@@ -145,7 +146,7 @@ function buildSpec(){
   R(1,'Recreation room',"18'5\" × 31'4\"",0.3,18.5,15.7,31.3); R(1,'Recreation room','',0.3,14.7,0.3,15.7);
   R(1,'Sitting room',"21'0\" × 11'10\"",14.7,35.6,0.3,12.2); R(1,'Room',"8'2\" × 8'5\"",35.9,44.3,0.3,9.2);
   R(1,'Laundry / storage',"17'0\" × 14'1\"",18.5,35.6,19.6,31.3); R(1,'Hall','',14.7,28,12.2,19.6);
-  R(1,'Walk-in closet','',31.1,35.6,12.2,17.1); R(1,'Storage','',0.3,7.5,9,14.6);
+  R(1,'Sitting room','',28,35.6,12.2,17.1); R(1,'Storage','',0.3,7.5,9,14.6);
   R(2,'Family room',"13'11\" × 19'1\"",0.3,14.2,0.3,19.6); R(2,'Bedroom',"13'2\" × 13'6\"",0.3,11.2,19.6,31.3);
   R(2,'Bath',"4'11\" × 8'3\"",13.6,18.5,23.1,31.3); R(2,'Hall','',11.2,16.4,19.6,23.1);
   R(2,'Four-seasons room',"21'8\" × 14'6\"",A.x0,-1.8,A.z0,12.9,true); R(2,'Gallery','',-4.9,0,12.9,18.4,true);

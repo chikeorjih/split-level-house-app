@@ -159,7 +159,7 @@
     },
     {
       "id": "nursery-recliner",
-      "name": "La-Z-Boy recliner (nursery)",
+      "name": "cream corduroy La-Z-Boy power recliner",
       "file": "recliner-lazboy.opt.glb",
       "scale": 1.8,
       "place": {
@@ -175,7 +175,7 @@
     },
     {
       "id": "nursery-crib",
-      "name": "Crib",
+      "name": "honey-wood slatted crib",
       "file": "crib.glb",
       "scale": 4.703,
       "place": {
@@ -188,7 +188,7 @@
     },
     {
       "id": "nursery-daybed",
-      "name": "Daybed",
+      "name": "natural rattan daybed with rust-red bedding and patterned pillows",
       "file": "daybed.opt.glb",
       "scale": "m",
       "place": {

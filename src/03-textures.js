@@ -73,6 +73,11 @@ function playMatTex(){const W=512,[c,g]=cv(W,W),C=W/2;g.fillStyle='#f3eee2';g.fi
     for(const [dx,dy] of [[-8,-6],[-3,-10],[3,-10],[8,-6]]){g.beginPath();g.arc(x+dx,y+dy,2.6,0,7);g.fill();}}
   for(let i=0;i<5000;i++){g.fillStyle=rnd()<.5?'rgba(255,255,255,.25)':'rgba(120,110,90,.08)';g.fillRect(rr(0,W),rr(0,W),rr(1,3),rr(1,3));}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
+// fine straight-grained wood for furniture faces (per-face 0-1 UVs: the grain runs along u), in a given base colour
+function woodGrainTex(base){const W=512,[c,g]=cv(W,W);g.fillStyle=base;g.fillRect(0,0,W,W);
+  for(let i=0;i<220;i++){const y=rr(0,W),h=rr(1,5);g.fillStyle=rnd()<.6?'rgba(95,55,25,'+rr(.04,.14)+')':'rgba(255,225,180,'+rr(.04,.12)+')';
+    g.beginPath();g.moveTo(0,y);for(let x=0;x<=W;x+=32)g.lineTo(x,y+Math.sin(x*.012+i)*rr(1,4));g.lineTo(W,y+h);for(let x=W;x>=0;x-=32)g.lineTo(x,y+h+Math.sin(x*.012+i)*2);g.fill();}
+  noise(g,W,W,5);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=MAXANISO;return t;}
 function rugTex(kind){const W=512,H=640,[c,g]=cv(W,H);
   const P={family:{f:'#cdc9bd',m:'#5d77a3',d:'#38507e',b:'#d8d2c2'},living:{f:'#d3d0c9',m:'#8d8f92',d:'#55595e',b:'#c9c5bc'},dining:{f:'#ddd6c8',m:'#a9a6a0',d:'#7f8c9e',b:'#e3dccd'}}[kind];
   g.fillStyle=P.f;g.fillRect(0,0,W,H);
@@ -204,7 +209,15 @@ function makeMaterials(){
   MAT.deckNew=std({map:deckTex(30,14,46),roughness:.75});
   MAT.deckRailOld=std({color:0x6e3a28,roughness:.7});
   MAT.grass=std({map:grassTex(),vertexColors:true,roughness:1});
-  MAT.glass=std({color:0xbfd6df,transparent:true,opacity:.2,roughness:.05,metalness:0,depthWrite:false,envMapIntensity:1.4});
+  // glass: almost clear head-on, turning to a mirror toward grazing angles (Fresnel). The colour it adds is its reflection only (a barely
+  // tinted, near-black body), blended as "add the reflection, let through what is not reflected": src x 1 + dst x (1 - coverage), where the
+  // coverage rises with the Fresnel term from the base opacity. Its reflections come from the sky outdoors and from the room indoors
+  // (updateGlassEnv in 09-look-pipeline.js), and from the scene itself in Ultra (the reflection pass draws glass too)
+  MAT.glass=std({color:0x0b100f,transparent:true,opacity:.035,roughness:.03,metalness:0,depthWrite:false,envMapIntensity:1.3,
+    blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,blendEquation:THREE.AddEquation});
+  MAT.glass.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <output_fragment>',
+    '{float gNdV=clamp(abs(dot(normalize(vViewPosition),normal)),0.,1.);float gF=.04+.96*pow(1.-gNdV,5.);diffuseColor.a=clamp(opacity+(1.-opacity)*gF,0.,1.);}\n#include <output_fragment>');};
+  MAT.glass.customProgramCacheKey=()=>'fresnelGlass';
   MAT.frost=std({color:0xf2f4f4,transparent:true,opacity:.82,roughness:.4});
   MAT.cab=std({color:0x2e3134,roughness:.42});
   MAT.cabGap=std({color:0x131415,roughness:.8});MAT.cabGlass=std({color:0x2b3034,transparent:true,opacity:.32,roughness:.04,metalness:.1,depthWrite:false});MAT.hoodSteel=std({map:brushedTex(),color:0x6f7377,metalness:.55,roughness:.5});MAT.cabInner=std({color:0x4a4d51,roughness:.5});
@@ -253,7 +266,8 @@ function makeMaterials(){
   MAT.rugLiving=std({map:rugTex('living'),roughness:1});
   MAT.rugDining=std({map:rugTex('dining'),roughness:1});
   // upper-floor primary bedroom, now a nursery (inspiration photo): soft olive walls, a large oat rug under the furniture, a round play mat
-  MAT.sage=std({color:0x777b58,roughness:.92});MAT.rugNurseryBig=std({map:nurseryBigRugTex(),roughness:1});MAT.playMat=std({map:playMatTex(),roughness:.9});MAT.oat=std({color:0xe4dccb,roughness:.92});MAT.rugNursery=std({map:nurseryRugTex(),roughness:1});
+  MAT.sage=std({color:0x777b58,roughness:.92});MAT.rugNurseryBig=std({map:nurseryBigRugTex(),roughness:1});MAT.playMat=std({map:playMatTex(),roughness:.9});
+  MAT.cribWood=std({map:woodGrainTex('#b68a60'),roughness:.5});   // the crib model's honey wood (its texture's median colour), for the Gelato dresserMAT.oat=std({color:0xe4dccb,roughness:.92});MAT.rugNursery=std({map:nurseryRugTex(),roughness:1});
   MAT.bark=std({map:barkTex(),roughness:1},false);
   MAT.leaf=new THREE.MeshStandardMaterial({roughness:.85,flatShading:true});
   MAT.artBotanical=std({map:artTex('botanical',256,320),roughness:.8});

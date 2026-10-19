@@ -24,7 +24,7 @@ const PRESETS={
 // bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
 const LOOK={bloomScale:.5,dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
 const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
-  'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','glass','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil']);
+  'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
 const FOG_D=.0014;
 const fogColor=P=>new THREE.Color(P.hor).lerp(new THREE.Color(P.zen),.12);
@@ -105,11 +105,19 @@ function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ(),uf=ultraFill
   for(const L of SKYL)L.visible=hq;LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;if(EXT_MATS.has(k))m.envMapIntensity=P.envE*(hq?LIGHT_HQ.env*uf.env:1);else if(m.envMap)m.envMapIntensity=P.envI*uf.envI*cutFill();
     if(m.userData.cc)m.clearcoat=ul?m.userData.cc[0]:0;}
-  if(typeof syncDerived==='function')syncDerived();LOOK.preview=undefined;shadowDirty=true;dirty=true;if(LOOK.studio&&typeof planStudio==='function')planStudio();}
+  updateGlassEnv(true);if(typeof syncDerived==='function')syncDerived();LOOK.preview=undefined;shadowDirty=true;dirty=true;if(LOOK.studio&&typeof planStudio==='function')planStudio();}
+// what glass reflects: the room when the camera is inside the house (walking, below a room's ceiling), the sky otherwise. Both are PMREM
+// maps, so switching never recompiles
+let GLASS_IN=null;
+function cameraIndoors(){if(ST.view!=='walk')return false;const p=camW.position;
+  return SPEC.rooms.some(r=>!/deck|patio|walk/i.test(r.name)&&p.x>=r.x0&&p.x<=r.x1&&p.z>=r.z0&&p.z<=r.z1&&p.y>=E[r.lv]-.5&&p.y<=CEIL[r.lv]+.5);}
+function updateGlassEnv(force){const m=MAT.glass;if(!m||!SKY_ENV)return;const inside=cameraIndoors();if(!force&&inside===GLASS_IN)return;GLASS_IN=inside;
+  const P=PRESETS[LOOK.preset];m.envMap=inside&&ROOM_ENV?ROOM_ENV:SKY_ENV;m.envMapIntensity=inside?Math.max(.4,P.envI)*1.3:P.envE*1.3;
+  if(typeof syncDerived==='function')syncDerived();dirty=true;}
 // while the camera moves, high quality shows a clean preview lit like the fast renderer (sun and plain sky light, no sky-shadow sampling);
 // refining starts once it stops. Only light strengths change, so nothing recompiles.
 function hqLight(pv){const P=PRESETS[LOOK.preset],uf=ultraFill();if(!LOOK.studio){LOOK.hemi.intensity=P.hemi*(pv?1:LIGHT_HQ.hemi*uf.hemi);sun.intensity=P.si*(pv?1:LIGHT_HQ.sun);}
-  for(const k in MAT){const m=MAT[k];if(m&&m.isMeshStandardMaterial&&EXT_MATS.has(k))m.envMapIntensity=P.envE*(pv?1:LIGHT_HQ.env*uf.env);}if(typeof syncDerived==='function')syncDerived();if(pv)for(const L of SKYL)L.intensity=0;shadowDirty=true;}
+  for(const k in MAT){const m=MAT[k];if(m&&m.isMeshStandardMaterial&&EXT_MATS.has(k))m.envMapIntensity=P.envE*(pv?1:LIGHT_HQ.env*uf.env);}updateGlassEnv(true);if(typeof syncDerived==='function')syncDerived();if(pv)for(const L of SKYL)L.intensity=0;shadowDirty=true;}
 // ---------- applying a preset ----------
 // the preset's sun, turned around the house by LOOK.sunTurn degrees (the Sun slider; positive turns it counterclockwise in plan)
 function sunDirFor(P,out){const e=P.elev*Math.PI/180,t=(LOOK.sunTurn||0)*Math.PI/180,c=Math.cos(t),sn=Math.sin(t),hx=P.h.x*c+P.h.z*sn,hz=-P.h.x*sn+P.h.z*c;
@@ -151,7 +159,7 @@ const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.
   giGain:1,
   // overhead lights (ceiling fixtures, cans, pendants, chandeliers, the kitchen's cans and drum) are this much brighter in Ultra
   overhead:2.2,
-  refl:{oak:.02,slate:.06,tileBath:.14,subway:.18,showerTile:.16,barTile:.14,cab:.05,cabDark:.05,quartz:.14,walnutDark:.12,oakFurn:.09,oakLight:.08,porcelain:.2,
+  refl:{glass:.04,oak:.02,slate:.06,tileBath:.14,subway:.18,showerTile:.16,barTile:.14,cab:.05,cabDark:.05,quartz:.14,walnutDark:.12,oakFurn:.09,oakLight:.08,porcelain:.2,
     ceramicWhite:.12,washer:.12,blackGlass:.25,tvScreen:.3,mirror:1,doorWhite:.06,doorGrey:.06,trim:.05,leather:.06,tread:.1}};
 // the rooms' flat fill (their environment light) in the 3/4 cutaway, where they are lit as if their ceilings were on
 const CUT_FILL=.35,cutFill=()=>typeof SHADOW_PROXY!=='undefined'&&SHADOW_PROXY&&SHADOW_PROXY.visible?CUT_FILL:1;
@@ -181,7 +189,7 @@ const GL_UTIL=`uniform sampler2D tC,tDepth,tEnc;uniform mat4 proj,projInv;unifor
   vec3 vpos(vec2 uv){float d=texture2D(tDepth,uv).x;vec4 p=projInv*vec4(uv*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}
   float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   vec2 proj2(vec3 S){vec4 q=proj*vec4(S,1.);return q.xy/q.w*.5+.5;}`;
-const ULTRA_UN=()=>({tC:{value:null},tDepth:{value:null},tEnc:{value:null},proj:{value:new THREE.Matrix4()},projInv:{value:new THREE.Matrix4()},frame:{value:0},radius:{value:7}});
+const ULTRA_UN=()=>({tC:{value:null},tDepth:{value:null},tDepthE:{value:null},tEnc:{value:null},proj:{value:new THREE.Matrix4()},projInv:{value:new THREE.Matrix4()},frame:{value:0},radius:{value:7}});
 // one-bounce GI: light arriving from nearby lit surfaces, by cosine-weighted samples of the frame's own lit image within a radius
 const GI_MAT=SM(GL_UTIL+`
   void main(){float d=texture2D(tDepth,vUv).x;if(d>.99999){gl_FragColor=vec4(0.);return;}
@@ -199,8 +207,11 @@ const GI_MAT=SM(GL_UTIL+`
 // accumulation turns it into a glossy reflection. Alpha carries how much of it to use (reflectivity, Fresnel, edge fade).
 const SSR_MAT=SM(`#define REFL_BOOST ${ULTRA.reflBoost.toFixed(2)}
 `+GL_UTIL+`
-  void main(){vec4 e=texture2D(tEnc,vUv);float refl=e.a,d=texture2D(tDepth,vUv).x;if(refl<.015||d>.99999){gl_FragColor=vec4(0.);return;}
-    vec3 P=vpos(vUv);vec2 n2=e.xy*2.-1.;vec3 N=vec3(n2,sqrt(max(0.,1.-dot(n2,n2))));
+  // the ray starts on the nearest surface of the normal/gloss pass (which includes glass), and marches against the scene behind it
+  uniform sampler2D tDepthE;
+  vec3 vposE(vec2 uv){float d=texture2D(tDepthE,uv).x;vec4 p=projInv*vec4(uv*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}
+  void main(){vec4 e=texture2D(tEnc,vUv);float refl=e.a,d=texture2D(tDepthE,vUv).x;if(refl<.015||d>.99999){gl_FragColor=vec4(0.);return;}
+    vec3 P=vposE(vUv);vec2 n2=e.xy*2.-1.;vec3 N=vec3(n2,sqrt(max(0.,1.-dot(n2,n2))));
     float r0=h1(gl_FragCoord.xy*.71+frame*5.13),r1=h1(gl_FragCoord.yx*.37+frame*2.9),r2=h1(vec2(r0,r1)*31.7+frame);
     N=normalize(N+normalize(vec3(r0,r1,r2)*2.-1.)*e.z*e.z*.55);vec3 V=normalize(P),R=reflect(V,N);float ndv=max(dot(-V,N),0.);
     float t=.1+r0*.2,stp=.18;vec2 huv=vec2(-1.);
@@ -254,14 +265,15 @@ function albOf(m){let a=ALB.get(m);if(!a){a=new THREE.MeshBasicMaterial({clippin
   const mp=m.map||null;if(a.map!==mp){if(!a.map!==!mp)a.needsUpdate=true;a.map=mp;}a.color.copy(m.color||_white).multiplyScalar(1-(m.metalness||0));
   if(a.vertexColors!==!!m.vertexColors){a.vertexColors=!!m.vertexColors;a.needsUpdate=true;}a.side=m.side;return a;}
 // render the opaque scene with every material swapped for pick(material) (transparent, cut-out, shader and line objects hidden)
-function overridePass(cam,target,pick){const swap=[];
+// glassOK: glass (MAT.glass and its copies) is drawn too, as an opaque surface
+function overridePass(cam,target,pick,glassOK){const swap=[];
   scene.traverse(o=>{if(!o.visible)return;if(o.isMesh){const m=o.material;
-      if(Array.isArray(m)||m.transparent||m.alphaTest>0||m.isShaderMaterial||o.userData.horizon||o.userData.shadowOnly){o.visible=false;swap.push([o,null]);}else{swap.push([o,m]);o.material=pick(m);}}
+      if(Array.isArray(m)||(m.transparent&&!(glassOK&&(m===MAT.glass||m.userData.base===MAT.glass)))||m.alphaTest>0||m.isShaderMaterial||o.userData.horizon||o.userData.shadowOnly){o.visible=false;swap.push([o,null]);}else{swap.push([o,m]);o.material=pick(m);}}
     else if(o.isLine||o.isPoints){o.visible=false;swap.push([o,null]);}});
   const cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha(),fog=scene.fog;scene.fog=null;renderer.setClearColor(0,0);
   renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,cam);renderer.setClearColor(cc,ca);scene.fog=fog;
   for(const [o,m] of swap){if(m)o.material=m;else o.visible=true;}}
-function encPass(cam){overridePass(cam,PIPE.enc,encOf);}
+function encPass(cam){overridePass(cam,PIPE.enc,m=>encOf(m.userData.base===MAT.glass?MAT.glass:m),true);}
 // ---------- the rooms as a volume: a texture over the house's plan, each texel holding the lowest floor and highest ceiling of the
 // rooms over it (decks, patios and walks left out), so a shader can tell whether a point is indoors
 const GI_U={uGI:{value:0},giGain:{value:1},tGIa:{value:null},giMin:{value:new THREE.Vector3()},giStep:{value:new THREE.Vector3(4,4.5,4)},giN:{value:new THREE.Vector3(1,1,1)},
@@ -342,12 +354,13 @@ function applyGrade(){const G=PRESETS[LOOK.preset].grade||{wb:[1,1,1],lift:[0,0,
   u.wb.value.set(...G.wb);u.lift.value.set(...G.lift);u.gsat.value=G.sat;u.con.value=G.con;LOOK.gradeCss=G.css;}
 function fs(mat,target){FSQ.m.material=mat;renderer.setRenderTarget(target);renderer.render(FSQ.s,FSQ.c);}
 function rt(w,h,o){return new THREE.WebGLRenderTarget(w,h,Object.assign({type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,stencilBuffer:false},o||{}));}
-function setupPipe(){for(const k of ['rt','ao','ao2','b1','b2','b3','b4','accA','accB','enc','gi','ssr','alb','vol','focus'])if(PIPE[k]){PIPE[k].dispose();PIPE[k]=null;}
-  const pr=renderer.getPixelRatio(),w=Math.max(2,Math.floor(innerWidth*pr)),h=Math.max(2,Math.floor(innerHeight*pr));PIPE.size=[w,h];
+function setupPipe(W,H){for(const k of ['rt','ao','ao2','b1','b2','b3','b4','accA','accB','enc','gi','ssr','alb','vol','focus'])if(PIPE[k]){PIPE[k].dispose();PIPE[k]=null;}
+  // W, H: an explicit render size (the Photo for Gemini capture); otherwise the window at the current pixel ratio
+  const pr=renderer.getPixelRatio(),w=W||Math.max(2,Math.floor(innerWidth*pr)),h=H||Math.max(2,Math.floor(innerHeight*pr));PIPE.size=[w,h];
   PIPE.rt=rt(w,h,{depthBuffer:true});PIPE.rt.depthTexture=new THREE.DepthTexture(w,h);PIPE.rt.depthTexture.type=THREE.UnsignedIntType;
   PIPE.ao=rt(w,h,{type:THREE.UnsignedByteType});const hw=Math.max(2,w>>1),hh=Math.max(2,h>>1),qw=Math.max(2,w>>2),qh=Math.max(2,h>>2);
   PIPE.ao2=rt(hw,hh,{type:THREE.UnsignedByteType});PIPE.b1=rt(hw,hh);PIPE.b2=rt(hw,hh);PIPE.b3=rt(qw,qh);PIPE.b4=rt(qw,qh);PIPE.accA=rt(w,h);PIPE.accB=rt(w,h);PIPE.half=[hw,hh];PIPE.quarter=[qw,qh];
-  if(isUltra()){PIPE.enc=rt(w,h,{depthBuffer:true,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});PIPE.gi=rt(hw,hh);PIPE.ssr=rt(w,h);
+  if(isUltra()){PIPE.enc=rt(w,h,{depthBuffer:true,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});PIPE.enc.depthTexture=new THREE.DepthTexture(w,h);PIPE.enc.depthTexture.type=THREE.UnsignedIntType;PIPE.gi=rt(hw,hh);PIPE.ssr=rt(w,h);
     PIPE.alb=rt(w,h,{depthBuffer:true});PIPE.vol=rt(hw,hh);PIPE.focus=rt(1,1,{type:THREE.UnsignedByteType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});}PIPE.n=0;}
 const halton=(i,b)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math.floor(i/b);}return r;};
 // the house's bounding box (levels, stair core, roof), for depth of field; worked out once
@@ -374,7 +387,9 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
     const a=halton(n,11)*6.283,r=Math.sqrt(halton(n,13))*ULTRA.aperture,R=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0),U=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
     cam.position.addScaledVector(R,Math.cos(a)*r).addScaledVector(U,Math.sin(a)*r);cam.lookAt(fp);cam.updateMatrixWorld();}
   renderer.toneMapping=THREE.NoToneMapping;
-  if(n>0){cam.setViewOffset(w,h,halton(n,2)-.5,halton(n,3)-.5,w,h);
+  // a lens shift (cam.userData.shift, the photo camera): the frame is a window into a taller frustum; the jitter rides on it
+  const sh=cam.userData.shift;if(sh)cam.setViewOffset(w,sh.H2,n>0?halton(n,2)-.5:0,sh.y+(n>0?halton(n,3)-.5:0),w,h);
+  if(n>0){if(!sh)cam.setViewOffset(w,h,halton(n,2)-.5,halton(n,3)-.5,w,h);
     if(sun.intensity>.3&&LOOK.sunBase){const a=halton(n,5)*6.283,r=Math.sqrt(halton(n,7))*LIGHT_HQ.sunR,t1=new THREE.Vector3().crossVectors(LOOK.sunDir,new THREE.Vector3(0,1,0)).normalize(),t2=new THREE.Vector3().crossVectors(t1,LOOK.sunDir);
       sun.position.copy(LOOK.sunBase).addScaledVector(t1,Math.cos(a)*r).addScaledVector(t2,Math.sin(a)*r);renderer.shadowMap.needsUpdate=true;}}
   else{if(LOOK.sunBase)sun.position.copy(LOOK.sunBase);if(shadowDirty){renderer.shadowMap.needsUpdate=true;shadowDirty=false;}}
@@ -394,7 +409,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
     // only: gathering from the accumulation fed its own bounce back in, and in white rooms that grew every frame until the image blew out
     // (the probe light carries the further bounces indoors)
     const src=n>1?PIPE.accA.texture:PIPE.rt.texture;
-    for(const M of [GI_MAT,SSR_MAT]){const u=M.uniforms;u.tC.value=M===GI_MAT?PIPE.rt.texture:src;u.tDepth.value=PIPE.rt.depthTexture;u.tEnc.value=PIPE.enc.texture;
+    for(const M of [GI_MAT,SSR_MAT]){const u=M.uniforms;u.tC.value=M===GI_MAT?PIPE.rt.texture:src;u.tDepth.value=PIPE.rt.depthTexture;u.tDepthE.value=PIPE.enc.depthTexture;u.tEnc.value=PIPE.enc.texture;
       u.proj.value.copy(cam.projectionMatrix);u.projInv.value.copy(cam.projectionMatrixInverse);u.frame.value=n%251;}
     GI_MAT.uniforms.radius.value=ST.view==='walk'?5:ULTRA.giR;fs(GI_MAT,PIPE.gi);fs(SSR_MAT,PIPE.ssr);
     if(n===0&&!preview&&ST.view==='walk')readFocus(cam);
@@ -416,7 +431,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
   fs(COMP_MAT,PIPE.accB);
   const t=PIPE.accA;PIPE.accA=PIPE.accB;PIPE.accB=t;
   OUT_MAT.uniforms.t.value=PIPE.accA.texture;OUT_MAT.uniforms.exposure.value=P.exp;OUT_MAT.uniforms.vig.value=ST.view==='plan'?0:(ultra?ULTRA.vig:.22);OUT_MAT.uniforms.ca.value=ultra&&ST.view!=='plan'?ULTRA.ca:0;OUT_MAT.uniforms.gamt.value=ST.view==='plan'?0:1;gradeCss('');fs(OUT_MAT,null);
-  if(n>0)cam.clearViewOffset();if(dofSave){cam.position.copy(dofSave[0]);cam.quaternion.copy(dofSave[1]);cam.updateMatrixWorld();}if(!preview)PIPE.n++;
+  if(n>0||sh)cam.clearViewOffset();if(dofSave){cam.position.copy(dofSave[0]);cam.quaternion.copy(dofSave[1]);cam.updateMatrixWorld();}if(!preview)PIPE.n++;
   if(PIPE.checked<2){PIPE.checked++;const gl=renderer.getContext(),px=new Uint8Array(4);let lit=0;
     for(const [fx,fy] of [[.5,.5],[.25,.3],[.75,.7],[.3,.8],[.7,.2]]){gl.readPixels(Math.floor(fx*gl.drawingBufferWidth),Math.floor(fy*gl.drawingBufferHeight),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);lit+=px[0]+px[1]+px[2];}
     if(lit<6&&PIPE.checked>=2)throw new Error('high-quality output was blank');}}

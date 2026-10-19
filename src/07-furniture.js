@@ -406,27 +406,26 @@ function buildFurniture(){
   // upper-floor primary bedroom, a nursery (owner's layout; colours and feel from the inspiration photo). The recliner, crib and daybed
   // are imported models (assets/models/manifest.json)
   // an 8' x 10' rug, its long side across the room, under the front of the crib, recliner and daybed
-  {const p=T('4',6.25,e4,26.4,0,'nursery rug');p.b('rugNurseryBig',0,0,0,10,.03,8);}
+  {const p=T('4',6.25,e4,26.4,0,'8x10 oat wool rug with olive border');p.b('rugNurseryBig',0,0,0,10,.03,8);}
   // two-column toy cubbies under the west window, beside the closets (their back to the wall)
-  {const p=T('4',.78,e4,18.75,-Math.PI/2,'toy cubbies'),cols=2,t=.07,W=2*1.38+t,H=2.0,D=.95;
+  {const p=T('4',.78,e4,18.75,-Math.PI/2,'light-oak toy cubbies with fabric bins'),cols=2,t=.07,W=2*1.38+t,H=2.0,D=.95;
     p.b('oakLight',0,0,0,W,t,D);p.b('oakLight',0,H-t,0,W,t,D);p.b('oakLight',0,H/2-t/2,0,W,t,D);p.b('oakLight',0,0,D/2-.03,W,H,.06);
     for(let k=0;k<=cols;k++)p.b('oakLight',-W/2+t/2+k*(W-t)/cols,0,0,t,H,D);
     const bins=[['fabricCream',0,0],['olive',1,0],['linen2',0,1]],cw=(W-t)/cols;
     for(const [m,c,r] of bins)p.r(m,-W/2+t+cw*(c+.5)-t/2,t+.02+r*(H/2),-.06,cw-.2,H/2-t-.22,D-.2,.05);
     p.col(0,0,W,D,0,H);}
-  // Babyletto Gelato 3-drawer changer dresser, White Washed Natural (33.5" W x 19.25" D x 36.5" H with its removable changing tray,
-  // babyletto.com): a white case with softly rounded edges on four short round natural-wood feet with gold tips, three natural-wood drawer
-  // fronts with a pair of round knobs each, and the white tray on top holding a contoured changing pad. Against the front wall under
+  // Babyletto Gelato 3-drawer changer dresser (33.5" W x 19.25" D x 36.5" H with its removable changing tray, babyletto.com), all in the
+  // crib's honey wood (cribWood): a case with softly rounded edges on four short round feet with gold tips, three drawer fronts with a
+  // pair of round knobs each, and the empty tray on top. Against the front wall under
   // the front window (the bathroom door, in the corner beyond it, keeps its swing clear)
-  {const p=T('4',8.4,e4,30.5,0,'Babyletto Gelato dresser'),W=33.5/12,D=19.25/12,H=36.5/12,leg=.36,top=34.5/12,zf=-D/2;
-    p.r('doorWhite',0,leg,0,W,top-leg,D,.09);
+  {const p=T('4',8.4,e4,30.5,0,'Babyletto Gelato 3-drawer changer dresser, honey wood'),W=33.5/12,D=19.25/12,H=36.5/12,leg=.36,top=34.5/12,zf=-D/2;
+    p.r('cribWood',0,leg,0,W,top-leg,D,.09);
     const d0=leg+.12,d1=top-.12,gap=.035,dh=(d1-d0-2*gap)/3;
-    for(let i=0;i<3;i++){const y=d0+i*(dh+gap);p.r('oakLight',0,y,zf-.03,W-.24,dh,.07,.025);
-      for(const kx of [-W*.25,W*.25])p.c('oakLight',kx,y+dh/2-.06,zf-.12,.065,.055,.12,20,Math.PI/2);}
-    for(const sx of [-1,1])for(const sz of [-1,1]){const x=sx*(W/2-.22),z=sz*(D/2-.2);p.c('oakLight',x,.05,z,.075,.055,leg-.05,18);p.c('gold',x,0,z,.056,.056,.06,18);}
-    const tw=32.5/12,td=17.5/12,th=top+.04,rh=H-top,rw=.07;p.r('doorWhite',0,top,0,tw,.05,td,.02);
-    for(const sz of [-1,1])p.r('doorWhite',0,top,sz*(td/2-rw/2),tw,rh,rw,.03);for(const sx of [-1,1])p.r('doorWhite',sx*(tw/2-rw/2),top,0,rw,rh,td,.03);
-    p.r('linen2',0,th,0,tw-2*rw-.03,.13,td-2*rw-.03,.06);for(const sz of [-1,1])p.r('linen2',0,th,sz*(td/2-rw-.12),tw-2*rw-.05,.24,.2,.09);
+    for(let i=0;i<3;i++){const y=d0+i*(dh+gap);p.r('cribWood',0,y,zf-.03,W-.24,dh,.07,.025);
+      for(const kx of [-W*.25,W*.25])p.c('cribWood',kx,y+dh/2-.06,zf-.12,.065,.055,.12,20,Math.PI/2);}
+    for(const sx of [-1,1])for(const sz of [-1,1]){const x=sx*(W/2-.22),z=sz*(D/2-.2);p.c('cribWood',x,.05,z,.075,.055,leg-.05,18);p.c('gold',x,0,z,.056,.056,.06,18);}
+    const tw=32.5/12,td=17.5/12,rh=H-top,rw=.07;p.r('cribWood',0,top,0,tw,.05,td,.02);
+    for(const sz of [-1,1])p.r('cribWood',0,top,sz*(td/2-rw/2),tw,rh,rw,.03);for(const sx of [-1,1])p.r('cribWood',sx*(tw/2-rw/2),top,0,rw,rh,td,.03);
     p.col(0,0,W,D,0,H);}
   cap('3',32.8,35.3,18.3,21.3,0,6);cap('3',23.85,25.75,20.6,27.35,0,7.6);cap('3',32.75,35.3,21.35,21.9,0,7.95);
   cap('2',0.3,1.6,7.0,12.6,e2,CEIL[2]);cap('X',-1.85,-0.3,6.9,12.9,-17,18.2);
