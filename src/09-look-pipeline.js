@@ -187,7 +187,7 @@ function qualityPR(q){const dpr=window.devicePixelRatio||1;if(q==='fast')return 
 const VSQ='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
 const SM=(fs,un)=>new THREE.ShaderMaterial({vertexShader:VSQ,fragmentShader:fs,uniforms:un,depthTest:false,depthWrite:false,toneMapped:false,extensions:{derivatives:true}});
 const FSQ={s:new THREE.Scene(),c:new THREE.OrthographicCamera(-1,1,1,-1,0,1),m:new THREE.Mesh(new THREE.PlaneGeometry(2,2))};FSQ.m.frustumCulled=false;FSQ.s.add(FSQ.m);
-const AO_MAT=SM(`uniform sampler2D tDepth;uniform mat4 proj,projInv;uniform float radius,frame;varying vec2 vUv;
+const AO_MAT=window.GPU?gpuAO():SM(`uniform sampler2D tDepth;uniform mat4 proj,projInv;uniform float radius,frame;varying vec2 vUv;
   vec3 vpos(vec2 uv){float d=texture2D(tDepth,uv).x;vec4 p=projInv*vec4(uv*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}
   float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   void main(){float d=texture2D(tDepth,vUv).x;if(d>.99999){gl_FragColor=vec4(1.);return;}
@@ -347,16 +347,16 @@ function ultraLights(n,on,jit){const U=ULTRA,res=[];if(!U.probes)return res;for(
     if(l.isSpotLight){pr.angle=l.angle;pr.penumbra=l.penumbra;pr.target.position.copy(l.target.position);pr.target.updateMatrixWorld();}
     res.push([l,l.intensity]);l.intensity=0;});
   renderer.shadowMap.needsUpdate=true;return res;}
-const BRIGHT_MAT=SM('uniform sampler2D t;uniform float thr;varying vec2 vUv;void main(){vec3 c=texture2D(t,vUv).rgb;float l=max(max(c.r,c.g),c.b);gl_FragColor=vec4(c*smoothstep(thr,thr*1.8,l),1.);}',{t:{value:null},thr:{value:1.6}});
-const BLUR_MAT=SM('uniform sampler2D t;uniform vec2 dir;varying vec2 vUv;void main(){vec3 c=texture2D(t,vUv).rgb*.227;c+=(texture2D(t,vUv+dir*1.385).rgb+texture2D(t,vUv-dir*1.385).rgb)*.316;c+=(texture2D(t,vUv+dir*3.231).rgb+texture2D(t,vUv-dir*3.231).rgb)*.07;gl_FragColor=vec4(c,1.);}',{t:{value:null},dir:{value:new THREE.Vector2()}});
-const COMP_MAT=SM(`uniform sampler2D tB,tAO,tAO2,tL1,tL2,tAcc,tGI,tSSR,tAlb,tVol;uniform vec2 px;uniform float w,aoS,aoS2,bl,giS,ssrS,volS;varying vec2 vUv;
+const BRIGHT_MAT=window.GPU?gpuBright():SM('uniform sampler2D t;uniform float thr;varying vec2 vUv;void main(){vec3 c=texture2D(t,vUv).rgb;float l=max(max(c.r,c.g),c.b);gl_FragColor=vec4(c*smoothstep(thr,thr*1.8,l),1.);}',{t:{value:null},thr:{value:1.6}});
+const BLUR_MAT=window.GPU?gpuBlur():SM('uniform sampler2D t;uniform vec2 dir;varying vec2 vUv;void main(){vec3 c=texture2D(t,vUv).rgb*.227;c+=(texture2D(t,vUv+dir*1.385).rgb+texture2D(t,vUv-dir*1.385).rgb)*.316;c+=(texture2D(t,vUv+dir*3.231).rgb+texture2D(t,vUv-dir*3.231).rgb)*.07;gl_FragColor=vec4(c,1.);}',{t:{value:null},dir:{value:new THREE.Vector2()}});
+const COMP_MAT=window.GPU?gpuComp():SM(`uniform sampler2D tB,tAO,tAO2,tL1,tL2,tAcc,tGI,tSSR,tAlb,tVol;uniform vec2 px;uniform float w,aoS,aoS2,bl,giS,ssrS,volS;varying vec2 vUv;
   void main(){vec3 c=texture2D(tB,vUv).rgb;
     if(giS>0.)c+=texture2D(tGI,vUv).rgb*texture2D(tAlb,vUv).rgb*giS;
     if(ssrS>0.){vec4 r=texture2D(tSSR,vUv);c=mix(c,r.rgb,r.a*ssrS);}float a=0.,a2=0.;for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++){vec2 o=vec2(float(x),float(y));a+=texture2D(tAO,vUv+o*px*1.5).r;a2+=texture2D(tAO2,vUv+o*px*4.).r;}a/=9.;a2/=9.;
     c*=mix(1.,a,aoS)*mix(1.,a2,aoS2);if(volS>0.)c+=texture2D(tVol,vUv).rgb*volS;c+=(texture2D(tL1,vUv).rgb+texture2D(tL2,vUv).rgb*.8)*bl;
     vec3 acc=texture2D(tAcc,vUv).rgb;gl_FragColor=vec4(mix(acc,c,w),1.);}`,
   {tB:{value:null},tAO:{value:null},tAO2:{value:null},aoS2:{value:0},tGI:{value:null},tAlb:{value:null},tVol:{value:null},volS:{value:0},tSSR:{value:null},giS:{value:0},ssrS:{value:0},tL1:{value:null},tL2:{value:null},tAcc:{value:null},px:{value:new THREE.Vector2()},w:{value:1},aoS:{value:.75},bl:{value:.1}});
-const OUT_MAT=SM(`uniform sampler2D t;uniform float exposure,sat,vig,con,gsat,gamt,ca;uniform vec3 wb,lift;varying vec2 vUv;
+const OUT_MAT=window.GPU?gpuOut():SM(`uniform sampler2D t;uniform float exposure,sat,vig,con,gsat,gamt,ca;uniform vec3 wb,lift;varying vec2 vUv;
   vec3 fit(vec3 v){vec3 a=v*(v+.0245786)-.000090537;vec3 b=v*(.983729*v+.4329510)+.238081;return a/b;}
   vec3 aces(vec3 c){const mat3 I=mat3(vec3(.59719,.07600,.02840),vec3(.35458,.90834,.13383),vec3(.04823,.01566,.83777));const mat3 O=mat3(vec3(1.60475,-.10208,-.00327),vec3(-.53108,1.10813,-.07276),vec3(-.07367,-.00605,1.07602));return clamp(O*fit(I*c),0.,1.);}
   vec3 srgb(vec3 c){return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(.0031308,c));}
@@ -369,7 +369,9 @@ const OUT_MAT=SM(`uniform sampler2D t;uniform float exposure,sat,vig,con,gsat,ga
 // colour grade of the current preset: in the output shader for high quality, as a CSS filter on the canvas for the fast renderer
 function applyGrade(){const G=PRESETS[LOOK.preset].grade||{wb:[1,1,1],lift:[0,0,0],sat:1,con:1,css:''},u=OUT_MAT.uniforms;
   u.wb.value.set(...G.wb);u.lift.value.set(...G.lift);u.gsat.value=G.sat;u.con.value=G.con;LOOK.gradeCss=G.css;}
-function fs(mat,target){FSQ.m.material=mat;renderer.setRenderTarget(target);renderer.render(FSQ.s,FSQ.c);}
+// (WebGPU: the output pass writes display values itself, so the renderer's own output transform is off while it draws to the screen)
+function fs(mat,target){FSQ.m.material=mat;renderer.setRenderTarget(target);
+  if(window.GPU&&!target){const cs=renderer.outputColorSpace;renderer.outputColorSpace=THREE.LinearSRGBColorSpace;renderer.render(FSQ.s,FSQ.c);renderer.outputColorSpace=cs;}else renderer.render(FSQ.s,FSQ.c);}
 function rt(w,h,o){return new THREE.WebGLRenderTarget(w,h,Object.assign({type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,stencilBuffer:false},o||{}));}
 function setupPipe(W,H){for(const k of ['rt','ao','ao2','b1','b2','b3','b4','accA','accB','enc','gi','ssr','alb','vol','focus'])if(PIPE[k]){PIPE[k].dispose();PIPE[k]=null;}
   // W, H: an explicit render size (the Photo for Gemini capture); otherwise the window at the current pixel ratio
@@ -449,7 +451,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
   const t=PIPE.accA;PIPE.accA=PIPE.accB;PIPE.accB=t;
   OUT_MAT.uniforms.t.value=PIPE.accA.texture;OUT_MAT.uniforms.exposure.value=P.exp;OUT_MAT.uniforms.vig.value=ST.view==='plan'?0:(ultra?ULTRA.vig:.22);OUT_MAT.uniforms.ca.value=ultra&&ST.view!=='plan'?ULTRA.ca:0;OUT_MAT.uniforms.gamt.value=ST.view==='plan'?0:1;gradeCss('');fs(OUT_MAT,null);
   if(n>0||sh)cam.clearViewOffset();if(dofSave){cam.position.copy(dofSave[0]);cam.quaternion.copy(dofSave[1]);cam.updateMatrixWorld();}if(!preview)PIPE.n++;
-  if(PIPE.checked<2){PIPE.checked++;const gl=renderer.getContext(),px=new Uint8Array(4);let lit=0;
+  if(!window.GPU&&PIPE.checked<2){PIPE.checked++;const gl=renderer.getContext(),px=new Uint8Array(4);let lit=0;
     for(const [fx,fy] of [[.5,.5],[.25,.3],[.75,.7],[.3,.8],[.7,.2]]){gl.readPixels(Math.floor(fx*gl.drawingBufferWidth),Math.floor(fy*gl.drawingBufferHeight),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);lit+=px[0]+px[1]+px[2];}
     if(lit<6&&PIPE.checked>=2)throw new Error('high-quality output was blank');}}
 // the fast renderer has no output pass, so its grade is a CSS filter on the canvas (off in plan view, like the shader grade)
@@ -457,7 +459,7 @@ function gradeCss(f){const el=renderer.domElement;if(el.style.filter!==f)el.styl
 function renderFast(cam){const P=PRESETS[LOOK.preset];gradeCss(ST.view==='plan'?'':LOOK.gradeCss||'');renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=P.exp;
   if(LOOK.sunBase)sun.position.copy(LOOK.sunBase);if(shadowDirty){renderer.shadowMap.needsUpdate=true;shadowDirty=false;}
   if(SKY)SKY.position.copy(cam.position);renderer.setRenderTarget(null);renderer.render(scene,cam);PIPE.n=PIPE.max;}
-function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q!=='fast'&&window.GPU&&!window.GPU_HQ){q='fast';why='The WebGPU renderer has the fast mode only so far.';}
+function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q==='ultra'&&window.GPU){q='high';why='Ultra is not available on the WebGPU renderer yet, so high quality is on.';}
   LOOK.quality=q;renderer.setPixelRatio(qualityPR(q));renderer.setSize(innerWidth,innerHeight);if(q!=='fast')setupPipe();
   // ultra: a 256-frame accumulation and an 8192 sun shadow map where the GPU allows it
   PIPE.max=q==='ultra'?ULTRA.frames:64;
