@@ -12,7 +12,7 @@ const GPU_PASS=window.GPU?TSL:null;
 const GPU_FLIP=window.GPU?TSL.float(-1):null;
 function SMG(spec,build){const {uniform,texture,Fn}=GPU_PASS,u={};
   for(const k in spec){const v=spec[k];u[k]=v==='tex'?texture(new THREE.Texture()):v==='depth'?texture(new THREE.DepthTexture(1,1)):uniform(v);}
-  const m=new THREE.MeshBasicNodeMaterial({depthTest:false,depthWrite:false,toneMapped:false,fog:false,side:THREE.DoubleSide});
+  const m=new THREE.MeshBasicNodeMaterial({depthTest:false,depthWrite:false,toneMapped:false,fog:false,side:THREE.DoubleSide,blending:THREE.NoBlending});   // (not opaque: opaque node materials force alpha to 1, and the reflection pass carries its strength in alpha)
   m.vertexNode=GPU_PASS.vec4(GPU_PASS.positionLocal.x,GPU_PASS.positionLocal.y.mul(GPU_FLIP),0,1);m.colorNode=Fn(()=>build(u))();m.uniforms=u;return m;}
 // shared helpers (TSL): view-space position from depth, a hash, the screen pixel
 function gpuVpos(u,tDepth,projInv){const {vec4,texture}=GPU_PASS;return q=>{const d=tDepth.sample(q).x,p=projInv.mul(vec4(q.mul(2).sub(1),d,1));return p.xyz.div(p.w);};}
@@ -38,10 +38,11 @@ function gpuBlur(){const {uv,vec4}=GPU_PASS;return SMG({t:'tex',dir:new THREE.Ve
 function gpuComp(){const {uv,vec2,vec4,float,mix,select}=GPU_PASS;
   return SMG({tB:'tex',tAO:'tex',tAO2:'tex',aoS2:0,tGI:'tex',tAlb:'tex',tVol:'tex',volS:0,tSSR:'tex',giS:0,ssrS:0,tL1:'tex',tL2:'tex',tAcc:'tex',px:new THREE.Vector2(),w:1,aoS:.75,bl:.1},u=>{
     const q=uv();let c=u.tB.sample(q).rgb;
-    c=c.add(u.tGI.sample(q).rgb.mul(u.tAlb.sample(q).rgb).mul(u.giS));
-    const r=u.tSSR.sample(q);c=mix(c,r.rgb,r.a.mul(u.ssrS));
+    // (each Ultra term only when it is on, as in the GLSL: a disabled pass's texture can hold anything, and NaN x 0 is still NaN)
+    c=select(u.giS.greaterThan(0),c.add(u.tGI.sample(q).rgb.mul(u.tAlb.sample(q).rgb).mul(u.giS)),c);
+    const r=u.tSSR.sample(q);c=select(u.ssrS.greaterThan(0),mix(c,r.rgb,r.a.mul(u.ssrS)),c);
     let a=float(0),a2=float(0);for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++){const o=vec2(x,y);a=a.add(u.tAO.sample(q.add(o.mul(u.px).mul(1.5))).r);a2=a2.add(u.tAO2.sample(q.add(o.mul(u.px).mul(4))).r);}
-    c=c.mul(mix(1,a.div(9),u.aoS)).mul(mix(1,a2.div(9),u.aoS2));c=c.add(u.tVol.sample(q).rgb.mul(u.volS));
+    c=c.mul(mix(1,a.div(9),u.aoS)).mul(mix(1,a2.div(9),u.aoS2));c=select(u.volS.greaterThan(0),c.add(u.tVol.sample(q).rgb.mul(u.volS)),c);
     c=c.add(u.tL1.sample(q).rgb.add(u.tL2.sample(q).rgb.mul(.8)).mul(u.bl));
     return vec4(mix(u.tAcc.sample(q).rgb,c,u.w),1);});}
 // ---------- output: ACES, saturation, vignette, sRGB, colour grade, dither (rendered with the renderer's output transform off) ----------

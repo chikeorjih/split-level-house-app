@@ -161,3 +161,31 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
   1. **Fast mode parity.** WebGPU Fast is currently about 40% darker and cooler than WebGL, and leaf cards draw without their alpha cut. Check, in order: tone mapping and output colour space on WebGPURenderer, `envMapIntensity` on the PMREM maps, alphaTest / alphaToCoverage on node materials, and the CSS grade.
   2. **Remaining patches:** corduroy (13-models), the GI probe patch (09; skipped under WebGPU).
   3. **The High/Ultra pipeline** in TSL (`RenderPipeline` / `pass` / `mrt`), then the remaining steps in this plan.
+
+### 2026-10-19: Phase 2, Fast, High and Ultra at parity on WebGPU
+
+- **Done:**
+  - Fast and High at parity (earlier commits on this branch).
+  - Ultra ported to TSL in the new `src/08c-gpu-ultra.js`:
+    - bounce light, reflections, sunbeams, autofocus and the normal/gloss pass
+    - the probe light, as a hook on `PhysicalLightingModel.indirect` for materials marked `userData.gi`
+    - SH projection, atlas dilation and the corduroy fabric
+- **Parity, WebGPU against WebGL Ultra** (mean absolute pixel difference out of 255, and brightness):
+
+  | View | Difference | Brightness, WebGL / WebGPU |
+  |---|---|---|
+  | ¾ afternoon | 4.6 | 93.2 / 91.2 |
+  | walk afternoon | 8.4 | 45.8 / 44.4 |
+  | walk dusk | 3.4 | 162.2 / 161.5 |
+  | plan | 0.6 | 192.5 / 192.1 |
+
+  The sheer curtains look slightly lighter and more see-through on WebGPU.
+- **Key findings (WebGPU traps):**
+  - **Bindings merge for good.** A pass's texture inputs are bound when it first compiles. Inputs that hold the *same* texture at that moment share one binding from then on. The composite first compiled in High, where its unused Ultra inputs borrowed the AO texture, so its AO taps later read the bounce-light texture and Ultra went nearly black. Fix: give every input its own texture and never alias two.
+  - **Opaque node materials force alpha to 1.** Full-screen passes use `NoBlending`. Targets that are never drawn break later passes, so `setupPipe` clears them all. Depth runs 0..1. The full-screen quad is y-flipped and double-sided.
+- **Next:**
+  1. Photo for Gemini capture on WebGPU, plus a prewarm and compile pass.
+  2. Debug IDs and Arrange checks.
+  3. A Renderer switch in the UI.
+  4. Make WebGPU the default when WebGPU is available.
+  5. Phase 3.

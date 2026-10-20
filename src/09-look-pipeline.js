@@ -208,7 +208,7 @@ const GL_UTIL=`uniform sampler2D tC,tDepth,tEnc;uniform mat4 proj,projInv;unifor
   vec2 proj2(vec3 S){vec4 q=proj*vec4(S,1.);return q.xy/q.w*.5+.5;}`;
 const ULTRA_UN=()=>({tC:{value:null},tDepth:{value:null},tDepthE:{value:null},tEnc:{value:null},proj:{value:new THREE.Matrix4()},projInv:{value:new THREE.Matrix4()},frame:{value:0},radius:{value:7}});
 // one-bounce GI: light arriving from nearby lit surfaces, by cosine-weighted samples of the frame's own lit image within a radius
-const GI_MAT=SM(GL_UTIL+`
+const GI_MAT=window.GPU?gpuGI():SM(GL_UTIL+`
   void main(){float d=texture2D(tDepth,vUv).x;if(d>.99999){gl_FragColor=vec4(0.);return;}
     vec3 P=vpos(vUv);vec4 e=texture2D(tEnc,vUv);vec3 N;
     if(e.x+e.y<.001){N=normalize(cross(dFdx(P),dFdy(P)));if(dot(N,P)>0.)N=-N;}else{vec2 n2=e.xy*2.-1.;N=vec3(n2,sqrt(max(0.,1.-dot(n2,n2))));}
@@ -222,7 +222,7 @@ const GI_MAT=SM(GL_UTIL+`
     gl_FragColor=vec4(acc*(1.5/10.),1.);}`,ULTRA_UN());
 // screen-space reflections: march the reflected ray against the depth buffer; the surface's roughness jitters the ray each frame, so the
 // accumulation turns it into a glossy reflection. Alpha carries how much of it to use (reflectivity, Fresnel, edge fade).
-const SSR_MAT=SM(`#define REFL_BOOST ${ULTRA.reflBoost.toFixed(2)}
+const SSR_MAT=window.GPU?gpuSSR():SM(`#define REFL_BOOST ${ULTRA.reflBoost.toFixed(2)}
 `+GL_UTIL+`
   // the ray starts on the nearest surface of the normal/gloss pass (which includes glass), and marches against the scene behind it
   uniform sampler2D tDepthE;
@@ -274,6 +274,7 @@ function encOf(m){let e=ENC.get(m);const rm=m.roughnessMap||null,src=m.map||rm;i
   if(!MATKEY){MATKEY=new Map();for(const k in MAT)MATKEY.set(MAT[k],k);}
   const key=MATKEY.get(m),cc=m.userData.cc,r=m.roughness===undefined?1:m.roughness,mt=m.metalness||0,rough=cc?Math.min(r,cc[1]+.05):r;
   const refl=key&&ULTRA.refl[key]!==undefined?ULTRA.refl[key]:Math.pow(1-r,1.5)*(.1+.9*mt);
+  if(window.GPU){e=gpuEncMat(m,rough,refl,rm,src?src.matrix:new THREE.Matrix3());e.userData.rm=rm;e.userData.src=src;ENC.set(m,e);return e;}
   e=new THREE.ShaderMaterial({vertexShader:ENC_VS,fragmentShader:ENC_FS,clipping:true,clippingPlanes:CLIPS,side:m.side,defines:rm?{RMAP:''}:{},
     uniforms:{rough:{value:rough},refl:{value:refl},rmap:{value:rm},uvT:{value:src?src.matrix:new THREE.Matrix3()}}});e.userData.rm=rm;e.userData.src=src;ENC.set(m,e);return e;}
 // albedo pass: each surface's own colour, unlit (metals count as dark: their light is all reflection), for the bounce light
@@ -285,7 +286,7 @@ function albOf(m){let a=ALB.get(m);if(!a){a=new THREE.MeshBasicMaterial({clippin
 // glassOK: glass (MAT.glass and its copies) is drawn too, as an opaque surface
 function overridePass(cam,target,pick,glassOK){const swap=[];
   scene.traverse(o=>{if(!o.visible)return;if(o.isMesh){const m=o.material;
-      if(Array.isArray(m)||(m.transparent&&!(glassOK&&(m===MAT.glass||m.userData.base===MAT.glass)))||m.alphaTest>0||m.isShaderMaterial||o.userData.horizon||o.userData.shadowOnly){o.visible=false;swap.push([o,null]);}else{swap.push([o,m]);o.material=pick(m);}}
+      if(Array.isArray(m)||(m.transparent&&!(glassOK&&(m===MAT.glass||m.userData.base===MAT.glass)))||m.alphaTest>0||m.isShaderMaterial||o===SKY||o.userData.horizon||o.userData.shadowOnly){o.visible=false;swap.push([o,null]);}else{swap.push([o,m]);o.material=pick(m);}}
     else if(o.isLine||o.isPoints){o.visible=false;swap.push([o,null]);}});
   const cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha(),fog=scene.fog;scene.fog=null;renderer.setClearColor(0,0);
   renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,cam);renderer.setClearColor(cc,ca);scene.fog=fog;
@@ -309,7 +310,7 @@ function roomMask(){if(GI_U.tRoom.value)return;const R=indoorRooms(),S=.5;let x0
   const t=new THREE.DataTexture(d,W,H,THREE.RGBAFormat);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;GI_U.tRoom.value=t;GI_U.roomBox.value.set(x0,z0,x0+W*S,z0+H*S);}
 // sunbeams: march each pixel's view ray (up to volMax feet) through the sun's shadow map; lit stretches of air scatter sunlight toward
 // the eye (Henyey-Greenstein, forward-leaning), so light shafts show through windows and under trees. Jittered per frame, accumulated.
-const VOL_MAT=SM(`#include <packing>
+const VOL_MAT=window.GPU?gpuVol():SM(`#include <packing>
 `+ROOM_GLSL+`
 uniform sampler2D tDepth,tShadow;uniform mat4 projInv,camWorld,shadowM;uniform vec3 camPos,sunDir,sunCol;uniform float frame,dens,maxD,g,outK;varying vec2 vUv;
 float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
@@ -321,12 +322,14 @@ void main(){float d=texture2D(tDepth,vUv).x;vec4 p=projInv*vec4(vUv*2.-1.,min(d,
   {tDepth:{value:null},tShadow:{value:null},projInv:{value:new THREE.Matrix4()},camWorld:{value:new THREE.Matrix4()},shadowM:{value:new THREE.Matrix4()},camPos:{value:new THREE.Vector3()},
    sunDir:{value:new THREE.Vector3()},sunCol:{value:new THREE.Color()},frame:{value:0},dens:{value:0},maxD:{value:30},g:{value:.55},outK:{value:.08},tRoom:GI_U.tRoom,roomBox:GI_U.roomBox});
 // autofocus for walking: the nearest depth in a small patch at the centre of the view, packed into one pixel and read back once per rest
-const FOCUS_MAT=SM(`#include <packing>
+const FOCUS_MAT=window.GPU?gpuFocus():SM(`#include <packing>
 uniform sampler2D tDepth;uniform mat4 projInv;varying vec2 vUv;
 float vz(vec2 uv){float d=texture2D(tDepth,uv).x;vec4 p=projInv*vec4(uv*2.-1.,d*2.-1.,1.);return d>.99999?200.:-p.z/p.w;}
 void main(){float z=1e9;for(int i=-2;i<=2;i++)for(int j=-2;j<=2;j++)z=min(z,vz(vec2(.5)+vec2(float(i),float(j))*.012));gl_FragColor=packDepthToRGBA(clamp(z/200.,0.,.999));}`,
   {tDepth:{value:null},projInv:{value:new THREE.Matrix4()}});
 function readFocus(cam){const u=FOCUS_MAT.uniforms;u.tDepth.value=PIPE.rt.depthTexture;u.projInv.value.copy(cam.projectionMatrixInverse);fs(FOCUS_MAT,PIPE.focus);
+  // WebGPU: the focus target is a float texture holding the distance itself, read back asynchronously
+  if(window.GPU){renderer.readRenderTargetPixelsAsync(PIPE.focus,0,0,1,1).then(b=>{if(b&&isFinite(b[0]))ULTRA.focus=Math.min(ULTRA.focusMax,b[0]);}).catch(()=>{});return;}
   const b=new Uint8Array(4);renderer.readRenderTargetPixels(PIPE.focus,0,0,1,1,b);const k=255/256/255;ULTRA.focus=Math.min(ULTRA.focusMax,200*(b[0]*k/16777216+b[1]*k/65536+b[2]*k/256+b[3]*k));}
 // interior shadows: two probe lights (a spot and a point) cast them, in Ultra only; the room lights themselves never do
 function updateInteriorShadows(){const U=ULTRA;
@@ -380,7 +383,13 @@ function setupPipe(W,H){for(const k of ['rt','ao','ao2','b1','b2','b3','b4','acc
   PIPE.ao=rt(w,h,{type:THREE.UnsignedByteType});const hw=Math.max(2,w>>1),hh=Math.max(2,h>>1),qw=Math.max(2,w>>2),qh=Math.max(2,h>>2);
   PIPE.ao2=rt(hw,hh,{type:THREE.UnsignedByteType});PIPE.b1=rt(hw,hh);PIPE.b2=rt(hw,hh);PIPE.b3=rt(qw,qh);PIPE.b4=rt(qw,qh);PIPE.accA=rt(w,h);PIPE.accB=rt(w,h);PIPE.half=[hw,hh];PIPE.quarter=[qw,qh];
   if(isUltra()){PIPE.enc=rt(w,h,{depthBuffer:true,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});PIPE.enc.depthTexture=new THREE.DepthTexture(w,h);PIPE.enc.depthTexture.type=THREE.UnsignedIntType;PIPE.gi=rt(hw,hh);PIPE.ssr=rt(w,h);
-    PIPE.alb=rt(w,h,{depthBuffer:true});PIPE.vol=rt(hw,hh);PIPE.focus=rt(1,1,{type:THREE.UnsignedByteType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});}PIPE.n=0;}
+    PIPE.alb=rt(w,h,{depthBuffer:true});PIPE.vol=rt(hw,hh);PIPE.focus=rt(1,1,{type:window.GPU?THREE.FloatType:THREE.UnsignedByteType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});}
+  // WebGPU creates a target's texture the first time something draws into it, and a pass that reads one never drawn (the sunbeams' in
+  // the 3/4 view, say) fails: clear each target once so all of them exist
+  if(window.GPU){const cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha();renderer.setClearColor(0,0);
+    for(const k of ['rt','ao','ao2','b1','b2','b3','b4','accA','accB','enc','gi','ssr','alb','vol','focus'])if(PIPE[k]){renderer.setRenderTarget(PIPE[k]);renderer.clear();}
+    renderer.setRenderTarget(null);renderer.setClearColor(cc,ca);}
+  PIPE.n=0;}
 const halton=(i,b)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math.floor(i/b);}return r;};
 // the house's bounding box (levels, stair core, roof), for depth of field; worked out once
 let HOUSE_BOX=null;
@@ -433,7 +442,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
     GI_MAT.uniforms.radius.value=ST.view==='walk'?5:ULTRA.giR;fs(GI_MAT,PIPE.gi);fs(SSR_MAT,PIPE.ssr);
     if(n===0&&!preview&&ST.view==='walk')readFocus(cam);
     const vd=ST.view==='walk'?(ULTRA.vol[LOOK.preset]||0):0;
-    if(vd>0&&sun.shadow.map){const vu=VOL_MAT.uniforms;vu.tDepth.value=PIPE.rt.depthTexture;vu.tShadow.value=sun.shadow.map.texture;vu.projInv.value.copy(cam.projectionMatrixInverse);
+    if(vd>0&&sun.shadow.map){const vu=VOL_MAT.uniforms;vu.tDepth.value=PIPE.rt.depthTexture;vu.tShadow.value=window.GPU?sun.shadow.map.depthTexture:sun.shadow.map.texture;vu.projInv.value.copy(cam.projectionMatrixInverse);
       vu.camWorld.value.copy(cam.matrixWorld);vu.shadowM.value.copy(sun.shadow.matrix);vu.camPos.value.setFromMatrixPosition(cam.matrixWorld);vu.sunDir.value.copy(LOOK.sunDir);
       vu.sunCol.value.copy(sun.color).multiplyScalar(sun.intensity);vu.frame.value=n%253;vu.dens.value=vd;vu.maxD.value=ULTRA.volMax;vu.g.value=ULTRA.volG;vu.outK.value=ULTRA.volOut;roomMask();fs(VOL_MAT,PIPE.vol);ULTRA.volOn=true;}}
   AO_MAT.uniforms.tDepth.value=PIPE.rt.depthTexture;AO_MAT.uniforms.proj.value.copy(cam.projectionMatrix);AO_MAT.uniforms.projInv.value.copy(cam.projectionMatrixInverse);
@@ -444,8 +453,11 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
   BLUR_MAT.uniforms.t.value=PIPE.b1.texture;BLUR_MAT.uniforms.dir.value.set(1/hw,0);fs(BLUR_MAT,PIPE.b2);BLUR_MAT.uniforms.t.value=PIPE.b2.texture;BLUR_MAT.uniforms.dir.value.set(0,1/hh);fs(BLUR_MAT,PIPE.b1);
   BLUR_MAT.uniforms.t.value=PIPE.b1.texture;BLUR_MAT.uniforms.dir.value.set(2/qw,0);fs(BLUR_MAT,PIPE.b3);BLUR_MAT.uniforms.t.value=PIPE.b3.texture;BLUR_MAT.uniforms.dir.value.set(0,2/qh);fs(BLUR_MAT,PIPE.b4);
   const cu=COMP_MAT.uniforms;cu.tB.value=PIPE.rt.texture;cu.tAO.value=PIPE.ao.texture;cu.tAO2.value=PIPE.ao2.texture;cu.aoS2.value=ST.view==='plan'?0:Math.min(1,LOOK.ao2*(ultra?ULTRA.aoBoost:1));cu.tL1.value=PIPE.b1.texture;cu.tL2.value=PIPE.b4.texture;cu.tAcc.value=PIPE.accA.texture;
-  cu.tAlb.value=ultra?PIPE.alb.texture:PIPE.ao.texture;cu.tVol.value=ultra?PIPE.vol.texture:PIPE.ao.texture;cu.volS.value=ULTRA.volOn?1:0;
-  cu.tGI.value=ultra?PIPE.gi.texture:PIPE.ao.texture;cu.tSSR.value=ultra?PIPE.ssr.texture:PIPE.ao.texture;cu.giS.value=ultra&&ST.view!=='plan'?ULTRA.giS*(GI_U.uGI.value?ULTRA.giSprobe:1):0;cu.ssrS.value=ultra&&ST.view!=='plan'?ULTRA.ssrS:0;
+  // (WebGPU: a pass's texture inputs are bound when it first compiles, and inputs holding the same texture then share one binding for good, so
+  // the unused Ultra inputs keep their own placeholders there instead of borrowing the AO texture)
+  const nz=(k,t)=>{if(ultra||!window.GPU)cu[k].value=t;};
+  nz('tAlb',ultra?PIPE.alb.texture:PIPE.ao.texture);nz('tVol',ultra?PIPE.vol.texture:PIPE.ao.texture);cu.volS.value=ULTRA.volOn?1:0;
+  nz('tGI',ultra?PIPE.gi.texture:PIPE.ao.texture);nz('tSSR',ultra?PIPE.ssr.texture:PIPE.ao.texture);cu.giS.value=ultra&&ST.view!=='plan'?ULTRA.giS*(GI_U.uGI.value?ULTRA.giSprobe:1):0;cu.ssrS.value=ultra&&ST.view!=='plan'?ULTRA.ssrS:0;
   cu.px.value.set(1/w,1/h);cu.w.value=1/(n+1);cu.bl.value=P.bloom*LOOK.bloomScale;cu.aoS.value=Math.min(1,(ST.view==='three'&&!ST.cutL?.6:.78)*(ultra?ULTRA.aoBoost:1));
   fs(COMP_MAT,PIPE.accB);
   const t=PIPE.accA;PIPE.accA=PIPE.accB;PIPE.accB=t;
@@ -459,7 +471,7 @@ function gradeCss(f){const el=renderer.domElement;if(el.style.filter!==f)el.styl
 function renderFast(cam){const P=PRESETS[LOOK.preset];gradeCss(ST.view==='plan'?'':LOOK.gradeCss||'');renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=P.exp;
   if(LOOK.sunBase)sun.position.copy(LOOK.sunBase);if(shadowDirty){renderer.shadowMap.needsUpdate=true;shadowDirty=false;}
   if(SKY)SKY.position.copy(cam.position);renderer.setRenderTarget(null);renderer.render(scene,cam);PIPE.n=PIPE.max;}
-function setQuality(q,why){if(typeof giAbort==='function')giAbort();if(q==='ultra'&&window.GPU){q='high';why='Ultra is not available on the WebGPU renderer yet, so high quality is on.';}
+function setQuality(q,why){if(typeof giAbort==='function')giAbort();
   LOOK.quality=q;renderer.setPixelRatio(qualityPR(q));renderer.setSize(innerWidth,innerHeight);if(q!=='fast')setupPipe();
   // ultra: a 256-frame accumulation and an 8192 sun shadow map where the GPU allows it
   PIPE.max=q==='ultra'?ULTRA.frames:64;
@@ -490,21 +502,21 @@ const GI_FRAG_APPLY=`
   if(uGI>0.){mat3 vT=transpose(mat3(viewMatrix));vec3 wp=vT*(-vViewPosition-viewMatrix[3].xyz),wn=normalize(vT*normal),q=wp+wn*.5;float inR=roomIn(q)*uGI;
     if(inR>0.){irradiance=mix(irradiance,giIrr(q,wn)*giGain,inR);iblIrradiance*=1.-inR;}}`;
 // interior materials read the probe light (WebGL 2 only; off unless Ultra's grid is built). The patch joins any shader patch already there.
-function giPatch(m,k){if(window.GPU)return;if(!m||!m.isMeshStandardMaterial||m.userData.gi||(k&&EXT_MATS.has(k))||!true)return;
+function giPatch(m,k){if(window.GPU){if(m&&m.isMeshStandardMaterial&&!m.userData.gi&&!(k&&EXT_MATS.has(k))){m.userData.gi=true;m.needsUpdate=true;}return;}if(!m||!m.isMeshStandardMaterial||m.userData.gi||(k&&EXT_MATS.has(k))||!true)return;
   const o=m.onBeforeCompile,k0=m.customProgramCacheKey.call(m);m.userData.gi=true;
   m.onBeforeCompile=(sh,r)=>{if(o)o(sh,r);Object.assign(sh.uniforms,GI_U);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\n'+GI_FRAG_PARS).replace('#include <lights_fragment_maps>','#include <lights_fragment_maps>\n'+GI_FRAG_APPLY);};
   m.customProgramCacheKey=()=>'gi|'+k0;}
 function giPatchAll(){for(const k in MAT)giPatch(MAT[k],k);}
 // cube map to spherical harmonics: coefficient k (0: average, 1-3: x, y, z) over 16 x 16 directions per face, weighted by solid angle
-const SHP_MAT=SM(`uniform samplerCube cube;uniform float k;varying vec2 vUv;
+const SHP_MAT=window.GPU?gpuSHP():SM(`uniform samplerCube cube;uniform float k;varying vec2 vUv;
 vec3 fdir(int f,vec2 u){if(f==0)return vec3(1.,u.y,-u.x);if(f==1)return vec3(-1.,u.y,u.x);if(f==2)return vec3(u.x,1.,-u.y);if(f==3)return vec3(u.x,-1.,u.y);if(f==4)return vec3(u.x,u.y,1.);return vec3(-u.x,u.y,-1.);}
 void main(){vec3 acc=vec3(0.);float ws=0.;
   for(int f=0;f<6;f++)for(int j=0;j<16;j++)for(int i=0;i<16;i++){vec2 u=(vec2(float(i),float(j))+.5)/8.-1.;float w=1./pow(1.+dot(u,u),1.5);vec3 d=normalize(fdir(f,u));
     vec3 L=min(textureCube(cube,d).rgb,vec3(16.));float y=k<.5?.282095:.488603*(k<1.5?d.x:(k<2.5?d.y:d.z));acc+=L*y*w;ws+=w;}
   gl_FragColor=vec4(acc*(12.566371/ws),1.);}`,{cube:{value:null},k:{value:0}});
 // fill grid points outside the rooms from their filled neighbours (alpha marks a filled texel)
-const DIL_MAT=SM(`uniform sampler2D t;uniform vec3 N;varying vec2 vUv;
+const DIL_MAT=window.GPU?gpuDIL():SM(`uniform sampler2D t;uniform vec3 N;varying vec2 vUv;
 vec4 at(float k,vec3 g){vec2 sz=vec2(4.*N.x,N.z*N.y);return texture2D(t,(vec2(k*N.x+g.x,g.y*N.z+g.z)+.5)/sz);}
 void main(){vec2 sz=vec2(4.*N.x,N.z*N.y),p=floor(vUv*sz);float k=floor(p.x/N.x);vec3 g=vec3(p.x-k*N.x,floor(p.y/N.z),0.);g.z=p.y-g.y*N.z;
   vec4 c=at(k,g);if(c.a>.5){gl_FragColor=c;return;}vec4 s=vec4(0.);
@@ -543,8 +555,9 @@ function giSlice(ms){const J=GI.job,N=GI.N,t0=performance.now(),P=PRESETS[LOOK.p
   for(const [m] of sv.glow)m.emissiveIntensity=0;GI_U.uGI.value=J.pass>0?1:0;GI_U.tGIa.value=J.prev?J.prev.texture:null;GI_U.giGain.value=1;renderer.toneMapping=THREE.NoToneMapping;
   try{while(J.i<GI.probes.length&&performance.now()-t0<ms){const pr=GI.probes[J.i++];updateLampPool(pr.p);SKY.position.copy(pr.p);GI.cube.position.copy(pr.p);GI.cube.update(renderer,scene);
       const u=SHP_MAT.uniforms;u.cube.value=GI.cubeRT.texture;
+      const ac=renderer.autoClear;if(window.GPU)renderer.autoClear=false;
       for(let k=0;k<4;k++){u.k.value=k;const x=k*N.x+pr.ix,y=pr.iy*N.z+pr.iz;J.atlas.viewport.set(x,y,1,1);J.atlas.scissor.set(x,y,1,1);J.atlas.scissorTest=true;fs(SHP_MAT,J.atlas);}
-      J.atlas.viewport.set(0,0,J.atlas.width,J.atlas.height);J.atlas.scissor.set(0,0,J.atlas.width,J.atlas.height);J.atlas.scissorTest=false;}}
+      J.atlas.viewport.set(0,0,J.atlas.width,J.atlas.height);J.atlas.scissor.set(0,0,J.atlas.width,J.atlas.height);J.atlas.scissorTest=false;renderer.autoClear=ac;}}
   finally{renderer.toneMapping=sv.tm;GI_U.uGI.value=sv.uGI;GI_U.giGain.value=giGainNow();GI_U.tGIa.value=sv.tGIa;for(const [m,v] of sv.env)m.envMapIntensity=v;SKYL.forEach((L,i)=>L.intensity=sv.skyl[i]);LOOK.hemi.intensity=sv.hemi;
     LOOK.lights.forEach((q,i)=>{const o=sv.pool[i];q.position.copy(o[0]);q.color.setHex(o[1]);q.intensity=o[2];q.distance=o[3];});LAMP_SIG=sv.sig;for(const [m,v] of sv.glow)m.emissiveIntensity=v;MAT.shade.emissiveIntensity=sv.shade;
     if(scene.fog)scene.fog.density=sv.fog;if(DIO.grp)DIO.grp.visible=sv.dg;SKY_MAT.uniforms.st.value=sv.st;FAR_TREES.value=sv.far;CLIPS.forEach((c,i)=>c.constant=sv.clips[i]);

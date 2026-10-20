@@ -74,7 +74,7 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   outer.traverse(c=>{if(!c.isMesh)return;if(c.geometry&&!c.geometry.attributes.normal)c.geometry.computeVertexNormals();
     if(c.geometry&&!c.geometry.attributes.uv)[].concat(c.material).forEach(noUV);else if(m.color)[].concat(c.material).forEach(mt=>mt.color.set(m.color));
     if(m.fabric==='corduroy'){outer.updateMatrixWorld(true);const M=inner.matrixWorld.clone().invert().multiply(c.matrixWorld);
-      [].concat(c.material).forEach(mt=>{if(mt.isMeshStandardMaterial){mt.roughness=.88;mt.metalness=0;corduroy(mt,(m.walePitchIn||.2)/12/(sc.v?sc.v.x:sc.s),M);}});}
+      [].concat(c.material).forEach(mt=>{if(mt.isMeshStandardMaterial){mt.roughness=.88;mt.metalness=0;if(window.GPU)gpuCorduroy(mt,(m.walePitchIn||.2)/12/(sc.v?sc.v.x:sc.s),M);else corduroy(mt,(m.walePitchIn||.2)/12/(sc.v?sc.v.x:sc.s),M);}});}
     c.castShadow=c.receiveShadow=true;c.userData.tag=tag;c.userData.model=m.id;
     c.material=Array.isArray(c.material)?c.material.map(fix):fix(c.material);c.userData.baseMat=c.material;});
   if(rep){rep.group.visible=false;rep.hiddenByModel=true;for(const q of rep.cols){const i=COLS.indexOf(q.c);if(i>=0)COLS.splice(i,1);}}

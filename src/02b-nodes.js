@@ -38,7 +38,7 @@ if(window.GPU){const proto=THREE.NodeMaterial.prototype,key0=proto.customProgram
     this._envKind=kind;this.envNode=kind?ENV_SLOTS[kind]:(t?NP.pmremTexture(t):null);this.needsUpdate=true;}});
   // the program key always carries the environment slot and, for patched materials, the textures their patches sample (patches bake
   // their textures into the shared build); a material's own customProgramCacheKey (the app sets several) is kept inside it
-  const extra=m=>'|env:'+(m._envKind||(m._envMap?m._envMap.id:'-'))+(m.userData&&m.userData.np&&m.userData.np.length?'|np:'+m.id:'');
+  const extra=m=>(m.userData&&m.userData.gi?'|gi':'')+'|env:'+(m._envKind||(m._envMap?m._envMap.id:'-'))+(m.userData&&m.userData.np&&m.userData.np.length?'|np:'+m.id:'');
   Object.defineProperty(proto,'customProgramCacheKey',{configurable:true,get(){const own=this._ownKey||key0;return ()=>own.call(this)+extra(this);},set(f){this._ownKey=f;}});}
 // clipping planes. WebGPU node materials have no per-material clipping planes (only ClippingGroup objects), so a material's
 // `clippingPlanes` setter turns them into a discard in its maskNode, one vec4 uniform per Plane object (normal, constant), refreshed
