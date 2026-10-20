@@ -14,13 +14,19 @@ const $=id=>document.getElementById(id);
 const COARSE=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
 // WebGPU (window.GPU, see three-boot.mjs): WebGPURenderer, which must finish an async init() before it renders (start() awaits it)
 function initRenderer(){
-  renderer=window.GPU?new THREE.WebGPURenderer({antialias:true,powerPreference:'high-performance'}):new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+  renderer=window.GPU?new THREE.WebGPURenderer({antialias:true,powerPreference:'high-performance',requiredLimits:window.GPU_LIMITS||undefined}):new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(innerWidth,innerHeight);
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
   renderer.localClippingEnabled=true;$('stage').appendChild(renderer.domElement);
   // checking each new shader for errors makes the browser finish compiling it on the spot; off unless the page is opened with ?shadercheck
   if(!window.GPU)renderer.debug.checkShaderErrors=/[?&]shadercheck/.test(location.search);
+  // WebGPU ignores the renderer-wide shadow switches (shadowMap.autoUpdate / needsUpdate) and redraws every light's shadow map every
+  // frame unless that light's own shadow says otherwise; Ultra's dozen shadowed sky lights then cost a dozen scene renders a frame. The
+  // app's `renderer.shadowMap.needsUpdate=true` is passed on to each shadow-casting light instead (the list is refreshed now and then).
+  if(window.GPU){let L=[],k=0;const sm=renderer.shadowMap;
+    Object.defineProperty(sm,'needsUpdate',{configurable:true,get:()=>false,set(v){if(!v)return;if(!(k++%60)||!L.length){L=[];scene.traverse(o=>{if(o.isLight&&o.shadow)L.push(o);});}
+      for(const l of L){l.shadow.autoUpdate=false;l.shadow.needsUpdate=true;}}});}
 }
 // renderer facts both renderers answer differently
 function maxAniso(){return window.GPU?(renderer.getMaxAnisotropy?renderer.getMaxAnisotropy():16):renderer.capabilities.getMaxAnisotropy();}
@@ -402,6 +408,11 @@ function buildUI(){
     if(!LOOK.studio){sunDirFor(PRESETS[LOOK.preset],LOOK.sunDir);SKY_MAT.uniforms.sunDir.value.copy(LOOK.sunDir);fitShadow(true);}shadowDirty=true;dirty=true;});
   sunT.addEventListener('dblclick',()=>{sunT.value=0;sunT.dispatchEvent(new Event('input'));});
   document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>setQuality(b.dataset.q)));
+  {const b=document.querySelector('[data-q="path"]');if(b)b.hidden=!window.GPU;}
+  // renderer menu: the choice is kept in localStorage and takes effect on reload (three-boot.mjs reads it); Auto names what it picked
+  {const rs=$('rend'),RP=window.RENDERER_PICK||{pick:'webgl',webgpu:false};rs.value=['auto','webgpu','webgl'].includes(RP.pick)?RP.pick:'auto';
+    rs.options[0].textContent='Auto ('+(window.GPU?'WebGPU':'WebGL')+')';if(!RP.webgpu&&!window.GPU){rs.options[1].disabled=true;rs.options[1].textContent='WebGPU (not available)';}
+    rs.addEventListener('change',()=>{try{localStorage.setItem('renderer',rs.value);}catch(e){}const u=new URL(location.href);u.searchParams.delete('renderer');location.href=u.toString();});}
   $('tTrees').addEventListener('click',()=>{ST.trees=!ST.trees;setVis();});
   $('tLabels').addEventListener('click',()=>{ST.labels=!ST.labels;updateUI();dirty=true;});
   $('tDims').addEventListener('click',()=>{const on=!document.body.classList.toggle('nodims');$('tDims').setAttribute('aria-pressed',String(on));});
@@ -458,7 +469,10 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;LOOK.lastMove=now;}
   // 3/4 view: room labels fade out after 2 s without camera movement and come back as soon as it moves
   {const idle=ST.view==='three'&&!ST.pending&&now-(LOOK.lastMove||0)>2000,el=$('labels');if(el.classList.contains('idle')!==idle)el.classList.toggle('idle',idle);}if(dirty){PIPE.n=0;dirty=false;}
-  if(PIPE.n<PIPE.max&&!giBuilding(now)){
+  // Path quality: once the camera rests the path tracer draws (and then holds) the image; until then the Ultra pipeline below does
+  const traced=typeof ptrFrame==='function'&&ptrFrame(cam,now);
+  if(traced){updateLabels();dbgTick();const r=$('refine'),pg=ptrProgress(),show=pg<1;r.textContent=show?'Path tracing, '+Math.round(pg*100)+'%':'';r.style.display=show?'block':'none';}
+  else if(PIPE.n<PIPE.max&&!giBuilding(now)){
     if(isHQ()){try{renderHigh(cam);}catch(e){console.warn(e);if(isUltra())setQuality('high','Ultra could not run on this device, so high quality is on.');else{setQuality('fast','High quality could not run on this device, so the fast renderer is on.');renderFast(cam);}}}
     else renderFast(cam);
     updateLabels();dbgTick();const w=whereText();if(w!==lastWhere){$('where').textContent=w;lastWhere=w;}
@@ -488,4 +502,4 @@ async function start(){
   setQuality(COARSE?'fast':'high',COARSE?'':undefined);applyPreset('afternoon');resize();setVis(true);updateOrbitCam();arrLoad();loadTextureOverrides();loadModels();dbgAfterReload();
   requestAnimationFrame(t=>{last=t;frame(t);$('loading').style.display='none';});
   schedulePrewarm(1500);}
-requestAnimationFrame(()=>setTimeout(start,30));
+if(!window.__APP_SCRIPTS)requestAnimationFrame(()=>setTimeout(start,30));   // (the multi-file page starts from three-boot.mjs once every script has run)

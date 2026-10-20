@@ -2,10 +2,12 @@
 // index.html loads this module first and the src/*.js scripts with `defer`, so they run after it, in order.
 //
 // Two renderers:
-//  - WebGPU (three/webgpu: WebGPURenderer, node materials, TSL), when the browser has WebGPU, unless the page asks for WebGL
-//    (?renderer=webgl, or the Renderer switch, remembered in localStorage). WebGPURenderer falls back to WebGL 2 by itself if WebGPU
-//    can't start. window.GPU is true and window.TSL holds the node functions.
-//  - WebGL (three: WebGLRenderer), the classic path.
+//  - WebGPU (three/webgpu: WebGPURenderer, node materials, TSL), the default when the browser can hand out a WebGPU adapter.
+//    window.GPU is true and window.TSL holds the node functions.
+//  - WebGL (three: WebGLRenderer), the classic path: browsers without a WebGPU adapter, or when the page asks for it.
+// The choice: ?renderer=webgl|webgpu|auto, else the Renderer menu's choice (localStorage), else auto. A browser can list navigator.gpu
+// and still have no adapter (headless Chromium does); WebGPURenderer would then run its own slow WebGL backend, so an adapter is
+// required, and the app scripts are loaded only once that is known (they are <script type="text/x-app"> tags, loaded here in order).
 // Both builds share three.core.js, so classes (materials, geometry, loaders) are the same objects either way.
 //
 // Compatibility with the look the app was tuned for under three.js r128, on both renderers:
@@ -19,8 +21,9 @@ import * as TSL from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const pick = (() => { const q = new URLSearchParams(location.search).get('renderer'); let s = null; try { s = localStorage.getItem('renderer'); } catch (e) {}
-  return q || s || 'webgl'; })();   // WebGL stays the default until the WebGPU path matches it
-const GPU = pick !== 'webgl' && !!navigator.gpu;
+  return q || s || 'auto'; })();
+const adapter = pick === 'webgl' || !navigator.gpu ? null : await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null);
+const GPU = pick !== 'webgl' && !!adapter;
 
 THREE_GL.ColorManagement.enabled = false;
 
@@ -69,3 +72,10 @@ fix('alphatest_fragment', '\tdiffuseColor.a = smoothstep( alphaTest, alphaTest +
 window.THREE = Object.assign({}, GPU ? THREE_GPU : THREE_GL, { GLTFLoader });
 window.GPU = GPU;
 window.TSL = TSL;
+window.RENDERER_PICK = { pick, webgpu: !!adapter || (pick === 'webgl' && !!navigator.gpu) };
+// the adapter's real buffer limits (the default device allows 128 MB storage bindings; the path tracer's scene buffers are larger)
+window.GPU_LIMITS = adapter ? { maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize, maxBufferSize: adapter.limits.maxBufferSize } : null;
+// the app's scripts, in order (the single-file build runs its inlined copy of them after this instead)
+// (loaded in order with async off; a last one starts the app once they have all run)
+{ const tags = document.querySelectorAll('script[type="text/x-app"]'), add = src => { const e = document.createElement('script'); e.src = src; e.async = false; document.body.appendChild(e); };
+  if (tags.length) { window.__APP_SCRIPTS = true; for (const t of tags) add(t.getAttribute('src')); add(URL.createObjectURL(new Blob(['requestAnimationFrame(()=>setTimeout(start,30));'], { type: 'text/javascript' }))); } }

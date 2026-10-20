@@ -189,3 +189,62 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
   3. A Renderer switch in the UI.
   4. Make WebGPU the default when WebGPU is available.
   5. Phase 3.
+
+### 2026-10-20: Phase 2 finished (WebGPU default) and Phase 3 (path-traced quality)
+
+- **Phase 2, done:**
+  - **Renderer choice:** `three-boot.mjs` asks for a WebGPU adapter before the app scripts load. The scripts are now `<script type="text/x-app">` tags that the boot loads in order.
+    - WebGPU is the default where an adapter exists. Otherwise the app uses classic WebGL.
+    - Headless Chromium lists `navigator.gpu` but has no adapter. WebGPURenderer would then run its own slow WebGL backend, which is why the adapter check is needed.
+    - A **Renderer** menu (Auto / WebGPU / WebGL) is remembered in localStorage and reloads the page. `?renderer=` still overrides it.
+  - **Device limits:** the device asks for the adapter's real storage-buffer limits, which the path tracer needs.
+  - **Shadows:** WebGPU ignores `renderer.shadowMap.autoUpdate` and `needsUpdate`, and redraws every light's map every frame. The app's `needsUpdate` is passed on to each light's own shadow instead.
+  - **Shadow material key:** on the shared shadow-pass material, alphaTest no longer bumps the material version. That bump rebuilt every object's cache key in every shadow pass and was the largest CPU cost.
+  - **Sun shadow map:** capped at 4096 under WebGPU. A WebGPU shadow map carries a colour target as well, so 8192 meant over 500 MB redrawn every Ultra frame.
+  - **Checked:** Photo for Gemini works on WebGPU, since `toDataURL` is taken in the same task as the render. Debug IDs and Arrange use CPU raycasts. Prewarm works, because `renderer.compile` is `compileAsync` there.
+- **Phase 2, speed:** seconds for the image to settle on a warm view, Chromium on an NVIDIA Lovelace GPU.
+
+  | View and quality | WebGPU | WebGL |
+  |---|---|---|
+  | walk, High | 1.1 | 1.1 |
+  | walk, Ultra | 4.0 | 3.4 |
+  | ¾, Ultra | 6.8 | 3.4 |
+
+- **Phase 2, open:**
+  - The first visit to a quality or view costs 6–12 s on WebGPU while pipelines compile, against 1–5 s on WebGL.
+  - ¾ Ultra is CPU-bound on WebGPU's per-object cost: about 35 shadow renders a frame over roughly 700 objects.
+- **Phase 2, not done:**
+  - MRT for the guide passes, compute-shader SH and dilation, render bundles, and lifting the 3-light shadow cap. WebGPU's default is still 16 sampled textures per stage, so the cap has no room to grow.
+  - None of these addresses the measured costs.
+- **Phase 3, done:** a **Path** quality, WebGPU only, in `src/15-pathtrace.js`, using three-gpu-pathtracer 0.0.27 and three-mesh-bvh 0.9.16 (vendored, and on the CDN in the build).
+  - **When it runs:** it traces once the camera rests, with the Ultra raster as the preview.
+  - **Scene copy:** the trace uses a copy of the visible scene.
+    - Quantised model attributes are unpacked to floats.
+    - BVHs are built a few per frame, with CENTER splits for big meshes. The first build takes about 7 s without freezing the page.
+    - A light change swaps the lights and sky. An Arrange move updates transforms.
+  - **Lights and sky:**
+    - The sun is a far spot light with a radius.
+    - Lamps are point lights matched to the legacy falloff.
+    - The sky shader is unwrapped to an equirect map.
+    - Glass is invisible to shadow rays; otherwise interiors were dark and noisy.
+  - **Cutaway:** camera rays start where they enter the space the clip planes keep, so the cutaway is lit with its ceilings on.
+  - **Denoising:** an à-trous filter with the albedo divided out, guided by Ultra's normal and albedo passes. Cut-out foliage is included in those passes.
+  - **Exposure:** matched to the raster image's log-average luminance.
+  - **Raster fallback:** where no opaque surface is hit (the backdrop, ghost levels, faded trees), the raster image is shown.
+  - **Time to a clean image:**
+
+    | View | Samples per pixel | Seconds |
+    |---|---|---|
+    | walk | 160 | ~25 |
+    | ¾ | 128 | ~20 |
+    | plan | 128 | ~18 |
+
+- **Phase 3, known differences:**
+  - Windowless rooms in a cutaway (the garage) are nearly black, because the ceilings are on.
+  - Ghost levels are lost where they sit in front of solid ground.
+  - Vertex-coloured grass is traced at its average colour.
+  - The app's node colour patches (wash, anti-tiling) are not traced.
+- **WebGPU traps found:**
+  - A pass output cannot go negative, so the log luminance is stored offset by 16.
+  - Guide passes drawn in the same frame as the tracer's reset came out black, so they are drawn a frame later.
+  - The library's cube-to-equirect generator uses a WebGL `ShaderMaterial`.

@@ -37,7 +37,10 @@ function gpuEncMat(m,rough,refl,rm,uvT){const {vec3,vec4,float,uniform,texture,u
   const e=new THREE.MeshBasicMaterial({side:m.side,toneMapped:false,fog:false,blending:THREE.NoBlending});e.clippingPlanes=CLIPS;
   npAdd(e,{color:()=>{const n=normalize(normalView).mul(faceDirection);let r=float(rough),f=float(refl);
     if(rm){r=float(rough).mul(texture(rm,uniform(uvT).mul(vec3(uv(),1)).xy).g);f=float(refl).mul(clamp(float(1).sub(r).div(Math.max(1-rough,.05)),0,2));}
-    return vec4(n.xy.mul(.5).add(.5),r,min(f,1));}});return e;}
+    return vec4(n.xy.mul(.5).add(.5),r,min(f,1));}});
+  // a cut-out surface cuts the same shape here (drawn only by the path tracer's guide pass)
+  if(m.alphaTest>0&&m.map){m.map.updateMatrix();const at=m.alphaTest;npAdd(e,{mask:()=>texture(m.map,uniform(m.map.matrix).mul(vec3(uv(),1)).xy).a.greaterThanEqual(at)});}
+  return e;}
 // ---------- the rooms volume (see roomMask) and the probe light, as nodes ----------
 function npTex(o){if(!o.__t){const t=GPU_PASS.texture(new THREE.Texture());if(o.value)t.value=o.value;let v=o.value;
     Object.defineProperty(o,'value',{get:()=>v,set:x=>{v=x;if(x)t.value=x;}});o.__t=t;}return o.__t;}

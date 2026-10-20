@@ -39,7 +39,8 @@ if(window.GPU){const proto=THREE.NodeMaterial.prototype,key0=proto.customProgram
   // the program key always carries the environment slot and, for patched materials, the textures their patches sample (patches bake
   // their textures into the shared build); a material's own customProgramCacheKey (the app sets several) is kept inside it
   const extra=m=>(m.userData&&m.userData.gi?'|gi':'')+'|env:'+(m._envKind||(m._envMap?m._envMap.id:'-'))+(m.userData&&m.userData.np&&m.userData.np.length?'|np:'+m.id:'');
-  Object.defineProperty(proto,'customProgramCacheKey',{configurable:true,get(){const own=this._ownKey||key0;return ()=>own.call(this)+extra(this);},set(f){this._ownKey=f;}});}
+  // (the function is made once per material: the renderer asks for it for every object it draws)
+  Object.defineProperty(proto,'customProgramCacheKey',{configurable:true,get(){return this._cpk||(this._cpk=()=>(this._ownKey||key0).call(this)+extra(this));},set(f){this._ownKey=f;}});}
 // clipping planes. WebGPU node materials have no per-material clipping planes (only ClippingGroup objects), so a material's
 // `clippingPlanes` setter turns them into a discard in its maskNode, one vec4 uniform per Plane object (normal, constant), refreshed
 // from the Plane on every render: the cutaway's sliding CLIP_TOP and the diorama's planes keep animating with no recompile.
@@ -47,6 +48,12 @@ const NP_PLANES=new Map();
 function npPlane(pl){let u=NP_PLANES.get(pl);if(!u){const v=new THREE.Vector4();u=NP.uniform(v).onRenderUpdate(()=>v.set(pl.normal.x,pl.normal.y,pl.normal.z,pl.constant));NP_PLANES.set(pl,u);}return u;}
 if(window.GPU){const proto=THREE.Material.prototype;
   Object.defineProperty(proto,'clippingPlanes',{configurable:true,get(){return this._clipPlanes||null;},set(a){this._clipPlanes=a&&a.length?a:null;if(this.isNodeMaterial)npApply(this);}});}
+// shadow passes draw every object with one shared material, copying each object's alphaTest onto it; alphaTest switching between zero
+// and non-zero bumps the material's version, and a version change makes the renderer rebuild that object's whole cache key. With a
+// dozen shadow maps a frame in Ultra, that rebuilding was the biggest CPU cost. Each object keeps its own shadow pipeline (built with
+// its own alphaTest), so the shared shadow material skips the bump.
+if(window.GPU){const d=Object.getOwnPropertyDescriptor(THREE.Material.prototype,'alphaTest');
+  if(d&&d.set)Object.defineProperty(THREE.NodeMaterial.prototype,'alphaTest',{configurable:true,get:d.get,set(v){if(this.isShadowPassMaterial)this._alphaTest=v;else d.set.call(this,v);}});}
 // node materials' copy() (and so clone()) drops alphaTest, which the leaf and grass cards need
 if(window.GPU){const proto=THREE.NodeMaterial.prototype,cp=proto.copy;proto.copy=function(src){cp.call(this,src);if(src.alphaTest!==undefined)this.alphaTest=src.alphaTest;
   if(src.alphaToCoverage!==undefined)this.alphaToCoverage=src.alphaToCoverage;return this;};}

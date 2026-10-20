@@ -12,11 +12,14 @@ const css = fs.readFileSync(path.join(root, 'src/styles.css'), 'utf8');
 html = html.replace('<link rel="stylesheet" href="src/styles.css">', '<style>\n' + css.replace(/\s+$/, '') + '\n</style>');
 
 const THREE_VER = JSON.parse(fs.readFileSync(path.join(root, 'node_modules/three/package.json'), 'utf8')).version, CDN = 'https://cdn.jsdelivr.net/npm/three@' + THREE_VER;
-html = html.replace(/<script type="importmap">[^\n]*<\/script>/, () => '<script type="importmap">' + JSON.stringify({ imports: { three: CDN + '/build/three.module.js', 'three/webgpu': CDN + '/build/three.webgpu.js', 'three/tsl': CDN + '/build/three.tsl.js', 'three/addons/': CDN + '/examples/jsm/' } }) + '</script>');
+html = html.replace(/<script type="importmap">[^\n]*<\/script>/, () => '<script type="importmap">' + JSON.stringify({ imports: { three: CDN + '/build/three.module.js', 'three/webgpu': CDN + '/build/three.webgpu.js', 'three/tsl': CDN + '/build/three.tsl.js', 'three/addons/': CDN + '/examples/jsm/', 'three/examples/jsm/': CDN + '/examples/jsm/', ...pkgCdn('three-mesh-bvh', { '': '/src/index.js', '/webgpu': '/src/webgpu/index.js' }), ...pkgCdn('three-gpu-pathtracer', { '/webgpu': '/src/webgpu/index.js' }) } }) + '</script>');
+// the path tracer's packages, from the CDN at the installed versions
+function pkgCdn(name, entries) { const v = JSON.parse(fs.readFileSync(path.join(root, 'node_modules', name, 'package.json'), 'utf8')).version, o = {};
+  for (const k in entries) o[name + k] = 'https://cdn.jsdelivr.net/npm/' + name + '@' + v + entries[k]; return o; }
 const bootTag = '<script type="module" src="src/three-boot.mjs"></script>\n';
 if (!html.includes(bootTag)) throw new Error('No three-boot.mjs module tag in index.html');
 html = html.replace(bootTag, '');
-const tags = [...html.matchAll(/<script defer src="(src\/[^"]+\.js)"><\/script>\n?/g)];
+const tags = [...html.matchAll(/<script type="text\/x-app" src="(src\/[^"]+\.js)"><\/script>\n?/g)];
 if (!tags.length) throw new Error('No src/*.js script tags found in index.html');
 const code = tags.map(m => fs.readFileSync(path.join(root, m[1]), 'utf8').replace(/\s+$/, '')).join('\n');
 const first = tags[0].index, last = tags[tags.length - 1];

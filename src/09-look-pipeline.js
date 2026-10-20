@@ -45,20 +45,22 @@ const SKY_MAT_GL=new THREE.ShaderMaterial({uniforms:{st:{value:0},stc:{value:new
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`,side:THREE.BackSide,depthWrite:false,depthTest:false});
-let SKY_MAT=SKY_MAT_GL;
+let SKY_MAT=SKY_MAT_GL,SKY_NODE=null;
 // under WebGPU the sky is a node material with the same uniforms (TSL uniform nodes, which also have .value), so the code that drives it
 // is the same for both renderers
 if(window.GPU){const {Fn,uniform,positionLocal,vec3,float,mix,pow,clamp,exp,abs,max,dot,smoothstep,step,select}=TSL,U=SKY_MAT_GL.uniforms,u={};
   for(const k in U)u[k]=uniform(U[k].value);
   const m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,depthWrite:false,depthTest:false,fog:false});
-  m.colorNode=Fn(()=>{const d=positionLocal.normalize(),y=d.y,y0=clamp(y,0,1);
+  // the sky's colour for a direction d (also used to unwrap the sky for the path tracer, 15-pathtrace.js)
+  SKY_NODE=d=>{const y=d.y,y0=clamp(y,0,1);
     let c=mix(u.hor,u.zen,pow(y0,.42)).add(u.hor.mul(.22).mul(exp(abs(y).mul(-16))));
     c=select(y.lessThan(0),mix(u.hor.mul(.8),u.gnd,clamp(pow(y.negate().mul(2.5).max(0),.55),0,1)),c);
     const mu=max(dot(d,u.sunDir),0);c=c.add(u.sunCol.mul(pow(mu,5).mul(.10).add(pow(mu,48).mul(.32))).mul(u.sunI));
     c=c.add(u.sunCol.mul(smoothstep(.99986,.99993,mu)).mul(45).mul(u.sunI).mul(step(-.02,u.sunDir.y)));
     const sdUp=mix(vec3(.93,.92,.98),vec3(.70,.68,.90),pow(y0,.7)),sdDn=mix(vec3(.93,.92,.98),vec3(.80,.78,.93),clamp(pow(y.negate().mul(1.6).max(0),.6),0,1));
     c=mix(c,select(y.greaterThan(0),sdUp,sdDn).mul(u.stc),u.st);
-    return mix(c,u.paper,u.pm);})();
+    return mix(c,u.paper,u.pm);};
+  m.colorNode=Fn(()=>SKY_NODE(positionLocal.normalize()))();
   m.uniforms=u;SKY_MAT_GPU=m;SKY_MAT=m;}
 let SKY,ROOM_ENV=null,SKY_ENV=null;
 function buildSky(){SKY=new THREE.Mesh(new THREE.SphereGeometry(450,40,20),SKY_MAT);SKY.renderOrder=-1000;SKY.frustumCulled=false;scene.add(SKY);}
@@ -181,7 +183,7 @@ const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.
 // the rooms' flat fill (their environment light) in the 3/4 cutaway, where they are lit as if their ceilings were on
 const CUT_FILL=.35,cutFill=()=>typeof SHADOW_PROXY!=='undefined'&&SHADOW_PROXY&&SHADOW_PROXY.visible?CUT_FILL:1;
 const ultraFill=()=>isUltra()?ULTRA.fill:{hemi:1,env:1,envI:1};
-const isHQ=()=>LOOK.quality!=='fast',isUltra=()=>LOOK.quality==='ultra';
+const isHQ=()=>LOOK.quality!=='fast',isUltra=()=>LOOK.quality==='ultra'||LOOK.quality==='path';   // (path: Ultra, traced once the camera rests; 15-pathtrace.js)
 function qualityPR(q){const dpr=window.devicePixelRatio||1;if(q==='fast')return Math.min(dpr,2);if(q==='high')return Math.min(dpr,1.5);
   return Math.max(Math.min(dpr,1.5),Math.min(dpr*2,Math.sqrt(ULTRA.pixels/(innerWidth*innerHeight))));}
 const VSQ='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
@@ -281,12 +283,13 @@ function encOf(m){let e=ENC.get(m);const rm=m.roughnessMap||null,src=m.map||rm;i
 const ALB=new Map(),_white=new THREE.Color(1,1,1);
 function albOf(m){let a=ALB.get(m);if(!a){a=new THREE.MeshBasicMaterial({clippingPlanes:CLIPS});ALB.set(m,a);}
   const mp=m.map||null;if(a.map!==mp){if(!a.map!==!mp)a.needsUpdate=true;a.map=mp;}a.color.copy(m.color||_white).multiplyScalar(1-(m.metalness||0));
-  if(a.vertexColors!==!!m.vertexColors){a.vertexColors=!!m.vertexColors;a.needsUpdate=true;}a.side=m.side;return a;}
+  if(a.vertexColors!==!!m.vertexColors){a.vertexColors=!!m.vertexColors;a.needsUpdate=true;}a.side=m.side;a.alphaTest=m.alphaTest||0;return a;}
 // render the opaque scene with every material swapped for pick(material) (transparent, cut-out, shader and line objects hidden)
+// cutOK: cut-out (alpha-tested) objects are drawn too, their override cutting the same shape (the path tracer's guides)
 // glassOK: glass (MAT.glass and its copies) is drawn too, as an opaque surface
-function overridePass(cam,target,pick,glassOK){const swap=[];
+function overridePass(cam,target,pick,glassOK,cutOK){const swap=[];
   scene.traverse(o=>{if(!o.visible)return;if(o.isMesh){const m=o.material;
-      if(Array.isArray(m)||(m.transparent&&!(glassOK&&(m===MAT.glass||m.userData.base===MAT.glass)))||m.alphaTest>0||m.isShaderMaterial||o===SKY||o.userData.horizon||o.userData.shadowOnly){o.visible=false;swap.push([o,null]);}else{swap.push([o,m]);o.material=pick(m);}}
+      if(Array.isArray(m)||(m.transparent&&!(glassOK&&(m===MAT.glass||m.userData.base===MAT.glass)))||(m.alphaTest>0&&!cutOK)||m.isShaderMaterial||o===SKY||o.userData.horizon||o.userData.shadowOnly){o.visible=false;swap.push([o,null]);}else{swap.push([o,m]);o.material=pick(m);}}
     else if(o.isLine||o.isPoints){o.visible=false;swap.push([o,null]);}});
   const cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha(),fog=scene.fog;scene.fog=null;renderer.setClearColor(0,0);
   renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,cam);renderer.setClearColor(cc,ca);scene.fog=fog;
@@ -474,9 +477,11 @@ function renderFast(cam){const P=PRESETS[LOOK.preset];gradeCss(ST.view==='plan'?
 function setQuality(q,why){if(typeof giAbort==='function')giAbort();
   LOOK.quality=q;renderer.setPixelRatio(qualityPR(q));renderer.setSize(innerWidth,innerHeight);if(q!=='fast')setupPipe();
   // ultra: a 256-frame accumulation and an 8192 sun shadow map where the GPU allows it
-  PIPE.max=q==='ultra'?ULTRA.frames:64;
-  if(typeof sun!=='undefined'&&sun){const mx=maxTexSize(),sz=q==='ultra'&&mx>=8192?8192:(mx>=4096?4096:2048);
-    if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}shadowDirty=true;}}
+  PIPE.max=q==='ultra'||q==='path'?ULTRA.frames:64;
+  // (WebGPU: a shadow map also carries a colour target of its own size, redrawn with the sun every Ultra frame, so 8192 stalled the GPU;
+  // its shadow node resizes the map itself)
+  if(typeof sun!=='undefined'&&sun){const mx=maxTexSize(),sz=(q==='ultra'||q==='path')&&mx>=8192&&!window.GPU?8192:(mx>=4096?4096:2048);
+    if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map&&!window.GPU){sun.shadow.map.dispose();sun.shadow.map=null;}shadowDirty=true;}}
   if(LOOK.hemi)updateInteriorShadows();ULTRA.focus=0;
   PIPE.n=0;dirty=true;applyGrade();if(LOOK.hemi)applyLightBalance();const note=document.getElementById('qnote');if(note){note.textContent=why||'';note.style.display=why?'block':'none';}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.q===q)));}

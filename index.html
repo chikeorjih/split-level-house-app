@@ -28,10 +28,12 @@
     <label class="field">Light <select id="tod"></select></label>
     <label class="field sunf" title="Turn the sun around the house (double-click to reset)">Sun <input type="range" id="sunTurn" min="-180" max="180" step="5" value="0"><span id="sunTurnV">0°</span></label>
     <div class="seg q" role="group" aria-label="Render quality">
+      <button data-q="path" aria-pressed="false" hidden title="Path tracing (WebGPU): physically traced light, bounces and soft shadows, once the camera rests. Takes the longest to settle.">Path</button>
       <button data-q="ultra" aria-pressed="false" title="Bounce light, real reflections, soft shadows from room lights, supersampling. Takes longer to settle.">Ultra</button>
       <button data-q="high" aria-pressed="true">High</button>
       <button data-q="fast" aria-pressed="false">Fast</button>
     </div>
+    <label class="field rendf" title="WebGPU is faster where the browser supports it; WebGL works everywhere. Changing it reloads the page.">Renderer <select id="rend"><option value="auto">Auto</option><option value="webgpu">WebGPU</option><option value="webgl">WebGL</option></select></label>
   </div>
   <p id="qnote" style="display:none"></p>
 </div>
@@ -91,25 +93,26 @@
   <div id="dbgConfirm" style="display:none"></div>
 </div>
 
-<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/webgpu":"./vendor/three/build/three.webgpu.js","three/tsl":"./vendor/three/build/three.tsl.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/webgpu":"./vendor/three/build/three.webgpu.js","three/tsl":"./vendor/three/build/three.tsl.js","three/addons/":"./vendor/three/examples/jsm/","three/examples/jsm/":"./vendor/three/examples/jsm/","three-mesh-bvh":"./vendor/three-mesh-bvh/src/index.js","three-mesh-bvh/webgpu":"./vendor/three-mesh-bvh/src/webgpu/index.js","three-gpu-pathtracer/webgpu":"./vendor/three-gpu-pathtracer/src/webgpu/index.js"}}</script>
 <script type="module" src="src/three-boot.mjs"></script>
-<script defer src="src/00-boot.js"></script>
-<script defer src="src/01-registry.js"></script>
-<script defer src="src/02-spec.js"></script>
-<script defer src="src/02b-nodes.js"></script>
-<script defer src="src/03-textures.js"></script>
-<script defer src="src/04-textures-living.js"></script>
-<script defer src="src/05-geometry.js"></script>
-<script defer src="src/06-house.js"></script>
-<script defer src="src/07-furniture.js"></script>
-<script defer src="src/08-site.js"></script>
-<script defer src="src/08b-gpu-passes.js"></script>
-<script defer src="src/08c-gpu-ultra.js"></script>
-<script defer src="src/09-look-pipeline.js"></script>
-<script defer src="src/10-debug.js"></script>
-<script defer src="src/11-arrange.js"></script>
-<script defer src="src/12-app.js"></script>
-<script defer src="src/13-models.js"></script>
-<script defer src="src/14-photo.js"></script>
+<script type="text/x-app" src="src/00-boot.js"></script>
+<script type="text/x-app" src="src/01-registry.js"></script>
+<script type="text/x-app" src="src/02-spec.js"></script>
+<script type="text/x-app" src="src/02b-nodes.js"></script>
+<script type="text/x-app" src="src/03-textures.js"></script>
+<script type="text/x-app" src="src/04-textures-living.js"></script>
+<script type="text/x-app" src="src/05-geometry.js"></script>
+<script type="text/x-app" src="src/06-house.js"></script>
+<script type="text/x-app" src="src/07-furniture.js"></script>
+<script type="text/x-app" src="src/08-site.js"></script>
+<script type="text/x-app" src="src/08b-gpu-passes.js"></script>
+<script type="text/x-app" src="src/08c-gpu-ultra.js"></script>
+<script type="text/x-app" src="src/09-look-pipeline.js"></script>
+<script type="text/x-app" src="src/10-debug.js"></script>
+<script type="text/x-app" src="src/11-arrange.js"></script>
+<script type="text/x-app" src="src/12-app.js"></script>
+<script type="text/x-app" src="src/13-models.js"></script>
+<script type="text/x-app" src="src/14-photo.js"></script>
+<script type="text/x-app" src="src/15-pathtrace.js"></script>
 </body>
 </html>
