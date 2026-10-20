@@ -296,7 +296,7 @@ function antiTile(m,swap,macro){if(!m)return;const U={atSwap:{value:swap?1:0},at
   npAdd(m,{color:(c,mt)=>{const {texture,uv,vec2,mat2,mix,smoothstep,fract,sin,dot,floor,float}=NP;if(!mt.map)return c;
     const h=q=>fract(sin(dot(q,vec2(127.1,311.7))).mul(43758.5453)),n=q=>{const i=floor(q),f=fract(q),w=f.mul(f).mul(f.mul(-2).add(3));
       return mix(mix(h(i),h(i.add(vec2(1,0))),w.x),mix(h(i.add(vec2(0,1))),h(i.add(vec2(1,1))),w.x),w.y);};
-    const u=mt.map.matrix?NP.uniform(mt.map.matrix).mul(NP.vec3(uv(),1)).xy:uv();let t=texture(mt.map,u);
+    mt.map.updateMatrix();const u=NP.uniform(mt.map.matrix).mul(NP.vec3(uv(),1)).xy;let t=texture(mt.map,u);
     if(swap){const uB=mat2(.82,-.57,.57,.82).mul(u).mul(.43).add(vec2(.31,.17));t=mix(t,texture(mt.map,uB),smoothstep(.3,.7,n(u.mul(.13)).mul(.65).add(n(u.mul(.41)).mul(.35))));}
     const k=float(1).add(float(macro).mul(n(u.mul(.05)).add(n(u.mul(.17)).mul(.5)).sub(.75)));
     return NP.vec4(NP.uniform(mt.color).mul(t.rgb).mul(k),t.a);}});

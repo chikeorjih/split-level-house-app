@@ -57,7 +57,7 @@ function washOf(b,mode){let w=WASHED.get(b);if(w)return w;w=b.clone();w.clipping
 // a light preset changes the base materials' environment and glow: their faded and washed copies follow in place, with no recompile
 function syncDerived(){const cp=(c,b)=>{c.envMap=b.envMap;c.envMapIntensity=b.envMapIntensity;if(b.isMeshPhysicalMaterial&&c.isMeshPhysicalMaterial)c.clearcoat=b.clearcoat;if(b.emissive&&c.emissive){c.emissive.copy(b.emissive);c.emissiveIntensity=b.emissiveIntensity;}};
   WASHED.forEach((w,b)=>cp(w,b));FADE.forEach(c=>{if(c.userData.base)cp(c,c.userData.base);});}
-function syncWashed(){WASHED.forEach((w,b)=>{for(const k of ['map','normalMap','roughnessMap','color','roughness']){if(k==='color'){if(b.color&&w.color)w.color.copy(b.color);}else if(w[k]!==b[k])w[k]=b[k];}w.needsUpdate=true;});}
+function syncWashed(){WASHED.forEach((w,b)=>{for(const k of ['map','normalMap','roughnessMap','color','roughness']){if(k==='color'){if(b.color&&w.color)w.color.copy(b.color);}else if(w[k]!==b[k])w[k]=b[k];}npApply(w);w.needsUpdate=true;});}
 function ghostOf(tag){let g=GHOST.get(tag);if(!g){g=new THREE.MeshStandardMaterial({color:0xf3f1ec,roughness:1,transparent:true,depthWrite:false,side:THREE.DoubleSide,clippingPlanes:CLIPS,clipShadows:true});GHOST.set(tag,g);}return g;}
 function fadeTarget(tag){const vv=ST.pending||ST.view,L=ST.cutL;
   if(vv==='plan')return PLAN_TAGS[L].includes(tag)&&tag!=='X'?1:0;
@@ -477,7 +477,7 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);if(srgb&&t.saturate!==undefined)tx=satur(tx,t.saturate);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
     if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
   for(const t of list){const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
-    const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;m.needsUpdate=true;}
+    const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;npApply(m);m.needsUpdate=true;}
   refreshFades();dirty=true;}
 async function start(){
   if(!window.THREE){$('loading').textContent='The 3D library could not load. Check your connection and reload the page.';return;}

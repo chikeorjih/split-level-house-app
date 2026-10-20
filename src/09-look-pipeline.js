@@ -64,7 +64,7 @@ let SKY,ROOM_ENV=null,SKY_ENV=null;
 function buildSky(){SKY=new THREE.Mesh(new THREE.SphereGeometry(450,40,20),SKY_MAT);SKY.renderOrder=-1000;SKY.frustumCulled=false;scene.add(SKY);}
 // each preset's environments are built once and kept: rebuilding them (PMREM) on every change of light was a noticeable stall
 const ENV_CACHE={};
-function makeEnvs(P,name){const ce=ENV_CACHE[name];if(ce){SKY_ENV=ce.sky;ROOM_ENV=ce.room;scene.environment=SKY_ENV;return;}const pm=new THREE.PMREMGenerator(renderer);
+function makeEnvs(P,name){const ce=ENV_CACHE[name];if(ce){SKY_ENV=ce.sky;ROOM_ENV=ce.room;scene.environment=SKY_ENV;envSlotsSet(ROOM_ENV,SKY_ENV);return;}const pm=new THREE.PMREMGenerator(renderer);
   const es=new THREE.Scene();es.add(new THREE.Mesh(new THREE.SphereGeometry(40,48,24),SKY_MAT));const pmSave=SKY_MAT.uniforms.pm.value;SKY_MAT.uniforms.pm.value=0;
   const stSave=SKY_MAT.uniforms.st.value;SKY_MAT.uniforms.st.value=0;const nSky=pm.fromScene(es,0,.1,100).texture;SKY_MAT.uniforms.pm.value=pmSave;SKY_MAT.uniforms.st.value=stSave;
   // interior "room" environment: soft walls, bright windows, warm lamps at dusk
@@ -75,7 +75,7 @@ function makeEnvs(P,name){const ce=ENV_CACHE[name];if(ce){SKY_ENV=ce.sky;ROOM_EN
   for(const [x,z,ry] of [[12.9,0,-Math.PI/2],[0,-12.9,0],[-12.9,4,Math.PI/2]]){const m=new THREE.Mesh(new THREE.PlaneGeometry(9,5),F(win));m.position.set(x,.6,z);m.rotation.y=ry;rs.add(m);}
   if(P.lamps)for(const [x,z] of [[-5,-4],[6,5],[-3,7]]){const m=new THREE.Mesh(new THREE.SphereGeometry(.8,12,8),F(new THREE.Color(9,6.5,4)));m.position.set(x,3.5,z);rs.add(m);}
   const nRoom=pm.fromScene(rs,0,.1,100).texture;pm.dispose();
-  ENV_CACHE[name]={sky:nSky,room:nRoom};SKY_ENV=nSky;ROOM_ENV=nRoom;scene.environment=SKY_ENV;}
+  ENV_CACHE[name]={sky:nSky,room:nRoom};SKY_ENV=nSky;ROOM_ENV=nRoom;scene.environment=SKY_ENV;envSlotsSet(ROOM_ENV,SKY_ENV);}
 // ---------- evening lights ----------
 // Every lamp is a virtual light (LAMPV: position, colour, strength, reach). A fixed pool of point lights (LOOK.lights, 10, or 5 on touch
 // devices) stands in for the lamps nearest the view, and stays in the scene in daylight at zero strength. three.js builds the number of

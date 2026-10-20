@@ -270,7 +270,7 @@ function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chu
       .replace('#include <color_fragment>','#include <color_fragment>\n  diffuseColor.rgb=mix(gBase,diffuseColor.rgb,smoothstep(0.,.9,vMapUv.y));')
       .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n  normal=normalize(vNormal);');};
   npAdd(mat,{color:c=>NP.vec4(NP.mix(npU(gBase,'color'),c.rgb,NP.smoothstep(0,.9,NP.uv().y)),c.a)});
-  if(window.GPU)mat.normalNode=NP.normalView;
+  if(window.GPU)mat.normalNode=NP.normalView.mul(NP.faceDirection);   // (cancels the back-face flip: blades shade by their built normal on both sides, as in the GLSL patch)
   const grp=new THREE.Group();grp.userData.mat=mat;
   for(const A of chunks.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
     g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));g.setIndex(A.i);g.computeBoundingSphere();

@@ -45,6 +45,10 @@ fix('lights_pars_begin', 'vec3 irradiance = mix( hemiLight.groundColor, hemiLigh
 fix('alphatest_fragment', '\tdiffuseColor.a = smoothstep( alphaTest, alphaTest + fwidth( diffuseColor.a ), diffuseColor.a );\n\tif ( diffuseColor.a == 0.0 ) discard;', '\tif ( diffuseColor.a < alphaTest ) discard;');
 
 // ---------------- WebGPU: light nodes ----------------
+// colour spaces: with ColorManagement off, WebGPU's colour-space nodes skip every conversion, including the final linear-to-sRGB output
+// (the WebGL renderer always encodes the output). They are built with it on; hex colours are still read as linear.
+{ const CS = THREE_GPU.ColorSpaceNode.prototype, csSetup = CS.setup;
+  CS.setup = function (builder) { const e = THREE_GL.ColorManagement.enabled; THREE_GL.ColorManagement.enabled = true; try { return csSetup.call(this, builder); } finally { THREE_GL.ColorManagement.enabled = e; } }; }
 { const PI = Math.PI, { Fn, float } = TSL;
   const AL = THREE_GPU.AnalyticLightNode.prototype, alUpdate = AL.update;
   AL.update = function (frame) { alUpdate.call(this, frame); this.color.multiplyScalar(PI); };
