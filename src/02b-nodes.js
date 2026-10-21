@@ -17,7 +17,7 @@ function npBase(m){const c=NP.uniform(m.color||new THREE.Color(1,1,1));if(!m.map
   const t=NP.texture(m.map,NP.uniform(m.map.matrix).mul(NP.vec3(NP.uv(),1)).xy);return NP.vec4(c.mul(t.rgb),t.a);}
 // rebuild the material's nodes from its patch list
 function npApply(m){if(!window.GPU||!m.userData)return;const L=m.userData.np||[],{vec4,float}=NP;let color=null,mask=null,opacity=null;
-  for(const p of L){if(p.color)color=p.color(color||npBase(m),m);if(p.mask){const k=p.mask(m);mask=mask?mask.and(k):k;}if(p.opacity)opacity=p.opacity(m);}
+  for(const p of L){if(p.color)color=p.color(color||npBase(m),m);if(p.mask){const k=p.mask(m);if(k)mask=mask?mask.and(k):k;}if(p.opacity)opacity=p.opacity(m);}
   const cp=m.clippingPlanes;if(cp&&cp.length){const {dot,positionWorld}=NP;for(const pl of cp){const u=npPlane(pl),k=dot(positionWorld,u.xyz).add(u.w).greaterThanEqual(0);mask=mask?mask.and(k):k;}}
   m.colorNode=color;m.maskNode=mask;m.opacityNode=opacity;m._npClipKey=cp?cp.length:0;m.needsUpdate=true;}
 // a node material standing in for a classic one: same parameters, its patch list copied (clones of patched materials)
@@ -30,15 +30,24 @@ if(window.GPU){for(const n of ['MeshStandardMaterial','MeshPhysicalMaterial','Me
 // shared slots, the room and the sky (PMREM nodes whose texture is swapped in place when the light preset changes, so nothing
 // recompiles), a material's `envMap` setter picks the slot for the texture it is given, and its program key records the slot.
 const ENV_SLOTS={};
-function envSlotsSet(room,sky){if(!window.GPU)return;for(const [k,t] of [['room',room],['sky',sky]]){if(!t)continue;if(!ENV_SLOTS[k])ENV_SLOTS[k]=NP.pmremTexture(t);else ENV_SLOTS[k].value=t;}}
+function envSlotsSet(room,sky){if(!window.GPU)return;for(const [k,t] of [['room',room],['sky',sky]]){if(!t)continue;if(!ENV_SLOTS[k])ENV_SLOTS[k]=NP.pmremTexture(t);else ENV_SLOTS[k].value=t;}
+  // the scene's own environment is the sky slot too: a new scene.environment texture changes every object's cache key, and each preset
+  // change then rebuilt every material's node graph (seconds)
+  if(typeof scene!=='undefined'&&scene&&ENV_SLOTS.sky){scene.environment=null;scene.environmentNode=ENV_SLOTS.sky;}}
 if(window.GPU){const proto=THREE.NodeMaterial.prototype,key0=proto.customProgramCacheKey;
   Object.defineProperty(proto,'envMap',{configurable:true,get(){return this._envMap||null;},set(t){this._envMap=t||null;
     const kind=!t?null:(typeof ROOM_ENV!=='undefined'&&t===ROOM_ENV?'room':(typeof SKY_ENV!=='undefined'&&t===SKY_ENV?'sky':null));
     if(kind&&!ENV_SLOTS[kind])envSlotsSet(kind==='room'?t:null,kind==='sky'?t:null);
-    this._envKind=kind;this.envNode=kind?ENV_SLOTS[kind]:(t?NP.pmremTexture(t):null);this.needsUpdate=true;}});
+    // any other map (the glass's own capture, changing with the preset) gets this material's own PMREM node, whose texture is swapped in
+    // place, so a new map never recompiles
+    let node=null;if(kind)node=ENV_SLOTS[kind];else if(t){if(this._ownEnv)this._ownEnv.value=t;else this._ownEnv=NP.pmremTexture(t);node=this._ownEnv;}
+    this._envKind=kind;if(this.envNode!==node){this.envNode=node;this.needsUpdate=true;}}});
   // the program key always carries the environment slot and, for patched materials, the textures their patches sample (patches bake
   // their textures into the shared build); a material's own customProgramCacheKey (the app sets several) is kept inside it
-  const extra=m=>(m.userData&&m.userData.gi?'|gi':'')+'|env:'+(m._envKind||(m._envMap?m._envMap.id:'-'))+(m.userData&&m.userData.np&&m.userData.np.length?'|np:'+m.id:'');
+  // (a patch that reads every per-material value from the material at draw time, through materialReference / materialMap, declares a
+  // key; materials whose patches all have keys share their build, so they compile once)
+  const npKey=m=>{const L=m.userData&&m.userData.np;if(!L||!L.length)return '';return '|np:'+(L.every(p=>p.key)?L.map(p=>p.key).join(','):m.id);};
+  const extra=m=>(m.userData&&m.userData.gi?'|gi':'')+'|env:'+(m._envKind||(m._envMap?'own'+m.id:'-'))+npKey(m);
   // (the function is made once per material: the renderer asks for it for every object it draws)
   Object.defineProperty(proto,'customProgramCacheKey',{configurable:true,get(){return this._cpk||(this._cpk=()=>(this._ownKey||key0).call(this)+extra(this));},set(f){this._ownKey=f;}});}
 // clipping planes. WebGPU node materials have no per-material clipping planes (only ClippingGroup objects), so a material's

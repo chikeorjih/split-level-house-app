@@ -18,4 +18,6 @@ copy('package.json');
 for (const name of ['three-mesh-bvh', 'three-gpu-pathtracer']) { const src = path.join(root, 'node_modules', name), dst = path.join(root, 'vendor', name);
   if (!fs.existsSync(src)) { console.warn(name + ' not installed; path tracing will be unavailable offline.'); continue; }
   fs.rmSync(dst, { recursive: true, force: true }); fs.cpSync(path.join(src, 'src'), path.join(dst, 'src'), { recursive: true, filter: f => !/\.d\.ts$|\.md$/.test(f) }); fs.copyFileSync(path.join(src, 'package.json'), path.join(dst, 'package.json')); }
+// the path tracer's denoiser (Open Image Denoise in WebGPU): one self-contained module
+if (fs.existsSync(path.join(root, 'node_modules/oidn-web/dist/oidn.js'))) { fs.mkdirSync(path.join(root, 'vendor/oidn-web'), { recursive: true }); fs.copyFileSync(path.join(root, 'node_modules/oidn-web/dist/oidn.js'), path.join(root, 'vendor/oidn-web/oidn.js')); }
 console.log('Copied three.js ' + JSON.parse(fs.readFileSync(path.join(pkg, 'package.json'), 'utf8')).version + ' (module builds and add-ons) to vendor/three/');

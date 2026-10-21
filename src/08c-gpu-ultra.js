@@ -3,7 +3,7 @@
 // ================= ULTRA PASSES (WebGPU) =================
 const GPU_ULTRA_UN=()=>({tC:'tex',tDepth:'depth',tDepthE:'depth',tEnc:'tex',proj:new THREE.Matrix4(),projInv:new THREE.Matrix4(),frame:0,radius:7});
 const gpuInside=q=>q.x.greaterThanEqual(0).and(q.y.greaterThanEqual(0)).and(q.x.lessThanEqual(1)).and(q.y.lessThanEqual(1));
-const gpuProj2=(proj,S)=>{const q=proj.mul(GPU_PASS.vec4(S,1));return q.xy.div(q.w).mul(.5).add(.5);};
+const gpuProj2=(proj,S)=>{const q=proj.mul(GPU_PASS.vec4(S,1));return gpuUv(q.xy.div(q.w));};
 // encoded normal: view xy in .xy (z rebuilt), gloss in .z, reflectivity in .a
 const gpuDecN=e=>{const {vec3,sqrt,max,dot,float}=GPU_PASS,n2=e.xy.mul(2).sub(1);return vec3(n2,sqrt(max(0,float(1).sub(dot(n2,n2)))));};
 // ---------- one-bounce GI ----------
@@ -23,23 +23,34 @@ function gpuGI(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,cross,d
 function gpuSSR(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,dot,max,min,pow,clamp,smoothstep,reflect,screenCoordinate}=GPU_PASS,BOOST=ULTRA.reflBoost;
   return SMG(GPU_ULTRA_UN(),u=>{const q=uv(),e=u.tEnc.sample(q),refl=e.a,d=u.tDepthE.sample(q).x,vpos=gpuVpos(u,u.tDepth,u.projInv),P=gpuVpos(u,u.tDepthE,u.projInv)(q);
     const r0=gpuH1(screenCoordinate.xy.mul(.71).add(u.frame.mul(5.13))),r1=gpuH1(screenCoordinate.yx.mul(.37).add(u.frame.mul(2.9))),r2=gpuH1(vec2(r0,r1).mul(31.7).add(u.frame));
-    const N=normalize(gpuDecN(e).add(normalize(vec3(r0,r1,r2).mul(2).sub(1)).mul(e.z.mul(e.z).mul(.55)))),V=normalize(P),R=reflect(V,N),ndv=max(dot(V.negate(),N),0);
-    const t=r0.mul(.2).add(.1).toVar(),stp=float(.18).toVar(),huv=vec2(-1).toVar(),done=float(0).toVar();
-    Loop(56,()=>{If(done.equal(0),()=>{const S=P.add(R.mul(t)),qq=u.proj.mul(vec4(S,1)),q2=qq.xy.div(qq.w).mul(.5).add(.5);
+    // (as the GLSL: a narrow gloss cone, and a binary search onto the surface a step crosses)
+    const N=normalize(gpuDecN(e).add(normalize(vec3(r0,r1,r2).mul(2).sub(1)).mul(e.z.mul(e.z).mul(.3)))),V=normalize(P),R=reflect(V,N),ndv=max(dot(V.negate(),N),0);
+    const t=r0.mul(.2).add(.1).toVar(),tp=t.toVar(),stp=float(.18).toVar(),huv=vec2(-1).toVar(),done=float(0).toVar();
+    Loop(56,()=>{If(done.equal(0),()=>{const S=P.add(R.mul(t)),qq=u.proj.mul(vec4(S,1)),q2=gpuUv(qq.xy.div(qq.w));
       If(qq.w.lessThanEqual(0).or(gpuInside(q2).not()),()=>{done.assign(1);}).Else(()=>{const sz=vpos(q2).z;
-        If(S.z.lessThan(sz).and(sz.sub(S.z).lessThan(t.mul(.05).add(.3))),()=>{huv.assign(q2);done.assign(1);}).Else(()=>{t.addAssign(stp);stp.mulAssign(1.09);});});});});
+        If(S.z.lessThan(sz).and(sz.sub(S.z).lessThan(t.mul(.05).add(.3))),()=>{const lo=tp.toVar(),hi=t.toVar();
+          Loop({start:0,end:5,name:'k'},()=>{const m=lo.add(hi).mul(.5),Sm=P.add(R.mul(m)),qm=u.proj.mul(vec4(Sm,1));
+            If(Sm.z.lessThan(vpos(gpuUv(qm.xy.div(qm.w))).z),()=>{hi.assign(m);}).Else(()=>{lo.assign(m);});});
+          const qh=u.proj.mul(vec4(P.add(R.mul(hi)),1));huv.assign(gpuUv(qh.xy.div(qh.w)));t.assign(hi);done.assign(1);})
+        .Else(()=>{tp.assign(t);t.addAssign(stp);stp.mulAssign(1.09);});});});});
     const ed=min(huv,vec2(1).sub(huv)),edge=clamp(min(ed.x,ed.y).mul(12),0,1).mul(clamp(float(1).sub(t.div(60)),0,1));
     const fres=min(1,refl.mul(BOOST)).add(float(1).sub(refl).mul(pow(float(1).sub(ndv),4)).mul(smoothstep(.01,.06,refl)));
     const miss=refl.lessThan(.015).or(d.greaterThan(.99999)).or(huv.x.lessThan(0));
     return select(miss,vec4(0),vec4(min(u.tC.sample(huv).rgb,vec3(6)),clamp(fres,0,1).mul(edge)));});}
 // ---------- normal/gloss material (one per scene material; its values are fixed per material) ----------
-function gpuEncMat(m,rough,refl,rm,uvT){const {vec3,vec4,float,uniform,texture,uv,normalize,normalView,faceDirection,clamp,min}=GPU_PASS;
+// Every value is read from the material when it is drawn (materialReference, its own map included), so all
+// of these share a handful of builds (by whether they use a roughness map or cut out a shape) instead of compiling one each.
+function gpuEncMat(m,rough,refl,rm,uvT){const {vec4,float,normalize,normalView,faceDirection,clamp,min,max,materialReference}=GPU_PASS,materialMap=materialReference('map','texture');
   const e=new THREE.MeshBasicMaterial({side:m.side,toneMapped:false,fog:false,blending:THREE.NoBlending});e.clippingPlanes=CLIPS;
-  npAdd(e,{color:()=>{const n=normalize(normalView).mul(faceDirection);let r=float(rough),f=float(refl);
-    if(rm){r=float(rough).mul(texture(rm,uniform(uvT).mul(vec3(uv(),1)).xy).g);f=float(refl).mul(clamp(float(1).sub(r).div(Math.max(1-rough,.05)),0,2));}
-    return vec4(n.xy.mul(.5).add(.5),r,min(f,1));}});
-  // a cut-out surface cuts the same shape here (drawn only by the path tracer's guide pass)
-  if(m.alphaTest>0&&m.map){m.map.updateMatrix();const at=m.alphaTest;npAdd(e,{mask:()=>texture(m.map,uniform(m.map.matrix).mul(vec3(uv(),1)).xy).a.greaterThanEqual(at)});}
+  // a cut-out surface (drawn only by the path tracer's guide pass) cuts the same shape; its map then takes the map slot, so a roughness
+  // map is dropped there
+  const cut=m.alphaTest>0&&!!m.map,useRm=!!rm&&!cut;e.map=cut?m.map:(useRm?rm:null);
+  e.encRough=rough;e.encRefl=refl;e.encDen=Math.max(1-rough,.05);e.encAT=cut?m.alphaTest:0;
+  const R=materialReference('encRough','float'),F=materialReference('encRefl','float'),D=materialReference('encDen','float'),AT=materialReference('encAT','float');
+  npAdd(e,{key:'enc'+(useRm?'r':'')+(cut?'c':''),color:()=>{const n=normalize(normalView).mul(faceDirection);let r=R,f=F;
+    if(useRm){r=R.mul(materialMap.g);f=F.mul(clamp(float(1).sub(r).div(D),0,2));}
+    return vec4(n.xy.mul(.5).add(.5),r,min(f,1));},
+    mask:cut?()=>materialMap.a.greaterThanEqual(AT):null});
   return e;}
 // ---------- the rooms volume (see roomMask) and the probe light, as nodes ----------
 function npTex(o){if(!o.__t){const t=GPU_PASS.texture(new THREE.Texture());if(o.value)t.value=o.value;let v=o.value;
@@ -58,15 +69,17 @@ if(window.GPU){const PLM=THREE.PhysicalLightingModel.prototype,ind=PLM.indirect;
 // ---------- sunbeams ----------
 function gpuVol(){const {vec4,float,uv,Loop,select,normalize,length,min,mix,step,dot,pow,screenCoordinate}=GPU_PASS;
   return SMG({tDepth:'depth',tShadow:'depth',projInv:new THREE.Matrix4(),camWorld:new THREE.Matrix4(),shadowM:new THREE.Matrix4(),camPos:new THREE.Vector3(),sunDir:new THREE.Vector3(),sunCol:new THREE.Color(),frame:0,dens:0,maxD:30,g:.55,outK:.08},u=>{
-    const q=uv(),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(q.mul(2).sub(1),min(d,.9999),1)),Pv=p.xyz.div(p.w),L=select(d.greaterThan(.99999),u.maxD,min(length(Pv),u.maxD));
+    const q=uv(),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(gpuNdc(q),min(d,.9999),1)),Pv=p.xyz.div(p.w),L=select(d.greaterThan(.99999),u.maxD,min(length(Pv),u.maxD));
     const Pw=u.camWorld.mul(vec4(Pv,1)).xyz,rd=normalize(Pw.sub(u.camPos)),st=L.div(32),j=gpuH1(screenCoordinate.xy.mul(.37).add(u.frame.mul(1.618))),acc=float(0).toVar();
     Loop(32,({i})=>{const X=u.camPos.add(rd.mul(st.mul(float(i).add(j)))),sc=u.shadowM.mul(vec4(X,1)),s=sc.xyz.div(sc.w),w=mix(u.outK,1,gpuRoomIn(X));
-      const out=gpuInside(s.xy).not().or(s.z.greaterThan(1));acc.addAssign(select(out,w,w.mul(step(s.z,u.tShadow.sample(s.xy).x.add(.002)))));});
+      const out=gpuInside(s.xy).not().or(s.z.greaterThan(1));acc.addAssign(select(out,w,w.mul(step(s.z,u.tShadow.sample(GPU_PASS.vec2(s.x,s.y.oneMinus())).x.add(.002)))));});
     const ct=dot(rd,u.sunDir),ph=float(1).sub(u.g.mul(u.g)).div(pow(float(1).add(u.g.mul(u.g)).sub(u.g.mul(2).mul(ct)),1.5).mul(12.566));
     return vec4(u.sunCol.mul(acc.mul(st).mul(u.dens).mul(ph)),1);});}
+// (the shadow map is read with y flipped, as three's own shadow lookup does under WebGPU: without it every step read the mirrored spot of the
+// map, nearly always in shadow, and the sunbeams were missing)
 // ---------- autofocus: nearest view depth near the centre, written raw (the focus target is a float texture under WebGPU) ----------
 function gpuFocus(){const {vec2,vec4,float,min,select}=GPU_PASS;return SMG({tDepth:'depth',projInv:new THREE.Matrix4()},u=>{let z=float(1e9);
-  for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){const q=vec2(.5).add(vec2(i,j).mul(.012)),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(q.mul(2).sub(1),d,1));z=min(z,select(d.greaterThan(.99999),float(200),p.z.div(p.w).negate()));}
+  for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){const q=vec2(.5).add(vec2(i,j).mul(.012)),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(gpuNdc(q),d,1));z=min(z,select(d.greaterThan(.99999),float(200),p.z.div(p.w).negate()));}
   return vec4(z,0,0,1);});}
 // ---------- probes: a cube map to first-order spherical harmonics, and dilation of the atlas ----------
 function gpuSHP(){const {vec2,vec3,vec4,float,Loop,normalize,dot,pow,min,select,cubeTexture,uniform}=GPU_PASS;

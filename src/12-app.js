@@ -12,6 +12,13 @@ const shownLv=()=>((ST.pending||ST.view)==='three'&&ST.levels.length)?ST.levels:
 const TWINS=[];let renderer,scene,camO,camW,camP,sun,TAGS={},TREES,SETBACK,TERRAIN,CAPGRP={},dirty=true,shadowDirty=true;
 const $=id=>document.getElementById(id);
 const COARSE=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
+// WebGPU: built pipelines and shader programs are kept for good. three frees one as soon as no object uses it (a material swapped for a
+// fade copy, a preset that changes a material's environment), and building it again on the way back was most of each transition's pause;
+// there are a few hundred at most.
+function keepPipelines(){const P=renderer._pipelines;if(P&&P._releasePipeline&&P._releaseProgram){P._releasePipeline=()=>{};P._releaseProgram=()=>{};}
+  // (now and then, during a background compile, a sampler is updated before its texture is set; that threw and lost the frame. It is
+  // skipped instead and set on a later frame)
+  const T=renderer._textures;if(T&&T.updateSampler){const u=T.updateSampler.bind(T);T.updateSampler=b=>b&&b.texture?u(b):'';}}
 // WebGPU (window.GPU, see three-boot.mjs): WebGPURenderer, which must finish an async init() before it renders (start() awaits it)
 function initRenderer(){
   renderer=window.GPU?new THREE.WebGPURenderer({antialias:true,powerPreference:'high-performance',requiredLimits:window.GPU_LIMITS||undefined}):new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
@@ -26,7 +33,8 @@ function initRenderer(){
   // app's `renderer.shadowMap.needsUpdate=true` is passed on to each shadow-casting light instead (the list is refreshed now and then).
   if(window.GPU){let L=[],k=0;const sm=renderer.shadowMap;
     Object.defineProperty(sm,'needsUpdate',{configurable:true,get:()=>false,set(v){if(!v)return;if(!(k++%60)||!L.length){L=[];scene.traverse(o=>{if(o.isLight&&o.shadow)L.push(o);});}
-      for(const l of L){l.shadow.autoUpdate=false;l.shadow.needsUpdate=true;}}});}
+      for(const l of L){l.shadow.autoUpdate=false;if(l.intensity>0||isUltra())l.shadow.needsUpdate=true;}}});}   // (outside Ultra a dark light's shadow is not redrawn; in Ultra the probe
+      // lights are lit only just before each draw, after this is set)
 }
 // renderer facts both renderers answer differently
 function maxAniso(){return window.GPU?(renderer.getMaxAnisotropy?renderer.getMaxAnisotropy():16):renderer.capabilities.getMaxAnisotropy();}
@@ -80,19 +88,31 @@ function fadeMat(tag,b){const k=tag+'|'+b.uuid;let c=FADE.get(k);
 // fill, the blueprint), so animations never stall on a shader compile. Runs once the app is idle and again after materials change.
 // It works through a list of (mesh, material) pairs a few at a time: each batch compiles in a stand-in scene that holds the real lights
 // (so the shaders match the ones the render will ask for), and stops after about 10 ms, so the page stays responsive throughout.
-let PREWARM_T=0,PREWARM_JOB=null;
-function schedulePrewarm(ms){clearTimeout(PREWARM_T);PREWARM_JOB=null;PREWARM_T=setTimeout(prewarm,ms||800);}
+let PREWARM_T=0,PREWARM_JOB=null,PREWARM_RT=null;
+// WebGPU: no prewarm. Compiling objects between frames shares the frame's render list and context there; on some timings it destroyed shadow
+// maps that queued frames still used (the high-quality image stayed black) and left swapped-in fade materials showing (see-through walls)
+function schedulePrewarm(ms){if(window.GPU)return;clearTimeout(PREWARM_T);PREWARM_JOB=null;PREWARM_T=setTimeout(prewarm,ms||800);}
 function prewarm(){try{buildPaper();}catch(e){console.warn('prewarm',e);}
-  const job=[],seen=new Set(),add=(m,mt)=>{const k=mt.uuid+(m.isInstancedMesh?'i':'');if(!seen.has(k)){seen.add(k);job.push([m,mt]);}};
+  const job=[],seen=new Set(),add=(m,mt,kind)=>{const k=mt.uuid+(m.isInstancedMesh?'i':'');if(!seen.has(k)){seen.add(k);job.push([m,mt,kind||'main']);}};
   for(const tag in TAGS){if(tag==='trees'||tag==='grass'||tag==='site')continue;for(const m of meshesOf(tag)){const b=m.userData.baseMat||m.material;if(Array.isArray(b))continue;add(m,fadeMat(tag,b));add(m,ghostOf(tag));}}
   for(const t of ['trees','grass','site'])for(const m of meshesOf(t)){const b=m.userData.baseMat||m.material;if(!Array.isArray(b))add(m,fadeMat(t,b));}
   const extra=[...Object.values(CAPGRP),...TWINS];if(PAPER.mesh)extra.push(PAPER.mesh,PAPER.roll);
   for(const o of extra)o.traverse(c=>{if(c.isMesh&&!Array.isArray(c.material))add(c,c.material);});
   PREWARM_JOB=job;let i=0;
+  // WebGPU: a pipeline belongs to its target's formats and to the kind of camera (the plan's is orthographic), so each batch is compiled for
+  // the target its pass draws into and for both kinds of camera
+  const prt=window.GPU&&(PREWARM_RT||(PREWARM_RT={main:rt(4,4,{depthBuffer:true}),enc:rt(4,4,{depthBuffer:true}),alb:rt(4,4,{depthBuffer:true})}));
+  // (targets of its own, in the formats of PIPE.rt, PIPE.enc and PIPE.alb: the pipeline's are replaced on a change of quality while compiles
+  // may still be finishing)
+  if(prt&&!prt.enc.depthTexture)for(const t of [prt.main,prt.enc]){t.depthTexture=new THREE.DepthTexture(4,4);t.depthTexture.type=THREE.UnsignedIntType;}
   const step=()=>{if(PREWARM_JOB!==job)return;const t0=performance.now(),cam=activeCam(),lights=[];scene.traverseVisible(o=>{if(o.isLight)lights.push(o);});
-    const tmp=new THREE.Scene();tmp.fog=scene.fog;tmp.environment=scene.environment;
-    while(i<job.length&&performance.now()-t0<10){const [m,mt]=job[i++],m0=m.material,kids=m.children;m.material=mt;m.children=[];tmp.children=[...lights,m];
-      try{renderer.compile(tmp,cam);}catch(e){console.warn('prewarm',e);}finally{m.material=m0;m.children=kids;}}
+    const tmp=new THREE.Scene();tmp.fog=scene.fog;tmp.environment=scene.environment;tmp.environmentNode=scene.environmentNode||null;
+    while(i<job.length&&performance.now()-t0<10){const [m,mt,kind]=job[i++],m0=m.material,kids=m.children;m.material=mt;m.children=[];tmp.children=[...lights,m];
+      const rt0=window.GPU?renderer.getRenderTarget():null;
+      if(window.GPU)renderer.setRenderTarget(kind==='enc'?prt.enc:kind==='alb'?prt.alb:(isHQ()?prt.main:null));
+      // (WebGPU: the object is compiled against the real scene, renderer.compile(object, camera, scene): a stand-in scene holding the real
+      // lights built a second shadow map for each of them, which destroyed the scene's own, and the next frames were black)
+      try{if(window.GPU){tmp.children=[];renderer.compile(m,cam,scene);}else renderer.compile(tmp,cam);}catch(e){console.warn('prewarm',e);}finally{m.material=m0;m.children=kids;if(window.GPU)renderer.setRenderTarget(rt0);}}
     tmp.children=[];if(i<job.length)setTimeout(step,0);else{PREWARM_JOB=null;dirty=true;}};
   step();}
 function setTagOpacity(tag,o){FCUR[tag]=o;const ghost=presenting()&&fadeTarget(tag)===FADE_OPACITY;
@@ -495,7 +515,7 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   refreshFades();dirty=true;}
 async function start(){
   if(!window.THREE){$('loading').textContent='The 3D library could not load. Check your connection and reload the page.';return;}
-  initRenderer();if(window.GPU)await renderer.init();MAXANISO=Math.min(16,maxAniso());buildScene();giPatchAll();
+  initRenderer();if(window.GPU){await renderer.init();keepPipelines();}MAXANISO=Math.min(16,maxAniso());buildScene();giPatchAll();
   camO=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,.5,1600);camW=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.25,650);
   camP=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);
   buildUI();buildLabels();bindInput();bindPhoto();

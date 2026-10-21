@@ -248,3 +248,46 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
   - A pass output cannot go negative, so the log luminance is stored offset by 16.
   - Guide passes drawn in the same frame as the tracer's reset came out black, so they are drawn a frame later.
   - The library's cube-to-equirect generator uses a WebGL `ShaderMaterial`.
+
+### 2026-10-20: faster WebGPU transitions; denoised path tracing
+
+- **Transitions:** the measured pause (the longest frame) after each change. WebGPU, Chromium with the shader disk cache off, so these are worst-case first visits.
+
+  | Change | Before | After |
+  |---|---|---|
+  | Preset (afternoon ↔ dusk) | 6–7 s | 25–60 ms |
+  | Back to High | 5.8 s | 0.3–1.2 s |
+  | Back to Fast | 5.7 s | 0.3–0.6 s |
+  | Ultra again | 1.9 s | 0.4 s |
+  | Plan, second visit | n/a | 60 ms |
+  | First Ultra this session | 7.5 s | 3.7 s |
+  | First plan this session | 10 s | 4.3 s |
+
+- **What fixed them:**
+  - **Constant light set.** The set of lights is built into every node material. The sky lights and probe lights now always stay in the scene under WebGPU and are switched off by strength, so a quality change no longer recompiles every material. A dark light's shadow is skipped outside Ultra. In Ultra it is not skipped, because the probe lights are lit only just before each draw; skipping them destroyed their shadow maps mid-frame.
+  - **Shared environment node.** `scene.environmentNode` is the shared sky PMREM slot. Before, a new `scene.environment` texture per preset changed every object's cache key and rebuilt every node graph. Materials with their own environment map get their own PMREM node, whose texture is swapped in place.
+  - **Shared guide-pass materials.** Ultra's normal/gloss materials read their values per draw through `materialReference`, and declare a patch key. They now share 4 builds instead of compiling about 54.
+  - **Pipelines kept.** Pipelines and programs are never released, so a revisit reuses them.
+  - **Prewarm:**
+    - It compiles for both camera kinds (the plan's is orthographic) and into targets in the formats each pass uses.
+    - It covers Ultra's guide materials.
+    - It compiles objects against the real scene, with `renderer.compile(object, camera, scene)`. A stand-in scene built second shadow maps that destroyed the real ones, and the frames came out black.
+- **Still open:** the first Ultra and first plan of a session, about 4 s each. Ultra builds new shader code for some materials, for a reason not yet found. The plan builds about 21 shadow-pass pipelines, which `compileAsync` cannot prewarm.
+- **Path tracing with OIDN:**
+  - The trace stops at 64 samples per pixel (walk) or 48 (other views), with 6 bounces. oidn-web 0.5.0 with `rt_hdr_alb_nrm_small.tza` (0.6 MB, Apache-2.0, from RenderKit/oidn-weights; SHA-256 checked) then gives the final image.
+    - It is guided by the app's own albedo and normal passes, so the cutaway's clipped walls are right. The library's own guide render would draw them unclipped.
+    - The weights live in `assets/weights` and are embedded in the single-file build.
+    - If the denoiser fails to load, the trace falls back to 160/128 samples with the à-trous filter.
+  - **Time to the final image:**
+
+    | View | Before | Now |
+    |---|---|---|
+    | Walk | ~25 s | ~9.5 s |
+    | ¾ | ~20 s | ~7 s |
+    | Dusk walk | ~25 s | ~9.5 s |
+
+    The denoise itself takes about 0.3 s.
+- **Correction: memory.** Keeping the probe lights' shadows always on cost every object a shadow pass per cube face, about 500 MB of JS heap. Combined with a prewarm against the real scene, the tab ran out of memory: the user saw "Out of Memory" and a black first screen.
+  - Probe shadows are Ultra-only again, and a change of quality no longer restarts the prewarm.
+  - Heap is back to the last commit's levels: about 210 MB in High and about 970 MB in Ultra (the last commit: 207 and 956).
+  - The cost is part of the transition gain. Back to High is now 2.6 s, Ultra again 1.8 s, and the first Ultra 6.4 s. Preset changes stay near-instant.

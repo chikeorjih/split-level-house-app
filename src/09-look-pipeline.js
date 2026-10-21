@@ -16,13 +16,13 @@ const PRESETS={
     grade:{wb:[1.045,1,.92],lift:[.012,.01,.004],sat:1.04,con:1.09,css:'sepia(.1) saturate(1.04) contrast(1.09)'}},
   golden:{stc:[1,.92,.84],label:'Golden hour',h:H2(DIRS.W,[DIRS.N[0]*.25,DIRS.N[1]*.25]),elev:8,sun:0xff9445,si:2.0,zen:0x4a67a8,hor:0xf2a66c,gnd:0x3a3026,exp:1.28,envE:.85,envI:.75,lamps:false,bloom:.26,hemi:.08,sky:.9,
     grade:{wb:[1.08,.98,.84],lift:[.02,.008,0],sat:1.15,con:1.15,css:'sepia(.18) saturate(1.18) contrast(1.15)'}},
-  dusk:{stc:[.22,.23,.40],label:'Evening, cozy',h:H2(DIRS.W,[DIRS.N[0]*.3,DIRS.N[1]*.3]),elev:5,sun:0x7b8fd0,si:.6,zen:0x1c3062,hor:0x7a6478,gnd:0x161412,exp:1.2,envE:.4,envI:.2,lamps:true,bloom:.2,hemi:.06,sky:.4,
+  dusk:{stc:[.22,.23,.40],label:'Evening',h:H2(DIRS.W,[DIRS.N[0]*.3,DIRS.N[1]*.3]),elev:5,sun:0x7b8fd0,si:.6,zen:0x1c3062,hor:0x7a6478,gnd:0x161412,exp:1.2,envE:.4,envI:.2,lamps:true,bloom:.2,hemi:.06,sky:.4,
     // cozy dusk: warm amber lamps against a soft blue night glow that comes in through the windows (cool sun and sky light, bluish window
     // light in the room reflections) and settles in the shadows; the grade keeps the lamps warm but lifts the shadows toward blue
     grade:{wb:[1.04,1,.93],lift:[.004,.01,.03],sat:1.06,con:1.06,css:'sepia(.12) saturate(1.06) contrast(1.06) brightness(.95)'}}
 };
 // bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
-const LOOK={bloomScale:.5,dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
+const LOOK={bloomScale:.5,dof:0,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
 const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
   'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
@@ -85,7 +85,7 @@ function makeEnvs(P,name){const ce=ENV_CACHE[name];if(ce){SKY_ENV=ce.sky;ROOM_EN
 const LAMPV=[],_lf=new THREE.Vector3();let LAMP_SIG='';
 // by day the lamps are off, except in the 3/4 cutaway, where the rooms are shown as if their ceilings were on (see SHADOW_PROXY in
 // 12-app.js) and the lamps glow at LAMP_DAY of their evening strength alongside the window light
-const LAMP_DAY=.3,lampsDim=()=>!PRESETS[LOOK.preset].lamps&&ST.view==='three'&&!ST.pending&&!!ST.cutL;
+const LAMP_DAY=.3,LAMP_EVE=.8,lampsDim=()=>!PRESETS[LOOK.preset].lamps&&ST.view==='three'&&!ST.pending&&!!ST.cutL;
 function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6,2.3,25],[22,7,6],[8,-6.6,20],[25,-6.6,6],[37.6,7,5.4]];
   const pr={chandelier:0,pendant:1,ceiling:2,lamp:3,outdoor:4};const L=LAMPS.slice().sort((a,b)=>pr[a.k]-pr[b.k]);let pend=null;const out=[];
   for(const l of L){if(l.k==='pendant'){if(!pend){pend=l.v.clone();out.push({v:pend,k:'pendant'});}else pend.lerp(l.v,.5);continue;}out.push(l);}
@@ -94,7 +94,7 @@ function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6
     LAMPV.push(v);if(l.inst)l.inst.lights.push({light:v,v0:l.v.clone()});}
   for(let i=0;i<(COARSE?5:10);i++){const p=new THREE.PointLight(0xffb36b,0,16,1.6);scene.add(p);LOOK.lights.push(p);}}
 // point the pool at the lamps nearest the view (the walker, or the 3/4 view's target); only touches the lights when that set changes
-function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?1:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
+function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?LAMP_EVE:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
   const pick=on?LAMPV.slice().sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
   const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':'on'):'off')+og;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
   if(sig===LAMP_SIG)return;LAMP_SIG=sig;
@@ -119,8 +119,10 @@ function skyColorAt(d,out){const P=PRESETS[LOOK.preset],y=Math.max(d.y,0);out.se
   return out.add(new THREE.Color(P.hor).multiplyScalar(.22*Math.exp(-y*16)));}
 // high quality swaps most of the unshadowed sky light for the shadowed sky lights; fast mode keeps the original balance
 function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ(),uf=ultraFill(),ul=isUltra();
-  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
-  for(const L of SKYL)L.visible=hq;LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
+  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05*LAMP_EVE:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
+  // (WebGPU: the set of lights is built into every node material, so hiding these recompiled everything on each change of quality; there
+  // they stay in the scene and are switched off by strength)
+  for(const L of SKYL){L.visible=hq||!!window.GPU;if(!hq)L.intensity=0;}LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;if(EXT_MATS.has(k))m.envMapIntensity=P.envE*(hq?LIGHT_HQ.env*uf.env:1);else if(m.envMap)m.envMapIntensity=P.envI*uf.envI*cutFill();
     if(m.userData.cc)m.clearcoat=ul?m.userData.cc[0]:0;}
   updateGlassEnv(true);if(typeof syncDerived==='function')syncDerived();LOOK.preview=undefined;shadowDirty=true;dirty=true;if(LOOK.studio&&typeof planStudio==='function')planStudio();}
@@ -149,7 +151,7 @@ function applyPreset(name){if(typeof giAbort==='function')giAbort();const P=PRES
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?SKY_ENV:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
   applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;if(MAT.ledStrip)MAT.ledStrip.emissiveIntensity=P.lamps?2.2:.1;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
   LAMP_SIG='';updateLampPool();
-  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
+  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05*LAMP_EVE:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
   if(scene.fog)scene.fog.color.copy(fogColor(P));
   syncDerived();
   fitShadow(true);dirty=true;shadowDirty=true;if(typeof PIPE!=='undefined')PIPE.n=0;if(LOOK.studio)planStudio();}
@@ -172,7 +174,7 @@ const PIPE={ok:true,n:0,max:64,size:[2,2],checked:0};
 //  - a larger sun shadow map, supersampling and a longer accumulation.
 // Interior shadows use three probe lights (one spot, two point): every shadow is a texture in every lit shader, and browsers on Windows
 // allow 16 textures per shader.
-const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.18,probes:null,dofPx:.88,aperture:.01,focusMax:25,focus:0,ca:.0025,vig:.3,
+const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.18,probes:null,dofPx:.88,aperture:0,focusMax:25,focus:0,ca:.0025,vig:.3,
   fill:{hemi:.5,env:.7,envI:.6},vol:{morning:.18,midday:.08,afternoon:.15,golden:.2,dusk:0},volOut:.08,volG:.45,volMax:30,volOn:false,giPasses:2,giSprobe:.5,
   // exposure for the room light: 1 = as captured (lifting it made interiors blow out when the room light came on)
   giGain:1,
@@ -232,10 +234,17 @@ const SSR_MAT=window.GPU?gpuSSR():SM(`#define REFL_BOOST ${ULTRA.reflBoost.toFix
   void main(){vec4 e=texture2D(tEnc,vUv);float refl=e.a,d=texture2D(tDepthE,vUv).x;if(refl<.015||d>.99999){gl_FragColor=vec4(0.);return;}
     vec3 P=vposE(vUv);vec2 n2=e.xy*2.-1.;vec3 N=vec3(n2,sqrt(max(0.,1.-dot(n2,n2))));
     float r0=h1(gl_FragCoord.xy*.71+frame*5.13),r1=h1(gl_FragCoord.yx*.37+frame*2.9),r2=h1(vec2(r0,r1)*31.7+frame);
-    N=normalize(N+normalize(vec3(r0,r1,r2)*2.-1.)*e.z*e.z*.55);vec3 V=normalize(P),R=reflect(V,N);float ndv=max(dot(-V,N),0.);
-    float t=.1+r0*.2,stp=.18;vec2 huv=vec2(-1.);
+    // gloss: the normal is jittered within a cone that grows with roughness (averaged over the refinement frames); a narrow cone keeps
+    // glossy reflections sharp and less grainy while refining
+    N=normalize(N+normalize(vec3(r0,r1,r2)*2.-1.)*e.z*e.z*.3);vec3 V=normalize(P),R=reflect(V,N);float ndv=max(dot(-V,N),0.);
+    float t=.1+r0*.2,stp=.18,tp=t;vec2 huv=vec2(-1.);
     for(int i=0;i<56;i++){vec3 S=P+R*t;vec4 q=proj*vec4(S,1.);if(q.w<=0.)break;vec2 uv=q.xy/q.w*.5+.5;if(uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.)break;
-      float sz=vpos(uv).z;if(S.z<sz&&sz-S.z<.3+t*.05){huv=uv;break;}t+=stp;stp*=1.09;}
+      float sz=vpos(uv).z;if(S.z<sz&&sz-S.z<.3+t*.05){
+        // the step crossed a surface: home in on where (a binary search between the last two steps), so the reflection lands on it
+        // instead of up to a whole step beyond it, which smeared and stair-stepped reflections
+        float lo=tp,hi=t;for(int k=0;k<5;k++){float m=(lo+hi)*.5;vec3 Sm=P+R*m;vec4 qm=proj*vec4(Sm,1.);vec2 um=qm.xy/qm.w*.5+.5;if(Sm.z<vpos(um).z)hi=m;else lo=m;}
+        vec4 qh=proj*vec4(P+R*hi,1.);huv=qh.xy/qh.w*.5+.5;t=hi;break;}
+      tp=t;t+=stp;stp*=1.09;}
     if(huv.x<0.){gl_FragColor=vec4(0.);return;}
     vec2 ed=min(huv,1.-huv);float edge=clamp(min(ed.x,ed.y)*12.,0.,1.)*clamp(1.-t/60.,0.,1.);
     float fres=min(1.,refl*REFL_BOOST)+(1.-refl)*pow(1.-ndv,4.)*smoothstep(.01,.06,refl);
@@ -315,12 +324,14 @@ function roomMask(){if(GI_U.tRoom.value)return;const R=indoorRooms(),S=.5;let x0
 // the eye (Henyey-Greenstein, forward-leaning), so light shafts show through windows and under trees. Jittered per frame, accumulated.
 const VOL_MAT=window.GPU?gpuVol():SM(`#include <packing>
 `+ROOM_GLSL+`
-uniform sampler2D tDepth,tShadow;uniform mat4 projInv,camWorld,shadowM;uniform vec3 camPos,sunDir,sunCol;uniform float frame,dens,maxD,g,outK;varying vec2 vUv;
+// (the sun's shadow map: three r186 keeps it in a depth texture set up for comparison, read here with a shadow sampler; r128 packed depth
+// into RGBA, and reading the new map that way saw no shadows at all, so the beams filled every room as a haze)
+uniform sampler2D tDepth;uniform sampler2DShadow tShadow;uniform mat4 projInv,camWorld,shadowM;uniform vec3 camPos,sunDir,sunCol;uniform float frame,dens,maxD,g,outK;varying vec2 vUv;
 float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
 void main(){float d=texture2D(tDepth,vUv).x;vec4 p=projInv*vec4(vUv*2.-1.,min(d,.9999)*2.-1.,1.);vec3 Pv=p.xyz/p.w;float L=d>.99999?maxD:min(length(Pv),maxD);
   vec3 Pw=(camWorld*vec4(Pv,1.)).xyz,rd=normalize(Pw-camPos);float st=L/32.,j=h1(gl_FragCoord.xy*.37+frame*1.618),acc=0.;
   for(int i=0;i<32;i++){vec3 X=camPos+rd*(st*(float(i)+j));vec4 sc=shadowM*vec4(X,1.);vec3 s=sc.xyz/sc.w;float w=mix(outK,1.,roomIn(X));
-    if(s.x<0.||s.y<0.||s.x>1.||s.y>1.||s.z>1.){acc+=w;continue;}acc+=w*step(s.z,unpackRGBAToDepth(texture2D(tShadow,s.xy))+.002);}
+    if(s.x<0.||s.y<0.||s.x>1.||s.y>1.||s.z>1.){acc+=w;continue;}acc+=w*texture(tShadow,vec3(s.xy,s.z-.002));}
   float ct=dot(rd,sunDir),ph=(1.-g*g)/(12.566*pow(1.+g*g-2.*g*ct,1.5));gl_FragColor=vec4(sunCol*(acc*st*dens*ph),1.);}`,
   {tDepth:{value:null},tShadow:{value:null},projInv:{value:new THREE.Matrix4()},camWorld:{value:new THREE.Matrix4()},shadowM:{value:new THREE.Matrix4()},camPos:{value:new THREE.Vector3()},
    sunDir:{value:new THREE.Vector3()},sunCol:{value:new THREE.Color()},frame:{value:0},dens:{value:0},maxD:{value:30},g:{value:.55},outK:{value:.08},tRoom:GI_U.tRoom,roomBox:GI_U.roomBox});
@@ -341,6 +352,7 @@ function updateInteriorShadows(){const U=ULTRA;
     sp.shadow.mapSize.set(1024,1024);sp.shadow.bias=-.0006;sp.shadow.normalBias=.03;sp.shadow.camera.near=.6;scene.add(sp,sp.target);U.probes=[sp];
     for(let i=0;i<2;i++){const pt=new THREE.PointLight(0xffffff,0,16,1.6);pt.shadow.mapSize.set(512,512);pt.shadow.bias=-.003;pt.shadow.normalBias=.04;pt.shadow.camera.near=1.3;scene.add(pt);U.probes.push(pt);}}
   for(const l of [...(LOOK.kitchen||[]).map(k=>k.l),...LOOK.lights])l.castShadow=false;
+  // (only in Ultra, also under WebGPU: shadows always on cost every object a shadow pass per cube face, about 500 MB of memory)
   for(const pr of U.probes)pr.castShadow=isUltra();shadowDirty=true;}
 // soft shadows from the room lights nearest the view (one spot, two point lights): a shadow-casting probe takes over each one, at the same
 // strength and colour, moved a little every refinement frame for a soft edge. (An earlier version shadowed every light by picking one at
@@ -413,7 +425,8 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
       const a=halton(n,11)*6.283,r=Math.sqrt(halton(n,13))*A,R=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0),U=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
       cam.position.addScaledVector(R,Math.cos(a)*r).addScaledVector(U,Math.sin(a)*r);cam.lookAt(fp);cam.updateMatrixWorld();}}
   // Ultra, walking: a real lens, focused where the centre of the view lands (measured when the camera comes to rest)
-  if(!dofSave&&n>0&&isUltra()&&PIPE.enc&&cam===camW&&ST.view==='walk'&&ULTRA.focus>.5){const F=ULTRA.focus,f=cam.getWorldDirection(new THREE.Vector3());
+  // (depth of field is off: LOOK.dof and ULTRA.aperture are 0; set them to bring it back)
+  if(!dofSave&&n>0&&ULTRA.aperture>0&&isUltra()&&PIPE.enc&&cam===camW&&ST.view==='walk'&&ULTRA.focus>.5){const F=ULTRA.focus,f=cam.getWorldDirection(new THREE.Vector3());
     dofSave=[cam.position.clone(),cam.quaternion.clone()];const fp=cam.position.clone().addScaledVector(f,F);
     const a=halton(n,11)*6.283,r=Math.sqrt(halton(n,13))*ULTRA.aperture,R=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0),U=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
     cam.position.addScaledVector(R,Math.cos(a)*r).addScaledVector(U,Math.sin(a)*r);cam.lookAt(fp);cam.updateMatrixWorld();}
@@ -424,7 +437,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
     if(sun.intensity>.3&&LOOK.sunBase){const a=halton(n,5)*6.283,r=Math.sqrt(halton(n,7))*LIGHT_HQ.sunR,t1=new THREE.Vector3().crossVectors(LOOK.sunDir,new THREE.Vector3(0,1,0)).normalize(),t2=new THREE.Vector3().crossVectors(t1,LOOK.sunDir);
       sun.position.copy(LOOK.sunBase).addScaledVector(t1,Math.cos(a)*r).addScaledVector(t2,Math.sin(a)*r);renderer.shadowMap.needsUpdate=true;}}
   else{if(LOOK.sunBase)sun.position.copy(LOOK.sunBase);if(shadowDirty){renderer.shadowMap.needsUpdate=true;shadowDirty=false;}}
-  if(SKYL.length&&SKYL[0].visible&&!preview){const c=sun.target.position,sc=sun.shadow.camera,d=new THREE.Vector3();
+  if(SKYL.length&&SKYL[0].visible&&isHQ()&&!preview){const c=sun.target.position,sc=sun.shadow.camera,d=new THREE.Vector3();
     for(let j=0;j<SKYL.length;j++){const L=SKYL[j],i=n*SKYL.length+j+1,y=SKY_E0+(1-SKY_E0)*halton(i,17),ph=6.2832*halton(i,19),r=Math.sqrt(1-y*y);
       d.set(r*Math.cos(ph),y,r*Math.sin(ph));L.position.copy(c).addScaledVector(d,230);L.target.position.copy(c);L.target.updateMatrixWorld();
       skyColorAt(d,L.color);L.intensity=LOOK.skyI*(PRESETS[LOOK.preset].sky??1)/SKYL.length;
@@ -443,9 +456,9 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
     for(const M of [GI_MAT,SSR_MAT]){const u=M.uniforms;u.tC.value=M===GI_MAT?PIPE.rt.texture:src;u.tDepth.value=PIPE.rt.depthTexture;u.tDepthE.value=PIPE.enc.depthTexture;u.tEnc.value=PIPE.enc.texture;
       u.proj.value.copy(cam.projectionMatrix);u.projInv.value.copy(cam.projectionMatrixInverse);u.frame.value=n%251;}
     GI_MAT.uniforms.radius.value=ST.view==='walk'?5:ULTRA.giR;fs(GI_MAT,PIPE.gi);fs(SSR_MAT,PIPE.ssr);
-    if(n===0&&!preview&&ST.view==='walk')readFocus(cam);
+    if(n===0&&!preview&&ST.view==='walk'&&ULTRA.aperture>0)readFocus(cam);
     const vd=ST.view==='walk'?(ULTRA.vol[LOOK.preset]||0):0;
-    if(vd>0&&sun.shadow.map){const vu=VOL_MAT.uniforms;vu.tDepth.value=PIPE.rt.depthTexture;vu.tShadow.value=window.GPU?sun.shadow.map.depthTexture:sun.shadow.map.texture;vu.projInv.value.copy(cam.projectionMatrixInverse);
+    if(vd>0&&sun.shadow.map){const vu=VOL_MAT.uniforms;vu.tDepth.value=PIPE.rt.depthTexture;vu.tShadow.value=sun.shadow.map.depthTexture;vu.projInv.value.copy(cam.projectionMatrixInverse);
       vu.camWorld.value.copy(cam.matrixWorld);vu.shadowM.value.copy(sun.shadow.matrix);vu.camPos.value.setFromMatrixPosition(cam.matrixWorld);vu.sunDir.value.copy(LOOK.sunDir);
       vu.sunCol.value.copy(sun.color).multiplyScalar(sun.intensity);vu.frame.value=n%253;vu.dens.value=vd;vu.maxD.value=ULTRA.volMax;vu.g.value=ULTRA.volG;vu.outK.value=ULTRA.volOut;roomMask();fs(VOL_MAT,PIPE.vol);ULTRA.volOn=true;}}
   AO_MAT.uniforms.tDepth.value=PIPE.rt.depthTexture;AO_MAT.uniforms.proj.value.copy(cam.projectionMatrix);AO_MAT.uniforms.projInv.value.copy(cam.projectionMatrixInverse);

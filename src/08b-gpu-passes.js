@@ -15,7 +15,11 @@ function SMG(spec,build){const {uniform,texture,Fn}=GPU_PASS,u={};
   const m=new THREE.MeshBasicNodeMaterial({depthTest:false,depthWrite:false,toneMapped:false,fog:false,side:THREE.DoubleSide,blending:THREE.NoBlending});   // (not opaque: opaque node materials force alpha to 1, and the reflection pass carries its strength in alpha)
   m.vertexNode=GPU_PASS.vec4(GPU_PASS.positionLocal.x,GPU_PASS.positionLocal.y.mul(GPU_FLIP),0,1);m.colorNode=Fn(()=>build(u))();m.uniforms=u;return m;}
 // shared helpers (TSL): view-space position from depth, a hash, the screen pixel
-function gpuVpos(u,tDepth,projInv){const {vec4,texture}=GPU_PASS;return q=>{const d=tDepth.sample(q).x,p=projInv.mul(vec4(q.mul(2).sub(1),d,1));return p.xyz.div(p.w);};}
+// screen uv <-> normalised device xy. In these passes uv.y runs down the screen (WebGPU textures are top-down, and the quad is drawn flipped
+// so its uv matches them), while device y runs up: without the flip every view position was mirrored top to bottom, which nothing
+// noticed until the reflections, which mix those positions with the true normals, reflected the wrong things
+const gpuNdc=q=>q.mul(GPU_PASS.vec2(2,-2)).add(GPU_PASS.vec2(-1,1)),gpuUv=n=>n.mul(GPU_PASS.vec2(.5,-.5)).add(.5);
+function gpuVpos(u,tDepth,projInv){const {vec4,texture}=GPU_PASS;return q=>{const d=tDepth.sample(q).x,p=projInv.mul(vec4(gpuNdc(q),d,1));return p.xyz.div(p.w);};}
 const gpuH1=p=>GPU_PASS.fract(GPU_PASS.sin(GPU_PASS.dot(p,GPU_PASS.vec2(12.9898,78.233))).mul(43758.5453));
 // ---------- ambient occlusion ----------
 function gpuAO(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,cross,dFdx,dFdy,dot,cos,sin,sqrt,max,mix,step,smoothstep,abs,clamp,screenCoordinate}=GPU_PASS;
@@ -26,7 +30,7 @@ function gpuAO(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,cross,d
     const T=normalize(rv.sub(N.mul(dot(rv,N)))),B=cross(N,T),occ=float(0).toVar();
     Loop(14,({i})=>{const fi=float(i),a=gpuH1(vec2(fi.mul(3.7).add(u.frame.mul(1.3)),r0.mul(91.3))),b=gpuH1(vec2(r0.mul(17.1).add(u.frame),fi.mul(1.31)));
       const sr=sqrt(a),th=b.mul(6.2831853),s=vec3(sr.mul(cos(th)),sr.mul(sin(th)),sqrt(max(0,float(1).sub(a)))),sc=mix(.12,1,gpuH1(vec2(fi.add(r0),u.frame.mul(.37))));
-      const S=P.add(T.mul(s.x).add(B.mul(s.y)).add(N.mul(s.z)).mul(u.radius.mul(sc))),qq=u.proj.mul(vec4(S,1)),q2=qq.xy.div(qq.w).mul(.5).add(.5);
+      const S=P.add(T.mul(s.x).add(B.mul(s.y)).add(N.mul(s.z)).mul(u.radius.mul(sc))),qq=u.proj.mul(vec4(S,1)),q2=gpuUv(qq.xy.div(qq.w));
       const inside=q2.x.greaterThanEqual(0).and(q2.y.greaterThanEqual(0)).and(q2.x.lessThanEqual(1)).and(q2.y.lessThanEqual(1));
       const sz=vpos(q2).z;occ.addAssign(select(inside,step(S.z.add(u.radius.mul(.03)),sz).mul(smoothstep(0,1,u.radius.div(max(abs(P.z.sub(sz)),1e-4)))),0));});
     const ao=clamp(float(1).sub(occ.div(14)),0,1);return select(d.greaterThan(.99999),vec4(1),vec4(ao,ao,ao,1));});}

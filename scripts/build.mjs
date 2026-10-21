@@ -12,7 +12,7 @@ const css = fs.readFileSync(path.join(root, 'src/styles.css'), 'utf8');
 html = html.replace('<link rel="stylesheet" href="src/styles.css">', '<style>\n' + css.replace(/\s+$/, '') + '\n</style>');
 
 const THREE_VER = JSON.parse(fs.readFileSync(path.join(root, 'node_modules/three/package.json'), 'utf8')).version, CDN = 'https://cdn.jsdelivr.net/npm/three@' + THREE_VER;
-html = html.replace(/<script type="importmap">[^\n]*<\/script>/, () => '<script type="importmap">' + JSON.stringify({ imports: { three: CDN + '/build/three.module.js', 'three/webgpu': CDN + '/build/three.webgpu.js', 'three/tsl': CDN + '/build/three.tsl.js', 'three/addons/': CDN + '/examples/jsm/', 'three/examples/jsm/': CDN + '/examples/jsm/', ...pkgCdn('three-mesh-bvh', { '': '/src/index.js', '/webgpu': '/src/webgpu/index.js' }), ...pkgCdn('three-gpu-pathtracer', { '/webgpu': '/src/webgpu/index.js' }) } }) + '</script>');
+html = html.replace(/<script type="importmap">[^\n]*<\/script>/, () => '<script type="importmap">' + JSON.stringify({ imports: { three: CDN + '/build/three.module.js', 'three/webgpu': CDN + '/build/three.webgpu.js', 'three/tsl': CDN + '/build/three.tsl.js', 'three/addons/': CDN + '/examples/jsm/', 'three/examples/jsm/': CDN + '/examples/jsm/', ...pkgCdn('three-mesh-bvh', { '': '/src/index.js', '/webgpu': '/src/webgpu/index.js' }), ...pkgCdn('three-gpu-pathtracer', { '/webgpu': '/src/webgpu/index.js' }), ...pkgCdn('oidn-web', { '': '/dist/oidn.js' }) } }) + '</script>');
 // the path tracer's packages, from the CDN at the installed versions
 function pkgCdn(name, entries) { const v = JSON.parse(fs.readFileSync(path.join(root, 'node_modules', name, 'package.json'), 'utf8')).version, o = {};
   for (const k in entries) o[name + k] = 'https://cdn.jsdelivr.net/npm/' + name + '@' + v + entries[k]; return o; }
@@ -30,6 +30,8 @@ html = html.slice(0, first) + '<script type="text/plain" id="app-src">\n' + code
   const tail = html.lastIndexOf('</body>');
   html = html.slice(0, tail) + '<script>window.__APP_LINE0=' + tagLine + ';</script>\n<script type="module">\n' + boot + '\nconst __s = document.createElement(\'script\'); __s.textContent = document.getElementById(\'app-src\').textContent; document.body.appendChild(__s);\n</script>\n' + html.slice(tail); }
 
+// the denoiser's weights (0.6 MB), embedded like the models
+{ const wp = path.join(root, 'assets/weights/rt_hdr_alb_nrm_small.tza'); if (fs.existsSync(wp)) { const tail = html.lastIndexOf('</body>'); html = html.slice(0, tail) + '<script>window.__OIDN_WEIGHTS="data:application/octet-stream;base64,' + fs.readFileSync(wp).toString('base64') + '";</script>\n' + html.slice(tail); } }
 // imported models: embed the manifest and each GLB as a data URI, after the app code so Debug ID line numbers don't move
 const manPath = path.join(root, 'assets/models/manifest.json');
 if (fs.existsSync(manPath)) {
