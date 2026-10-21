@@ -1,9 +1,9 @@
 // 15-pathtrace.js: the "Path" quality, a path-traced Ultra (WebGPU only)
 "use strict";
 // ================= PATH TRACING =================
-// three-gpu-pathtracer (WebGPU compute shaders over a three-mesh-bvh BVH, loaded on first use) traces the view once the camera rests
-// and the Ultra raster image of it has finished refining. That Ultra image stays on screen while the trace runs out of sight; the
-// finished, denoised trace then fades in over it (PTRACE_FADE). Moving the camera shows the Ultra preview again.
+// three-gpu-pathtracer (WebGPU compute shaders over a three-mesh-bvh BVH, loaded on first use) traces the view as soon as the camera
+// rests, while the Ultra raster image of it goes on refining on screen (they share the GPU); the finished, denoised trace then fades in
+// over it (PTRACE_FADE). Moving the camera shows the Ultra preview again.
 //  - The traced scene is a copy of what the view shows: the visible meshes sharing their geometry's position, normal and uv arrays (the
 //    tracer adds tangents to its copies, not to the app's geometry), with materials read as plain PBR (colour, map, roughness, metalness,
 //    normal map, emission); glass becomes real transmission; the app's node patches (wash, anti-tiling, ...) are left out.
@@ -26,7 +26,7 @@ const PTRACE={lib:null,bvh:null,loading:null,err:null,tracer:null,sig:'',camSig:
   out:null,calls:0,t0:0,doneAt:0,finalAt:0,proxyMat:null,spp:0,sppAt:0,expK:1,expDone:false,den:null,rts:null,oidn:null,oidnErr:null,dn:0,aux:null};
 const ptrOidnOK=()=>!!PTRACE.oidn&&!PTRACE.oidnErr;
 // samples per pixel (the least sampled pixel) before the trace stops: few with the trained denoiser, many without it
-const PTRACE_CFG={spp:[64,48],sppNoDn:[160,128],bounces:6,centerAbove:150000,scale:1,perFrame:2,dayLamps:.35};   // ...; tracer calls per frame (each is a fixed amount of work: two
+const PTRACE_CFG={spp:[40,32],sppNoDn:[160,128],bounces:6,centerAbove:150000,scale:1,perFrame:2,dayLamps:.35,preview:48};   // ...; tracer calls per frame (each is a fixed amount of work: two
 // nearly halved the time with the frame rate unchanged; more only made the page choppier); the 3/4 cutaway's daytime lamps (traced, they
 // are real point lights, far stronger near the fixtures than the raster's soft glow, and lit the rooms as if the ceilings were off)   // ...; meshes above this many triangles get the quick (centre-split) BVH   // samples per pixel [walk, other views], with and without the denoiser
 const PTRACE_SPP=()=>{const a=ptrOidnOK()?PTRACE_CFG.spp:PTRACE_CFG.sppNoDn;return ST.view==='walk'?a[0]:a[1];};
@@ -159,9 +159,8 @@ function ptrCam(cam){if(cam.__ptr)return cam;const {uniform}=TSL,{wgslTagFn,rayS
   cam.__ptr=true;return cam;}
 // ---------- per frame: true when the trace drew (or holds) the image ----------
 function ptrFrame(cam,now){if(!ptrWant(now)){PTRACE.active=false;return false;}if(!PTRACE.tracer){ptrLoad();return false;}
-  // the Ultra image of this view finishes first (it stays on screen while the trace runs, and the build's pauses show a finished frame)
-  if(!PTRACE.active&&PIPE.n<PIPE.max)return false;PTRACE.active=true;
-  const sig=ptrSigGeo();if(sig!==PTRACE.sig){if(!ptrSky())return false;
+  PTRACE.active=true;
+  const sig=ptrSigGeo();if(sig!==PTRACE.sig){if(!ptrSky()||PIPE.n<Math.min(PIPE.max,16))return false;   // (a refined raster frame first, so the build's pauses show it)
     if(!PTRACE.prep||PTRACE.prep.sig!==sig)ptrBuild(sig);PTRACE.cam=ptrCam(cam);if(!ptrStep(cam))return false;PTRACE.tracer.setCamera(cam);}
   else{const xf=ptrSigXf();if(xf!==PTRACE.sigXf){PTRACE.sigXf=xf;ptrMoved();PTRACE.camSig='';}
     const li=ptrSigLight();if(li!==PTRACE.sigLight){const sky=ptrSky();if(!sky)return false;PTRACE.sigLight=li;ptrRelight(sky);PTRACE.camSig='';}}
@@ -170,7 +169,10 @@ function ptrFrame(cam,now){if(!ptrWant(now)){PTRACE.active=false;return false;}i
   const cs=camSig(cam)+tw+'x'+th;if(cs!==PTRACE.camSig){PTRACE.camSig=cs;PTRACE.tracer.setSize(tw,th);PTRACE.tracer.updateCamera();PTRACE.tracer.maxSamples=PTRACE_SPP();
     PTRACE.calls=0;PTRACE.spp=0;PTRACE.sppAvg=0;PTRACE.t0=now;PTRACE.doneAt=0;PTRACE.finalAt=0;PTRACE.expDone=false;PTRACE.guides=false;PTRACE.dn=0;PTRACE.fin=0;PTRACE.fade0=0;if(PTRACE.oidn)PTRACE.oidn.reset();}
   if(PTRACE.doneAt){if(PTRACE.finalAt)return true;
-    if(!PTRACE.guides||!PTRACE.expDone&&PTRACE.fin){OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);return true;}
+    // the denoiser's guides (and the raster image the trace fades from) once the samples are in: Ultra's refinement, which shares
+    // those passes, has stopped by then
+    if(!PTRACE.guides){PTRACE.guides=true;ptrGuides(cam,tw,th);OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);return true;}
+    if(!PTRACE.expDone&&PTRACE.fin){OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);return true;}
     // the samples are in: the trained denoiser (spread over a few frames), then the final image and its fade
     const D=PTRACE.oidn;if(ptrOidnOK()&&!PTRACE.dn){PTRACE.dn=1;ptrAux(PTRACE.rts[0].width,PTRACE.rts[0].height);
       D.denoise(PTRACE.tracer.target,PTRACE.aux[0].texture,PTRACE.aux[1].texture).catch(e=>{PTRACE.oidnErr=e;console.warn('path tracer: denoiser failed',e);
@@ -184,13 +186,14 @@ function ptrFrame(cam,now){if(!ptrWant(now)){PTRACE.active=false;return false;}i
     if(t>=1){PTRACE.finalAt=now;console.info('path tracer: final (faded in) after',((now-PTRACE.t0)/1000).toFixed(1),'s');}
     return true;}
   for(let i=0;i<PTRACE_CFG.perFrame;i++)PTRACE.tracer.renderSample();PTRACE.calls++;
-  if(!PTRACE.guides&&PTRACE.calls>=2){PTRACE.guides=true;ptrGuides(cam,tw,th);}   // (drawn a frame after a reset: drawn in the reset's own frame the albedo came out black)
   // the sample count, read back every half second (the least sampled pixel decides when the trace is done)
   if(!PTRACE.sppBusy&&now-PTRACE.sppAt>500){PTRACE.sppBusy=true;PTRACE.sppAt=now;const cs0=PTRACE.camSig;PTRACE.tracer.getSampleCountsAsync().then(c=>{if(PTRACE.camSig!==cs0)return;PTRACE.spp=c.min;PTRACE.sppAvg=c.avg;
       if(c.min>=PTRACE_SPP()&&!PTRACE.doneAt){PTRACE.doneAt=performance.now();console.info('path tracer:',c.min,'samples per pixel in',((PTRACE.doneAt-PTRACE.t0)/1000).toFixed(1),'s');}})
     .catch(()=>{}).finally(()=>{PTRACE.sppBusy=false;});}
-  // the finished Ultra image stays on screen (the tracer draws its own output to the canvas, so it is drawn over it again)
-  OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);return true;}
+  // on screen meanwhile: Ultra, still refining or finished (the tracer draws its own output to the canvas, so this is drawn over it)
+  // (Ultra refines only its first PTRACE_CFG.preview frames meanwhile: enough for a clean preview, and the rest of the GPU goes to the trace)
+  if(PIPE.n<Math.min(PIPE.max,PTRACE_CFG.preview)&&!giBuilding(now))renderHigh(cam);else{OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);}
+  return true;}
 function ptrProgress(){return PTRACE.finalAt||PTRACE.fade0?1:Math.min(.99,(PTRACE.sppAvg||0)/PTRACE_SPP()*(ptrOidnOK()?.9:1)+(PTRACE.dn?.09:0));}
 // ---------- denoise and present ----------
 // guides: Ultra's normal/gloss (with its depth) and albedo passes, drawn once for the resting camera (no jitter), with the cut-out

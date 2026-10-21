@@ -86,10 +86,14 @@ test('models in assets/models/manifest.json match their product dimensions and f
   const man = fs.existsSync('assets/models/manifest.json') ? JSON.parse(fs.readFileSync('assets/models/manifest.json', 'utf8')) : { models: [] };
   test.skip(!(man.models || []).some(m => m.enabled !== false), 'no models in the manifest yet');
   await openApp(page);
+  // fast rendering: the test browser renders in software, where each high-quality frame takes seconds and starves the model loader
+  await page.evaluate(() => setQuality('fast'));
   await page.waitForFunction(() => MODELS_READY, null, { timeout: 90_000 });
   const report = await page.evaluate(() => modelReport());
   expect(report.map(r => r.id).sort()).toEqual(man.models.filter(m => m.enabled !== false).map(m => m.id).sort());
-  for (const r of report) expect(r.issues, `${r.id}: run npm run model:check -- ${r.id}`).toEqual([]);
+  // a model sized by hand (an explicit scale in the manifest) has no product dimensions to check, by choice
+  const manual = new Set(man.models.filter(m => m.scale !== undefined && !m.spec).map(m => m.id));
+  for (const r of report) expect(r.issues.filter(i => !(manual.has(r.id) && /no product dimensions/.test(i))), `${r.id}: run npm run model:check -- ${r.id}`).toEqual([]);
 });
 
 test('Debug Delete removes exactly the code that builds an element', async () => {

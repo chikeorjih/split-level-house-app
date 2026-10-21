@@ -2100,7 +2100,11 @@ function SMG(spec,build){const {uniform,texture,Fn}=GPU_PASS,u={};
   const m=new THREE.MeshBasicNodeMaterial({depthTest:false,depthWrite:false,toneMapped:false,fog:false,side:THREE.DoubleSide,blending:THREE.NoBlending});   // (not opaque: opaque node materials force alpha to 1, and the reflection pass carries its strength in alpha)
   m.vertexNode=GPU_PASS.vec4(GPU_PASS.positionLocal.x,GPU_PASS.positionLocal.y.mul(GPU_FLIP),0,1);m.colorNode=Fn(()=>build(u))();m.uniforms=u;return m;}
 // shared helpers (TSL): view-space position from depth, a hash, the screen pixel
-function gpuVpos(u,tDepth,projInv){const {vec4,texture}=GPU_PASS;return q=>{const d=tDepth.sample(q).x,p=projInv.mul(vec4(q.mul(2).sub(1),d,1));return p.xyz.div(p.w);};}
+// screen uv <-> normalised device xy. In these passes uv.y runs down the screen (WebGPU textures are top-down, and the quad is drawn flipped
+// so its uv matches them), while device y runs up: without the flip every view position was mirrored top to bottom, which nothing
+// noticed until the reflections, which mix those positions with the true normals, reflected the wrong things
+const gpuNdc=q=>q.mul(GPU_PASS.vec2(2,-2)).add(GPU_PASS.vec2(-1,1)),gpuUv=n=>n.mul(GPU_PASS.vec2(.5,-.5)).add(.5);
+function gpuVpos(u,tDepth,projInv){const {vec4,texture}=GPU_PASS;return q=>{const d=tDepth.sample(q).x,p=projInv.mul(vec4(gpuNdc(q),d,1));return p.xyz.div(p.w);};}
 const gpuH1=p=>GPU_PASS.fract(GPU_PASS.sin(GPU_PASS.dot(p,GPU_PASS.vec2(12.9898,78.233))).mul(43758.5453));
 // ---------- ambient occlusion ----------
 function gpuAO(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,cross,dFdx,dFdy,dot,cos,sin,sqrt,max,mix,step,smoothstep,abs,clamp,screenCoordinate}=GPU_PASS;
@@ -2111,7 +2115,7 @@ function gpuAO(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,cross,d
     const T=normalize(rv.sub(N.mul(dot(rv,N)))),B=cross(N,T),occ=float(0).toVar();
     Loop(14,({i})=>{const fi=float(i),a=gpuH1(vec2(fi.mul(3.7).add(u.frame.mul(1.3)),r0.mul(91.3))),b=gpuH1(vec2(r0.mul(17.1).add(u.frame),fi.mul(1.31)));
       const sr=sqrt(a),th=b.mul(6.2831853),s=vec3(sr.mul(cos(th)),sr.mul(sin(th)),sqrt(max(0,float(1).sub(a)))),sc=mix(.12,1,gpuH1(vec2(fi.add(r0),u.frame.mul(.37))));
-      const S=P.add(T.mul(s.x).add(B.mul(s.y)).add(N.mul(s.z)).mul(u.radius.mul(sc))),qq=u.proj.mul(vec4(S,1)),q2=qq.xy.div(qq.w).mul(.5).add(.5);
+      const S=P.add(T.mul(s.x).add(B.mul(s.y)).add(N.mul(s.z)).mul(u.radius.mul(sc))),qq=u.proj.mul(vec4(S,1)),q2=gpuUv(qq.xy.div(qq.w));
       const inside=q2.x.greaterThanEqual(0).and(q2.y.greaterThanEqual(0)).and(q2.x.lessThanEqual(1)).and(q2.y.lessThanEqual(1));
       const sz=vpos(q2).z;occ.addAssign(select(inside,step(S.z.add(u.radius.mul(.03)),sz).mul(smoothstep(0,1,u.radius.div(max(abs(P.z.sub(sz)),1e-4)))),0));});
     const ao=clamp(float(1).sub(occ.div(14)),0,1);return select(d.greaterThan(.99999),vec4(1),vec4(ao,ao,ao,1));});}
@@ -2149,7 +2153,7 @@ if(window.GPU){THREE.WebGLRenderTarget=THREE.RenderTarget;if(THREE.CubeRenderTar
 // ================= ULTRA PASSES (WebGPU) =================
 const GPU_ULTRA_UN=()=>({tC:'tex',tDepth:'depth',tDepthE:'depth',tEnc:'tex',proj:new THREE.Matrix4(),projInv:new THREE.Matrix4(),frame:0,radius:7});
 const gpuInside=q=>q.x.greaterThanEqual(0).and(q.y.greaterThanEqual(0)).and(q.x.lessThanEqual(1)).and(q.y.lessThanEqual(1));
-const gpuProj2=(proj,S)=>{const q=proj.mul(GPU_PASS.vec4(S,1));return q.xy.div(q.w).mul(.5).add(.5);};
+const gpuProj2=(proj,S)=>{const q=proj.mul(GPU_PASS.vec4(S,1));return gpuUv(q.xy.div(q.w));};
 // encoded normal: view xy in .xy (z rebuilt), gloss in .z, reflectivity in .a
 const gpuDecN=e=>{const {vec3,sqrt,max,dot,float}=GPU_PASS,n2=e.xy.mul(2).sub(1);return vec3(n2,sqrt(max(0,float(1).sub(dot(n2,n2)))));};
 // ---------- one-bounce GI ----------
@@ -2169,11 +2173,16 @@ function gpuGI(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,cross,d
 function gpuSSR(){const {vec2,vec3,vec4,float,uv,Loop,If,select,normalize,dot,max,min,pow,clamp,smoothstep,reflect,screenCoordinate}=GPU_PASS,BOOST=ULTRA.reflBoost;
   return SMG(GPU_ULTRA_UN(),u=>{const q=uv(),e=u.tEnc.sample(q),refl=e.a,d=u.tDepthE.sample(q).x,vpos=gpuVpos(u,u.tDepth,u.projInv),P=gpuVpos(u,u.tDepthE,u.projInv)(q);
     const r0=gpuH1(screenCoordinate.xy.mul(.71).add(u.frame.mul(5.13))),r1=gpuH1(screenCoordinate.yx.mul(.37).add(u.frame.mul(2.9))),r2=gpuH1(vec2(r0,r1).mul(31.7).add(u.frame));
-    const N=normalize(gpuDecN(e).add(normalize(vec3(r0,r1,r2).mul(2).sub(1)).mul(e.z.mul(e.z).mul(.55)))),V=normalize(P),R=reflect(V,N),ndv=max(dot(V.negate(),N),0);
-    const t=r0.mul(.2).add(.1).toVar(),stp=float(.18).toVar(),huv=vec2(-1).toVar(),done=float(0).toVar();
-    Loop(56,()=>{If(done.equal(0),()=>{const S=P.add(R.mul(t)),qq=u.proj.mul(vec4(S,1)),q2=qq.xy.div(qq.w).mul(.5).add(.5);
+    // (as the GLSL: a narrow gloss cone, and a binary search onto the surface a step crosses)
+    const N=normalize(gpuDecN(e).add(normalize(vec3(r0,r1,r2).mul(2).sub(1)).mul(e.z.mul(e.z).mul(.3)))),V=normalize(P),R=reflect(V,N),ndv=max(dot(V.negate(),N),0);
+    const t=r0.mul(.2).add(.1).toVar(),tp=t.toVar(),stp=float(.18).toVar(),huv=vec2(-1).toVar(),done=float(0).toVar();
+    Loop(56,()=>{If(done.equal(0),()=>{const S=P.add(R.mul(t)),qq=u.proj.mul(vec4(S,1)),q2=gpuUv(qq.xy.div(qq.w));
       If(qq.w.lessThanEqual(0).or(gpuInside(q2).not()),()=>{done.assign(1);}).Else(()=>{const sz=vpos(q2).z;
-        If(S.z.lessThan(sz).and(sz.sub(S.z).lessThan(t.mul(.05).add(.3))),()=>{huv.assign(q2);done.assign(1);}).Else(()=>{t.addAssign(stp);stp.mulAssign(1.09);});});});});
+        If(S.z.lessThan(sz).and(sz.sub(S.z).lessThan(t.mul(.05).add(.3))),()=>{const lo=tp.toVar(),hi=t.toVar();
+          Loop({start:0,end:5,name:'k'},()=>{const m=lo.add(hi).mul(.5),Sm=P.add(R.mul(m)),qm=u.proj.mul(vec4(Sm,1));
+            If(Sm.z.lessThan(vpos(gpuUv(qm.xy.div(qm.w))).z),()=>{hi.assign(m);}).Else(()=>{lo.assign(m);});});
+          const qh=u.proj.mul(vec4(P.add(R.mul(hi)),1));huv.assign(gpuUv(qh.xy.div(qh.w)));t.assign(hi);done.assign(1);})
+        .Else(()=>{tp.assign(t);t.addAssign(stp);stp.mulAssign(1.09);});});});});
     const ed=min(huv,vec2(1).sub(huv)),edge=clamp(min(ed.x,ed.y).mul(12),0,1).mul(clamp(float(1).sub(t.div(60)),0,1));
     const fres=min(1,refl.mul(BOOST)).add(float(1).sub(refl).mul(pow(float(1).sub(ndv),4)).mul(smoothstep(.01,.06,refl)));
     const miss=refl.lessThan(.015).or(d.greaterThan(.99999)).or(huv.x.lessThan(0));
@@ -2210,15 +2219,17 @@ if(window.GPU){const PLM=THREE.PhysicalLightingModel.prototype,ind=PLM.indirect;
 // ---------- sunbeams ----------
 function gpuVol(){const {vec4,float,uv,Loop,select,normalize,length,min,mix,step,dot,pow,screenCoordinate}=GPU_PASS;
   return SMG({tDepth:'depth',tShadow:'depth',projInv:new THREE.Matrix4(),camWorld:new THREE.Matrix4(),shadowM:new THREE.Matrix4(),camPos:new THREE.Vector3(),sunDir:new THREE.Vector3(),sunCol:new THREE.Color(),frame:0,dens:0,maxD:30,g:.55,outK:.08},u=>{
-    const q=uv(),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(q.mul(2).sub(1),min(d,.9999),1)),Pv=p.xyz.div(p.w),L=select(d.greaterThan(.99999),u.maxD,min(length(Pv),u.maxD));
+    const q=uv(),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(gpuNdc(q),min(d,.9999),1)),Pv=p.xyz.div(p.w),L=select(d.greaterThan(.99999),u.maxD,min(length(Pv),u.maxD));
     const Pw=u.camWorld.mul(vec4(Pv,1)).xyz,rd=normalize(Pw.sub(u.camPos)),st=L.div(32),j=gpuH1(screenCoordinate.xy.mul(.37).add(u.frame.mul(1.618))),acc=float(0).toVar();
     Loop(32,({i})=>{const X=u.camPos.add(rd.mul(st.mul(float(i).add(j)))),sc=u.shadowM.mul(vec4(X,1)),s=sc.xyz.div(sc.w),w=mix(u.outK,1,gpuRoomIn(X));
-      const out=gpuInside(s.xy).not().or(s.z.greaterThan(1));acc.addAssign(select(out,w,w.mul(step(s.z,u.tShadow.sample(s.xy).x.add(.002)))));});
+      const out=gpuInside(s.xy).not().or(s.z.greaterThan(1));acc.addAssign(select(out,w,w.mul(step(s.z,u.tShadow.sample(GPU_PASS.vec2(s.x,s.y.oneMinus())).x.add(.002)))));});
     const ct=dot(rd,u.sunDir),ph=float(1).sub(u.g.mul(u.g)).div(pow(float(1).add(u.g.mul(u.g)).sub(u.g.mul(2).mul(ct)),1.5).mul(12.566));
     return vec4(u.sunCol.mul(acc.mul(st).mul(u.dens).mul(ph)),1);});}
+// (the shadow map is read with y flipped, as three's own shadow lookup does under WebGPU: without it every step read the mirrored spot of the
+// map, nearly always in shadow, and the sunbeams were missing)
 // ---------- autofocus: nearest view depth near the centre, written raw (the focus target is a float texture under WebGPU) ----------
 function gpuFocus(){const {vec2,vec4,float,min,select}=GPU_PASS;return SMG({tDepth:'depth',projInv:new THREE.Matrix4()},u=>{let z=float(1e9);
-  for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){const q=vec2(.5).add(vec2(i,j).mul(.012)),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(q.mul(2).sub(1),d,1));z=min(z,select(d.greaterThan(.99999),float(200),p.z.div(p.w).negate()));}
+  for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){const q=vec2(.5).add(vec2(i,j).mul(.012)),d=u.tDepth.sample(q).x,p=u.projInv.mul(vec4(gpuNdc(q),d,1));z=min(z,select(d.greaterThan(.99999),float(200),p.z.div(p.w).negate()));}
   return vec4(z,0,0,1);});}
 // ---------- probes: a cube map to first-order spherical harmonics, and dilation of the atlas ----------
 function gpuSHP(){const {vec2,vec3,vec4,float,Loop,normalize,dot,pow,min,select,cubeTexture,uniform}=GPU_PASS;
@@ -2262,13 +2273,13 @@ const PRESETS={
     grade:{wb:[1.045,1,.92],lift:[.012,.01,.004],sat:1.04,con:1.09,css:'sepia(.1) saturate(1.04) contrast(1.09)'}},
   golden:{stc:[1,.92,.84],label:'Golden hour',h:H2(DIRS.W,[DIRS.N[0]*.25,DIRS.N[1]*.25]),elev:8,sun:0xff9445,si:2.0,zen:0x4a67a8,hor:0xf2a66c,gnd:0x3a3026,exp:1.28,envE:.85,envI:.75,lamps:false,bloom:.26,hemi:.08,sky:.9,
     grade:{wb:[1.08,.98,.84],lift:[.02,.008,0],sat:1.15,con:1.15,css:'sepia(.18) saturate(1.18) contrast(1.15)'}},
-  dusk:{stc:[.22,.23,.40],label:'Evening, cozy',h:H2(DIRS.W,[DIRS.N[0]*.3,DIRS.N[1]*.3]),elev:5,sun:0x7b8fd0,si:.6,zen:0x1c3062,hor:0x7a6478,gnd:0x161412,exp:1.2,envE:.4,envI:.2,lamps:true,bloom:.2,hemi:.06,sky:.4,
+  dusk:{stc:[.22,.23,.40],label:'Evening',h:H2(DIRS.W,[DIRS.N[0]*.3,DIRS.N[1]*.3]),elev:5,sun:0x7b8fd0,si:.6,zen:0x1c3062,hor:0x7a6478,gnd:0x161412,exp:1.2,envE:.4,envI:.2,lamps:true,bloom:.2,hemi:.06,sky:.4,
     // cozy dusk: warm amber lamps against a soft blue night glow that comes in through the windows (cool sun and sky light, bluish window
     // light in the room reflections) and settles in the shadows; the grade keeps the lamps warm but lifts the shadows toward blue
     grade:{wb:[1.04,1,.93],lift:[.004,.01,.03],sat:1.06,con:1.06,css:'sepia(.12) saturate(1.06) contrast(1.06) brightness(.95)'}}
 };
 // bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
-const LOOK={bloomScale:.5,dof:10,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
+const LOOK={bloomScale:.5,dof:0,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
 const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
   'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
@@ -2331,7 +2342,7 @@ function makeEnvs(P,name){const ce=ENV_CACHE[name];if(ce){SKY_ENV=ce.sky;ROOM_EN
 const LAMPV=[],_lf=new THREE.Vector3();let LAMP_SIG='';
 // by day the lamps are off, except in the 3/4 cutaway, where the rooms are shown as if their ceilings were on (see SHADOW_PROXY in
 // 12-app.js) and the lamps glow at LAMP_DAY of their evening strength alongside the window light
-const LAMP_DAY=.3,lampsDim=()=>!PRESETS[LOOK.preset].lamps&&ST.view==='three'&&!ST.pending&&!!ST.cutL;
+const LAMP_DAY=.3,LAMP_EVE=.8,lampsDim=()=>!PRESETS[LOOK.preset].lamps&&ST.view==='three'&&!ST.pending&&!!ST.cutL;
 function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6,2.3,25],[22,7,6],[8,-6.6,20],[25,-6.6,6],[37.6,7,5.4]];
   const pr={chandelier:0,pendant:1,ceiling:2,lamp:3,outdoor:4};const L=LAMPS.slice().sort((a,b)=>pr[a.k]-pr[b.k]);let pend=null;const out=[];
   for(const l of L){if(l.k==='pendant'){if(!pend){pend=l.v.clone();out.push({v:pend,k:'pendant'});}else pend.lerp(l.v,.5);continue;}out.push(l);}
@@ -2340,7 +2351,7 @@ function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6
     LAMPV.push(v);if(l.inst)l.inst.lights.push({light:v,v0:l.v.clone()});}
   for(let i=0;i<(COARSE?5:10);i++){const p=new THREE.PointLight(0xffb36b,0,16,1.6);scene.add(p);LOOK.lights.push(p);}}
 // point the pool at the lamps nearest the view (the walker, or the 3/4 view's target); only touches the lights when that set changes
-function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?1:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
+function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?LAMP_EVE:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
   const pick=on?LAMPV.slice().sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
   const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':'on'):'off')+og;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
   if(sig===LAMP_SIG)return;LAMP_SIG=sig;
@@ -2365,7 +2376,7 @@ function skyColorAt(d,out){const P=PRESETS[LOOK.preset],y=Math.max(d.y,0);out.se
   return out.add(new THREE.Color(P.hor).multiplyScalar(.22*Math.exp(-y*16)));}
 // high quality swaps most of the unshadowed sky light for the shadowed sky lights; fast mode keeps the original balance
 function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ(),uf=ultraFill(),ul=isUltra();
-  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
+  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05*LAMP_EVE:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
   // (WebGPU: the set of lights is built into every node material, so hiding these recompiled everything on each change of quality; there
   // they stay in the scene and are switched off by strength)
   for(const L of SKYL){L.visible=hq||!!window.GPU;if(!hq)L.intensity=0;}LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
@@ -2397,7 +2408,7 @@ function applyPreset(name){if(typeof giAbort==='function')giAbort();const P=PRES
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?SKY_ENV:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
   applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;if(MAT.ledStrip)MAT.ledStrip.emissiveIntensity=P.lamps?2.2:.1;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
   LAMP_SIG='';updateLampPool();
-  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
+  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05*LAMP_EVE:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
   if(scene.fog)scene.fog.color.copy(fogColor(P));
   syncDerived();
   fitShadow(true);dirty=true;shadowDirty=true;if(typeof PIPE!=='undefined')PIPE.n=0;if(LOOK.studio)planStudio();}
@@ -2420,7 +2431,7 @@ const PIPE={ok:true,n:0,max:64,size:[2,2],checked:0};
 //  - a larger sun shadow map, supersampling and a longer accumulation.
 // Interior shadows use three probe lights (one spot, two point): every shadow is a texture in every lit shader, and browsers on Windows
 // allow 16 textures per shader.
-const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.18,probes:null,dofPx:.88,aperture:.01,focusMax:25,focus:0,ca:.0025,vig:.3,
+const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.18,probes:null,dofPx:.88,aperture:0,focusMax:25,focus:0,ca:.0025,vig:.3,
   fill:{hemi:.5,env:.7,envI:.6},vol:{morning:.18,midday:.08,afternoon:.15,golden:.2,dusk:0},volOut:.08,volG:.45,volMax:30,volOn:false,giPasses:2,giSprobe:.5,
   // exposure for the room light: 1 = as captured (lifting it made interiors blow out when the room light came on)
   giGain:1,
@@ -2480,10 +2491,17 @@ const SSR_MAT=window.GPU?gpuSSR():SM(`#define REFL_BOOST ${ULTRA.reflBoost.toFix
   void main(){vec4 e=texture2D(tEnc,vUv);float refl=e.a,d=texture2D(tDepthE,vUv).x;if(refl<.015||d>.99999){gl_FragColor=vec4(0.);return;}
     vec3 P=vposE(vUv);vec2 n2=e.xy*2.-1.;vec3 N=vec3(n2,sqrt(max(0.,1.-dot(n2,n2))));
     float r0=h1(gl_FragCoord.xy*.71+frame*5.13),r1=h1(gl_FragCoord.yx*.37+frame*2.9),r2=h1(vec2(r0,r1)*31.7+frame);
-    N=normalize(N+normalize(vec3(r0,r1,r2)*2.-1.)*e.z*e.z*.55);vec3 V=normalize(P),R=reflect(V,N);float ndv=max(dot(-V,N),0.);
-    float t=.1+r0*.2,stp=.18;vec2 huv=vec2(-1.);
+    // gloss: the normal is jittered within a cone that grows with roughness (averaged over the refinement frames); a narrow cone keeps
+    // glossy reflections sharp and less grainy while refining
+    N=normalize(N+normalize(vec3(r0,r1,r2)*2.-1.)*e.z*e.z*.3);vec3 V=normalize(P),R=reflect(V,N);float ndv=max(dot(-V,N),0.);
+    float t=.1+r0*.2,stp=.18,tp=t;vec2 huv=vec2(-1.);
     for(int i=0;i<56;i++){vec3 S=P+R*t;vec4 q=proj*vec4(S,1.);if(q.w<=0.)break;vec2 uv=q.xy/q.w*.5+.5;if(uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.)break;
-      float sz=vpos(uv).z;if(S.z<sz&&sz-S.z<.3+t*.05){huv=uv;break;}t+=stp;stp*=1.09;}
+      float sz=vpos(uv).z;if(S.z<sz&&sz-S.z<.3+t*.05){
+        // the step crossed a surface: home in on where (a binary search between the last two steps), so the reflection lands on it
+        // instead of up to a whole step beyond it, which smeared and stair-stepped reflections
+        float lo=tp,hi=t;for(int k=0;k<5;k++){float m=(lo+hi)*.5;vec3 Sm=P+R*m;vec4 qm=proj*vec4(Sm,1.);vec2 um=qm.xy/qm.w*.5+.5;if(Sm.z<vpos(um).z)hi=m;else lo=m;}
+        vec4 qh=proj*vec4(P+R*hi,1.);huv=qh.xy/qh.w*.5+.5;t=hi;break;}
+      tp=t;t+=stp;stp*=1.09;}
     if(huv.x<0.){gl_FragColor=vec4(0.);return;}
     vec2 ed=min(huv,1.-huv);float edge=clamp(min(ed.x,ed.y)*12.,0.,1.)*clamp(1.-t/60.,0.,1.);
     float fres=min(1.,refl*REFL_BOOST)+(1.-refl)*pow(1.-ndv,4.)*smoothstep(.01,.06,refl);
@@ -2563,12 +2581,14 @@ function roomMask(){if(GI_U.tRoom.value)return;const R=indoorRooms(),S=.5;let x0
 // the eye (Henyey-Greenstein, forward-leaning), so light shafts show through windows and under trees. Jittered per frame, accumulated.
 const VOL_MAT=window.GPU?gpuVol():SM(`#include <packing>
 `+ROOM_GLSL+`
-uniform sampler2D tDepth,tShadow;uniform mat4 projInv,camWorld,shadowM;uniform vec3 camPos,sunDir,sunCol;uniform float frame,dens,maxD,g,outK;varying vec2 vUv;
+// (the sun's shadow map: three r186 keeps it in a depth texture set up for comparison, read here with a shadow sampler; r128 packed depth
+// into RGBA, and reading the new map that way saw no shadows at all, so the beams filled every room as a haze)
+uniform sampler2D tDepth;uniform sampler2DShadow tShadow;uniform mat4 projInv,camWorld,shadowM;uniform vec3 camPos,sunDir,sunCol;uniform float frame,dens,maxD,g,outK;varying vec2 vUv;
 float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
 void main(){float d=texture2D(tDepth,vUv).x;vec4 p=projInv*vec4(vUv*2.-1.,min(d,.9999)*2.-1.,1.);vec3 Pv=p.xyz/p.w;float L=d>.99999?maxD:min(length(Pv),maxD);
   vec3 Pw=(camWorld*vec4(Pv,1.)).xyz,rd=normalize(Pw-camPos);float st=L/32.,j=h1(gl_FragCoord.xy*.37+frame*1.618),acc=0.;
   for(int i=0;i<32;i++){vec3 X=camPos+rd*(st*(float(i)+j));vec4 sc=shadowM*vec4(X,1.);vec3 s=sc.xyz/sc.w;float w=mix(outK,1.,roomIn(X));
-    if(s.x<0.||s.y<0.||s.x>1.||s.y>1.||s.z>1.){acc+=w;continue;}acc+=w*step(s.z,unpackRGBAToDepth(texture2D(tShadow,s.xy))+.002);}
+    if(s.x<0.||s.y<0.||s.x>1.||s.y>1.||s.z>1.){acc+=w;continue;}acc+=w*texture(tShadow,vec3(s.xy,s.z-.002));}
   float ct=dot(rd,sunDir),ph=(1.-g*g)/(12.566*pow(1.+g*g-2.*g*ct,1.5));gl_FragColor=vec4(sunCol*(acc*st*dens*ph),1.);}`,
   {tDepth:{value:null},tShadow:{value:null},projInv:{value:new THREE.Matrix4()},camWorld:{value:new THREE.Matrix4()},shadowM:{value:new THREE.Matrix4()},camPos:{value:new THREE.Vector3()},
    sunDir:{value:new THREE.Vector3()},sunCol:{value:new THREE.Color()},frame:{value:0},dens:{value:0},maxD:{value:30},g:{value:.55},outK:{value:.08},tRoom:GI_U.tRoom,roomBox:GI_U.roomBox});
@@ -2589,7 +2609,8 @@ function updateInteriorShadows(){const U=ULTRA;
     sp.shadow.mapSize.set(1024,1024);sp.shadow.bias=-.0006;sp.shadow.normalBias=.03;sp.shadow.camera.near=.6;scene.add(sp,sp.target);U.probes=[sp];
     for(let i=0;i<2;i++){const pt=new THREE.PointLight(0xffffff,0,16,1.6);pt.shadow.mapSize.set(512,512);pt.shadow.bias=-.003;pt.shadow.normalBias=.04;pt.shadow.camera.near=1.3;scene.add(pt);U.probes.push(pt);}}
   for(const l of [...(LOOK.kitchen||[]).map(k=>k.l),...LOOK.lights])l.castShadow=false;
-  for(const pr of U.probes)pr.castShadow=isUltra()||!!window.GPU;shadowDirty=true;}   // (WebGPU: always on, as for the sky lights; dark outside Ultra)
+  // (only in Ultra, also under WebGPU: shadows always on cost every object a shadow pass per cube face, about 500 MB of memory)
+  for(const pr of U.probes)pr.castShadow=isUltra();shadowDirty=true;}
 // soft shadows from the room lights nearest the view (one spot, two point lights): a shadow-casting probe takes over each one, at the same
 // strength and colour, moved a little every refinement frame for a soft edge. (An earlier version shadowed every light by picking one at
 // random each frame and cancelling it with negative light: correct on average, but it flashed black while refining.)
@@ -2661,7 +2682,8 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
       const a=halton(n,11)*6.283,r=Math.sqrt(halton(n,13))*A,R=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0),U=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
       cam.position.addScaledVector(R,Math.cos(a)*r).addScaledVector(U,Math.sin(a)*r);cam.lookAt(fp);cam.updateMatrixWorld();}}
   // Ultra, walking: a real lens, focused where the centre of the view lands (measured when the camera comes to rest)
-  if(!dofSave&&n>0&&isUltra()&&PIPE.enc&&cam===camW&&ST.view==='walk'&&ULTRA.focus>.5){const F=ULTRA.focus,f=cam.getWorldDirection(new THREE.Vector3());
+  // (depth of field is off: LOOK.dof and ULTRA.aperture are 0; set them to bring it back)
+  if(!dofSave&&n>0&&ULTRA.aperture>0&&isUltra()&&PIPE.enc&&cam===camW&&ST.view==='walk'&&ULTRA.focus>.5){const F=ULTRA.focus,f=cam.getWorldDirection(new THREE.Vector3());
     dofSave=[cam.position.clone(),cam.quaternion.clone()];const fp=cam.position.clone().addScaledVector(f,F);
     const a=halton(n,11)*6.283,r=Math.sqrt(halton(n,13))*ULTRA.aperture,R=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0),U=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
     cam.position.addScaledVector(R,Math.cos(a)*r).addScaledVector(U,Math.sin(a)*r);cam.lookAt(fp);cam.updateMatrixWorld();}
@@ -2691,9 +2713,9 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
     for(const M of [GI_MAT,SSR_MAT]){const u=M.uniforms;u.tC.value=M===GI_MAT?PIPE.rt.texture:src;u.tDepth.value=PIPE.rt.depthTexture;u.tDepthE.value=PIPE.enc.depthTexture;u.tEnc.value=PIPE.enc.texture;
       u.proj.value.copy(cam.projectionMatrix);u.projInv.value.copy(cam.projectionMatrixInverse);u.frame.value=n%251;}
     GI_MAT.uniforms.radius.value=ST.view==='walk'?5:ULTRA.giR;fs(GI_MAT,PIPE.gi);fs(SSR_MAT,PIPE.ssr);
-    if(n===0&&!preview&&ST.view==='walk')readFocus(cam);
+    if(n===0&&!preview&&ST.view==='walk'&&ULTRA.aperture>0)readFocus(cam);
     const vd=ST.view==='walk'?(ULTRA.vol[LOOK.preset]||0):0;
-    if(vd>0&&sun.shadow.map){const vu=VOL_MAT.uniforms;vu.tDepth.value=PIPE.rt.depthTexture;vu.tShadow.value=window.GPU?sun.shadow.map.depthTexture:sun.shadow.map.texture;vu.projInv.value.copy(cam.projectionMatrixInverse);
+    if(vd>0&&sun.shadow.map){const vu=VOL_MAT.uniforms;vu.tDepth.value=PIPE.rt.depthTexture;vu.tShadow.value=sun.shadow.map.depthTexture;vu.projInv.value.copy(cam.projectionMatrixInverse);
       vu.camWorld.value.copy(cam.matrixWorld);vu.shadowM.value.copy(sun.shadow.matrix);vu.camPos.value.setFromMatrixPosition(cam.matrixWorld);vu.sunDir.value.copy(LOOK.sunDir);
       vu.sunCol.value.copy(sun.color).multiplyScalar(sun.intensity);vu.frame.value=n%253;vu.dens.value=vd;vu.maxD.value=ULTRA.volMax;vu.g.value=ULTRA.volG;vu.outK.value=ULTRA.volOut;roomMask();fs(VOL_MAT,PIPE.vol);ULTRA.volOn=true;}}
   AO_MAT.uniforms.tDepth.value=PIPE.rt.depthTexture;AO_MAT.uniforms.proj.value.copy(cam.projectionMatrix);AO_MAT.uniforms.projInv.value.copy(cam.projectionMatrixInverse);
@@ -2731,7 +2753,7 @@ function setQuality(q,why){if(typeof giAbort==='function')giAbort();
   if(typeof sun!=='undefined'&&sun){const mx=maxTexSize(),sz=(q==='ultra'||q==='path')&&mx>=8192&&!window.GPU?8192:(mx>=4096?4096:2048);
     if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map&&!window.GPU){sun.shadow.map.dispose();sun.shadow.map=null;}shadowDirty=true;}}
   if(LOOK.hemi)updateInteriorShadows();ULTRA.focus=0;
-  PIPE.n=0;dirty=true;applyGrade();if(LOOK.hemi)applyLightBalance();if(window.GPU&&typeof schedulePrewarm==='function'&&renderer)schedulePrewarm(1500);const note=document.getElementById('qnote');if(note){note.textContent=why||'';note.style.display=why?'block':'none';}
+  PIPE.n=0;dirty=true;applyGrade();if(LOOK.hemi)applyLightBalance();const note=document.getElementById('qnote');if(note){note.textContent=why||'';note.style.display=why?'block':'none';}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.q===q)));}
 // ---------- Ultra: room light from a grid of light probes ----------
 // Probes sit on a grid through the house (4 ft apart, 4.5 ft between layers), only where a probe is inside a room. Each one renders the
@@ -3048,7 +3070,10 @@ const COARSE=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
 // WebGPU: built pipelines and shader programs are kept for good. three frees one as soon as no object uses it (a material swapped for a
 // fade copy, a preset that changes a material's environment), and building it again on the way back was most of each transition's pause;
 // there are a few hundred at most.
-function keepPipelines(){const P=renderer._pipelines;if(P&&P._releasePipeline&&P._releaseProgram){P._releasePipeline=()=>{};P._releaseProgram=()=>{};}}
+function keepPipelines(){const P=renderer._pipelines;if(P&&P._releasePipeline&&P._releaseProgram){P._releasePipeline=()=>{};P._releaseProgram=()=>{};}
+  // (now and then, during a background compile, a sampler is updated before its texture is set; that threw and lost the frame. It is
+  // skipped instead and set on a later frame)
+  const T=renderer._textures;if(T&&T.updateSampler){const u=T.updateSampler.bind(T);T.updateSampler=b=>b&&b.texture?u(b):'';}}
 // WebGPU (window.GPU, see three-boot.mjs): WebGPURenderer, which must finish an async init() before it renders (start() awaits it)
 function initRenderer(){
   renderer=window.GPU?new THREE.WebGPURenderer({antialias:true,powerPreference:'high-performance',requiredLimits:window.GPU_LIMITS||undefined}):new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
@@ -3119,17 +3144,15 @@ function fadeMat(tag,b){const k=tag+'|'+b.uuid;let c=FADE.get(k);
 // It works through a list of (mesh, material) pairs a few at a time: each batch compiles in a stand-in scene that holds the real lights
 // (so the shaders match the ones the render will ask for), and stops after about 10 ms, so the page stays responsive throughout.
 let PREWARM_T=0,PREWARM_JOB=null,PREWARM_RT=null;
-function schedulePrewarm(ms){clearTimeout(PREWARM_T);PREWARM_JOB=null;PREWARM_T=setTimeout(prewarm,ms||800);}
+// WebGPU: no prewarm. Compiling objects between frames shares the frame's render list and context there; on some timings it destroyed shadow
+// maps that queued frames still used (the high-quality image stayed black) and left swapped-in fade materials showing (see-through walls)
+function schedulePrewarm(ms){if(window.GPU)return;clearTimeout(PREWARM_T);PREWARM_JOB=null;PREWARM_T=setTimeout(prewarm,ms||800);}
 function prewarm(){try{buildPaper();}catch(e){console.warn('prewarm',e);}
   const job=[],seen=new Set(),add=(m,mt,kind)=>{const k=mt.uuid+(m.isInstancedMesh?'i':'');if(!seen.has(k)){seen.add(k);job.push([m,mt,kind||'main']);}};
   for(const tag in TAGS){if(tag==='trees'||tag==='grass'||tag==='site')continue;for(const m of meshesOf(tag)){const b=m.userData.baseMat||m.material;if(Array.isArray(b))continue;add(m,fadeMat(tag,b));add(m,ghostOf(tag));}}
   for(const t of ['trees','grass','site'])for(const m of meshesOf(t)){const b=m.userData.baseMat||m.material;if(!Array.isArray(b))add(m,fadeMat(t,b));}
   const extra=[...Object.values(CAPGRP),...TWINS];if(PAPER.mesh)extra.push(PAPER.mesh,PAPER.roll);
   for(const o of extra)o.traverse(c=>{if(c.isMesh&&!Array.isArray(c.material))add(c,c.material);});
-  // WebGPU also: the shown materials themselves (for the plan's orthographic camera, below) and Ultra's normal/gloss and albedo passes, so
-  // the first switch to Ultra or to the plan does not build them on the spot
-  if(window.GPU)for(const tag in TAGS)for(const m of meshesOf(tag)){const b=m.userData.baseMat||m.material;if(Array.isArray(b)||b.isShaderMaterial)continue;add(m,b);
-    if(!b.transparent||b===MAT.glass||b.userData.base===MAT.glass){const g=b.userData.base===MAT.glass?MAT.glass:b;add(m,encOf(g),'enc');if(!b.transparent)add(m,albOf(b),'alb');}}
   PREWARM_JOB=job;let i=0;
   // WebGPU: a pipeline belongs to its target's formats and to the kind of camera (the plan's is orthographic), so each batch is compiled for
   // the target its pass draws into and for both kinds of camera
@@ -3144,7 +3167,7 @@ function prewarm(){try{buildPaper();}catch(e){console.warn('prewarm',e);}
       if(window.GPU)renderer.setRenderTarget(kind==='enc'?prt.enc:kind==='alb'?prt.alb:(isHQ()?prt.main:null));
       // (WebGPU: the object is compiled against the real scene, renderer.compile(object, camera, scene): a stand-in scene holding the real
       // lights built a second shadow map for each of them, which destroyed the scene's own, and the next frames were black)
-      try{if(window.GPU){tmp.children=[];for(const c of [cam,cam===camP?camO:camP])renderer.compile(m,c,scene);}else renderer.compile(tmp,cam);}catch(e){console.warn('prewarm',e);}finally{m.material=m0;m.children=kids;if(window.GPU)renderer.setRenderTarget(rt0);}}
+      try{if(window.GPU){tmp.children=[];renderer.compile(m,cam,scene);}else renderer.compile(tmp,cam);}catch(e){console.warn('prewarm',e);}finally{m.material=m0;m.children=kids;if(window.GPU)renderer.setRenderTarget(rt0);}}
     tmp.children=[];if(i<job.length)setTimeout(step,0);else{PREWARM_JOB=null;dirty=true;}};
   step();}
 function setTagOpacity(tag,o){FCUR[tag]=o;const ghost=presenting()&&fadeTarget(tag)===FADE_OPACITY;
@@ -3761,8 +3784,9 @@ function bindPhoto(){
 // 15-pathtrace.js: the "Path" quality, a path-traced Ultra (WebGPU only)
 "use strict";
 // ================= PATH TRACING =================
-// three-gpu-pathtracer (WebGPU compute shaders over a three-mesh-bvh BVH, loaded on first use) traces the view once the camera rests;
-// while it moves, or until the trace is ready, the Ultra raster pipeline shows instead (so "Path" is Ultra plus the trace).
+// three-gpu-pathtracer (WebGPU compute shaders over a three-mesh-bvh BVH, loaded on first use) traces the view as soon as the camera
+// rests, while the Ultra raster image of it goes on refining on screen (they share the GPU); the finished, denoised trace then fades in
+// over it (PTRACE_FADE). Moving the camera shows the Ultra preview again.
 //  - The traced scene is a copy of what the view shows: the visible meshes sharing their geometry's position, normal and uv arrays (the
 //    tracer adds tangents to its copies, not to the app's geometry), with materials read as plain PBR (colour, map, roughness, metalness,
 //    normal map, emission); glass becomes real transmission; the app's node patches (wash, anti-tiling, ...) are left out.
@@ -3771,25 +3795,36 @@ function bindPhoto(){
 //    fills and the lamp "fill" lights are left out, as the traced bounce light replaces them.
 //  - Cutaway, plan and diorama: the camera rays start where they enter the space the clip planes keep, so what the cut removes is never
 //    seen but still shades and bounces: the 3/4 cutaway is lit as if its ceilings and roof were on (the shadow proxy is traced too).
-//  - Denoising: an edge-aware a-trous filter (4 passes) on the lighting with the surface colour divided out (so textures stay sharp),
-//    guided by Ultra's own normal, depth and albedo passes for the same camera; it weakens as samples accumulate.
+//  - Denoising: while samples accumulate, an edge-aware a-trous filter (4 passes) on the lighting with the surface colour divided out (so
+//    textures stay sharp), guided by Ultra's own normal, depth and albedo passes for the same camera. At a few dozen samples per pixel the
+//    trace stops and Open Image Denoise (oidn-web, a trained network in WebGPU; weights in assets/weights, embedded in the single-file
+//    build) gives the final image from those same guides. Without it (it fails to load), the trace runs to the old, higher sample counts.
 //  - Exposure: matched to the Ultra raster image of the same view (log-average luminance), so a room lit only through its windows reads
 //    as a photograph exposed for the room, not as the physically much darker interior.
 //  - Where no opaque surface is hit (the backdrop, the cutaway's faded "ghost" levels, faded trees), the Ultra raster image of the same
 //    view shows instead, so those keep their look.
+//  - A light touch of screen-space ambient occlusion (Ultra's AO pass on the guides' depth, PTRACE_AO) deepens contact shadows.
 //  - The result goes through the same output pass as the raster pipeline (ACES, grade), with its own material instance.
 const PTRACE={lib:null,bvh:null,loading:null,err:null,tracer:null,sig:'',camSig:'',cam:null,scene:null,mats:new Map(),geos:new Map(),env:new Map(),
-  out:null,calls:0,t0:0,doneAt:0,proxyMat:null,spp:0,sppAt:0,expK:1,expDone:false,den:null,rts:null};
-const PTRACE_SPP=()=>ST.view==='walk'?160:128;         // samples per pixel (the least sampled pixel) before the trace stops
-const PTRACE_R0=5,PTRACE_ENVK=1;                            // ft: the lamp falloff match distance; sky strength
+  out:null,calls:0,t0:0,doneAt:0,finalAt:0,proxyMat:null,spp:0,sppAt:0,expK:1,expDone:false,den:null,rts:null,oidn:null,oidnErr:null,dn:0,aux:null};
+const ptrOidnOK=()=>!!PTRACE.oidn&&!PTRACE.oidnErr;
+// samples per pixel (the least sampled pixel) before the trace stops: few with the trained denoiser, many without it
+const PTRACE_CFG={spp:[40,32],sppNoDn:[160,128],bounces:6,centerAbove:150000,scale:1,perFrame:2,dayLamps:.35,preview:48};   // ...; tracer calls per frame (each is a fixed amount of work: two
+// nearly halved the time with the frame rate unchanged; more only made the page choppier); the 3/4 cutaway's daytime lamps (traced, they
+// are real point lights, far stronger near the fixtures than the raster's soft glow, and lit the rooms as if the ceilings were off)   // ...; meshes above this many triangles get the quick (centre-split) BVH   // samples per pixel [walk, other views], with and without the denoiser
+const PTRACE_SPP=()=>{const a=ptrOidnOK()?PTRACE_CFG.spp:PTRACE_CFG.sppNoDn;return ST.view==='walk'?a[0]:a[1];};
+const PTRACE_R0=5,PTRACE_ENVK=1,PTRACE_AO=.3,PTRACE_FADE=800;   // ...; AO strength; ms the finished trace takes to fade in                            // ft: the lamp falloff match distance; sky strength
 const ptrOn=()=>LOOK.quality==='path',_ptrBox=new THREE.Box3();
 // the trace runs only when nothing is animating and the camera has been still for a moment
 function ptrWant(now){return ptrOn()&&!!window.GPU&&!PTRACE.err&&!ST.pending&&!CT&&!Object.keys(FTW).length&&CLIPT.t>=CLIPT.dur&&SKYT.t>=SKYT.dur&&now-(LOOK.lastMove||0)>=350&&
   !(typeof ARR!=='undefined'&&ARR.drag)&&!(typeof PHOTO!=='undefined'&&PHOTO.busy);}
 function ptrLoad(){if(PTRACE.loading)return PTRACE.loading;
   PTRACE.loading=Promise.all([import('three-gpu-pathtracer/webgpu'),import('three-mesh-bvh/webgpu'),import('three-mesh-bvh')]).then(([lib,bvh,mbvh])=>{PTRACE.lib=lib;PTRACE.bvh=bvh;PTRACE.mbvh=mbvh;
-    const t=new lib.WebGPUPathTracer(renderer);t.dynamicLowRes=false;t.renderDelay=0;t.fadeDuration=0;t.minSamples=0;t.maxBounces=8;t.frameBudget=600000;
-    t.filterGlossyFactor=.5;t.clampIndirect=3;t.synchronizeRenderSize=false;PTRACE.tracer=t;PTRACE.out=gpuOut();dirty=true;})
+    const t=new lib.WebGPUPathTracer(renderer);t.dynamicLowRes=false;t.renderDelay=0;t.fadeDuration=0;t.minSamples=0;t.maxBounces=PTRACE_CFG.bounces;t.frameBudget=600000;
+    t.filterGlossyFactor=.5;t.clampIndirect=3;t.synchronizeRenderSize=false;PTRACE.tracer=t;PTRACE.out=gpuOut();dirty=true;
+    // the trained denoiser (optional: without it the trace just runs longer)
+    import('oidn-web').then(o=>{const D=new lib.OIDNDenoiser({initUNetFromURL:o.initUNetFromURL,auxWeightsUrl:window.__OIDN_WEIGHTS||'assets/weights/rt_hdr_alb_nrm_small.tza'});
+      D.init(renderer);PTRACE.oidn=D;}).catch(e=>{PTRACE.oidnErr=e;console.warn('path tracer: no denoiser',e);});})
     .catch(e=>{PTRACE.err=e;console.warn('path tracer',e);setQuality('ultra','Path tracing could not start on this device, so Ultra is on.');});
   return PTRACE.loading;}
 // ---------- what the trace shows: signatures of what changes the traced scene (not the camera) ----------
@@ -3847,7 +3882,7 @@ function ptrLights(S){const P=PRESETS[LOOK.preset],PI=Math.PI,add=(...o)=>{S.add
     const E=(sun.intensity/(isHQ()&&!LOOK.studio?LIGHT_HQ.sun:1))*PI,ang=Math.atan2(LIGHT_HQ.sunR,Math.max(1,d0)),L=new THREE.SpotLight(sun.color,E*D*D,0,Math.atan2(160,D),0,2);
     L.position.copy(c).addScaledVector(dir,D);L.target.position.copy(c);L.radius=Math.tan(ang)*D;add(L,L.target);}
   // lamps: physical point lights, matched to the legacy falloff I*PI*(1-r/d)^1.6 at PTRACE_R0
-  const dim=lampsDim();if(P.lamps||dim){const k=P.lamps?1:LAMP_DAY,og=ULTRA.overhead||1;
+  const dim=lampsDim();if(P.lamps||dim){const k=P.lamps?LAMP_EVE:LAMP_DAY*PTRACE_CFG.dayLamps,og=ULTRA.overhead||1;
     for(const v of LAMPV){if(v.k==='fill')continue;const I=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1),r0=Math.min(PTRACE_R0,v.d*.5);
       const L=new THREE.PointLight(v.color,I*PI*Math.pow(1-r0/v.d,1.6)*r0*r0,0,2);L.position.copy(v.position);add(L);}}}
 // ---------- the scene copy ----------
@@ -3876,7 +3911,7 @@ function ptrMoved(){scene.updateMatrixWorld();for(const [q,o] of PTRACE.src){q.m
 // one frame's share of the BVH builds (about 30 ms, at least one geometry); true once the scene is handed to the tracer
 function ptrStep(cam){const J=PTRACE.prep,{MeshBVH,SAH,CENTER}=PTRACE.mbvh,t=performance.now();
   while(J.todo.length&&(performance.now()-t<30)){const g=J.todo.pop(),n=(g.index?g.index.count:g.attributes.position.count)/3;
-    g.boundsTree=new MeshBVH(g,{strategy:n>150000?CENTER:SAH,targetLeafSize:n>150000?8:5});}
+    const big=n>PTRACE_CFG.centerAbove;g.boundsTree=new MeshBVH(g,{strategy:big?CENTER:SAH,targetLeafSize:big?8:5});}
   J.tb+=performance.now()-t;if(J.todo.length)return false;
   const t1=performance.now();PTRACE.tracer.setScene(J.S,cam);PTRACE.scene=J.S;PTRACE.src=J.src;PTRACE.sig=J.sig;PTRACE.sigXf=J.xf;PTRACE.sigLight=J.light;PTRACE.camSig='';PTRACE.prep=null;
   console.info('path tracer: scene ready,',J.S.children.length,'objects; BVHs',Math.round(J.tb),'ms, packing',Math.round(performance.now()-t1),'ms, total',Math.round(performance.now()-J.t0),'ms');
@@ -3906,24 +3941,43 @@ function ptrCam(cam){if(cam.__ptr)return cam;const {uniform}=TSL,{wgslTagFn,rayS
     inv.value.multiplyMatrices(cam.matrixWorld,cam.projectionMatrixInverse);CLIPS.forEach((P,i)=>pl[i].value.set(P.normal.x,P.normal.y,P.normal.z,P.constant));return false;}});
   cam.__ptr=true;return cam;}
 // ---------- per frame: true when the trace drew (or holds) the image ----------
-function ptrFrame(cam,now){if(!ptrWant(now))return false;if(!PTRACE.tracer){ptrLoad();return false;}
-  const sig=ptrSigGeo();if(sig!==PTRACE.sig){if(!ptrSky()||PIPE.n<Math.min(PIPE.max,16))return false;   // the raster image first, so the build's pauses show a finished frame
+function ptrFrame(cam,now){if(!ptrWant(now)){PTRACE.active=false;return false;}if(!PTRACE.tracer){ptrLoad();return false;}
+  PTRACE.active=true;
+  const sig=ptrSigGeo();if(sig!==PTRACE.sig){if(!ptrSky()||PIPE.n<Math.min(PIPE.max,16))return false;   // (a refined raster frame first, so the build's pauses show it)
     if(!PTRACE.prep||PTRACE.prep.sig!==sig)ptrBuild(sig);PTRACE.cam=ptrCam(cam);if(!ptrStep(cam))return false;PTRACE.tracer.setCamera(cam);}
   else{const xf=ptrSigXf();if(xf!==PTRACE.sigXf){PTRACE.sigXf=xf;ptrMoved();PTRACE.camSig='';}
     const li=ptrSigLight();if(li!==PTRACE.sigLight){const sky=ptrSky();if(!sky)return false;PTRACE.sigLight=li;ptrRelight(sky);PTRACE.camSig='';}}
   if(PTRACE.cam!==cam){PTRACE.cam=ptrCam(cam);PTRACE.tracer.setCamera(cam);PTRACE.camSig='';}   // (walk, orbit and plan cameras)
-  const [w,h]=PIPE.size,pr=renderer.getPixelRatio(),sc=Math.min(1,Math.min(window.devicePixelRatio||1,1.25)/pr),tw=Math.max(2,Math.round(w*sc)),th=Math.max(2,Math.round(h*sc));
+  const [w,h]=PIPE.size,pr=renderer.getPixelRatio(),sc=Math.min(1,Math.min(window.devicePixelRatio||1,1.25)/pr)*PTRACE_CFG.scale,tw=Math.max(2,Math.round(w*sc)),th=Math.max(2,Math.round(h*sc));
   const cs=camSig(cam)+tw+'x'+th;if(cs!==PTRACE.camSig){PTRACE.camSig=cs;PTRACE.tracer.setSize(tw,th);PTRACE.tracer.updateCamera();PTRACE.tracer.maxSamples=PTRACE_SPP();
-    PTRACE.calls=0;PTRACE.spp=0;PTRACE.sppAvg=0;PTRACE.t0=now;PTRACE.doneAt=0;PTRACE.expDone=false;PTRACE.guides=false;}
-  if(PTRACE.doneAt)return true;
-  PTRACE.tracer.renderSample();PTRACE.calls++;
-  if(!PTRACE.guides&&PTRACE.calls>=2){PTRACE.guides=true;ptrGuides(cam,tw,th);}   // (drawn a frame after a reset: drawn in the reset's own frame the albedo came out black)
+    PTRACE.calls=0;PTRACE.spp=0;PTRACE.sppAvg=0;PTRACE.t0=now;PTRACE.doneAt=0;PTRACE.finalAt=0;PTRACE.expDone=false;PTRACE.guides=false;PTRACE.dn=0;PTRACE.fin=0;PTRACE.fade0=0;if(PTRACE.oidn)PTRACE.oidn.reset();}
+  if(PTRACE.doneAt){if(PTRACE.finalAt)return true;
+    // the denoiser's guides (and the raster image the trace fades from) once the samples are in: Ultra's refinement, which shares
+    // those passes, has stopped by then
+    if(!PTRACE.guides){PTRACE.guides=true;ptrGuides(cam,tw,th);OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);return true;}
+    if(!PTRACE.expDone&&PTRACE.fin){OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);return true;}
+    // the samples are in: the trained denoiser (spread over a few frames), then the final image and its fade
+    const D=PTRACE.oidn;if(ptrOidnOK()&&!PTRACE.dn){PTRACE.dn=1;ptrAux(PTRACE.rts[0].width,PTRACE.rts[0].height);
+      D.denoise(PTRACE.tracer.target,PTRACE.aux[0].texture,PTRACE.aux[1].texture).catch(e=>{PTRACE.oidnErr=e;console.warn('path tracer: denoiser failed',e);
+        // carry on tracing to the sample count used without it
+        PTRACE.tracer.maxSamples=PTRACE_SPP();PTRACE.doneAt=0;PTRACE.dn=0;});}
+    if(ptrOidnOK()&&!D.complete)return true;
+    if(!PTRACE.fin){PTRACE.fin=ptrFinal();PTRACE.expDone=false;Promise.all([ptrLogLum(PTRACE.ras.texture,0),ptrLogLum(PTRACE.fin,1)]).then(([r,q])=>{
+        if(isFinite(r)&&isFinite(q))PTRACE.expK=Math.min(16,Math.max(.35,Math.exp(r-q)));PTRACE.expDone=true;});}
+    if(!PTRACE.expDone)return true;
+    if(!PTRACE.fade0)PTRACE.fade0=now;const t=Math.min(1,(now-PTRACE.fade0)/PTRACE_FADE);ptrShow(t*t*(3-2*t));
+    if(t>=1){PTRACE.finalAt=now;console.info('path tracer: final (faded in) after',((now-PTRACE.t0)/1000).toFixed(1),'s');}
+    return true;}
+  for(let i=0;i<PTRACE_CFG.perFrame;i++)PTRACE.tracer.renderSample();PTRACE.calls++;
   // the sample count, read back every half second (the least sampled pixel decides when the trace is done)
   if(!PTRACE.sppBusy&&now-PTRACE.sppAt>500){PTRACE.sppBusy=true;PTRACE.sppAt=now;const cs0=PTRACE.camSig;PTRACE.tracer.getSampleCountsAsync().then(c=>{if(PTRACE.camSig!==cs0)return;PTRACE.spp=c.min;PTRACE.sppAvg=c.avg;
       if(c.min>=PTRACE_SPP()&&!PTRACE.doneAt){PTRACE.doneAt=performance.now();console.info('path tracer:',c.min,'samples per pixel in',((PTRACE.doneAt-PTRACE.t0)/1000).toFixed(1),'s');}})
     .catch(()=>{}).finally(()=>{PTRACE.sppBusy=false;});}
-  ptrPresent(now);return true;}
-function ptrProgress(){return PTRACE.doneAt?1:Math.min(.99,(PTRACE.sppAvg||0)/PTRACE_SPP());}
+  // on screen meanwhile: Ultra, still refining or finished (the tracer draws its own output to the canvas, so this is drawn over it)
+  // (Ultra refines only its first PTRACE_CFG.preview frames meanwhile: enough for a clean preview, and the rest of the GPU goes to the trace)
+  if(PIPE.n<Math.min(PIPE.max,PTRACE_CFG.preview)&&!giBuilding(now))renderHigh(cam);else{OUT_MAT.uniforms.t.value=PIPE.accA.texture;fs(OUT_MAT,null);}
+  return true;}
+function ptrProgress(){return PTRACE.finalAt||PTRACE.fade0?1:Math.min(.99,(PTRACE.sppAvg||0)/PTRACE_SPP()*(ptrOidnOK()?.9:1)+(PTRACE.dn?.09:0));}
 // ---------- denoise and present ----------
 // guides: Ultra's normal/gloss (with its depth) and albedo passes, drawn once for the resting camera (no jitter), with the cut-out
 // foliage (or leaves would be divided by the ground's colour behind them) and without the glass
@@ -3931,6 +3985,9 @@ function ptrProgress(){return PTRACE.doneAt?1:Math.min(.99,(PTRACE.sppAvg||0)/PT
 function ptrGuides(cam,w,h){if(!PIPE.enc)return;
   const [W,H]=PIPE.size;if(!PTRACE.ras||PTRACE.ras.width!==W||PTRACE.ras.height!==H){if(PTRACE.ras)PTRACE.ras.dispose();PTRACE.ras=rt(W,H);}
   if(!PTRACE.copyM)PTRACE.copyM=SMG({t:'tex'},u=>u.t.sample(TSL.uv()));PTRACE.copyM.uniforms.t.value=PIPE.accA.texture;fs(PTRACE.copyM,PTRACE.ras);overridePass(cam,PIPE.enc,encOf,false,true);overridePass(cam,PIPE.alb,albOf,false,true);
+  // ambient occlusion on the guides' depth (unjittered), for PTRACE_AO
+  {const A=AO_MAT.uniforms;A.tDepth.value=PIPE.enc.depthTexture;A.proj.value.copy(cam.projectionMatrix);A.projInv.value.copy(cam.projectionMatrixInverse);A.frame.value=7;
+    A.radius.value=ST.view==='plan'?3.0:(ST.view==='walk'?1.8:2.6);fs(AO_MAT,PIPE.ao);}
   if(!PTRACE.rts||PTRACE.rts[0].width!==w||PTRACE.rts[0].height!==h){if(PTRACE.rts)PTRACE.rts.forEach(r=>r.dispose());PTRACE.rts=[0,1].map(()=>rt(w,h,{minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter}));
     PTRACE.rts.forEach(r=>{renderer.setRenderTarget(r);renderer.clear();});}}
 // mode 0: divide out the albedo; 1: one a-trous pass (5x5 B3 kernel at the given step); 2: multiply the albedo back
@@ -3947,7 +4004,20 @@ function ptrDenMat(){const {uv,vec2,vec3,vec4,float,exp,abs,max,pow,dot,select}=
       sum=sum.add(c.mul(w));ws=ws.add(w);}
     const f=select(bg,c0.rgb,sum.div(max(ws,1e-5)));
     return select(u.mode.lessThan(.5),vec4(select(bg,c0.rgb,c0.rgb.div(a0)),1),select(u.mode.lessThan(1.5),vec4(f,1),vec4(select(bg,u.tR.sample(q).rgb.mul(u.invK),c0.rgb.mul(a0)),1)));});}
-function ptrPresent(now){const T=PTRACE.tracer;let src=T.target;
+// the denoiser's guides at the trace's size, in its format: albedo in [0,1], view-space normals mapped to [0,1] (a flat one is .5,.5,1)
+function ptrAux(w,h){const {uv,vec4,clamp,select}=TSL;
+  if(!PTRACE.aux||PTRACE.aux[0].width!==w||PTRACE.aux[0].height!==h){if(PTRACE.aux)PTRACE.aux.forEach(r=>r.dispose());
+    PTRACE.aux=[0,1].map(()=>rt(w,h,{type:THREE.UnsignedByteType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter}));}
+  if(!PTRACE.auxM)PTRACE.auxM=[SMG({tA:'tex'},u=>vec4(clamp(u.tA.sample(uv()).rgb,0,1),1)),
+    SMG({tE:'tex',tD:'depth'},u=>{const q=uv(),n=gpuDecN(u.tE.sample(q));return select(u.tD.sample(q).x.greaterThan(.99999),vec4(.5,.5,1,1),vec4(n.mul(.5).add(.5),1));})];
+  PTRACE.auxM[0].uniforms.tA.value=PIPE.alb.texture;fs(PTRACE.auxM[0],PTRACE.aux[0]);
+  PTRACE.auxM[1].uniforms.tE.value=PIPE.enc.texture;PTRACE.auxM[1].uniforms.tD.value=PIPE.enc.depthTexture;fs(PTRACE.auxM[1],PTRACE.aux[1]);}
+function ptrPresent(now,only){const T=PTRACE.tracer;let src=T.target;
+  // the trained denoiser's result, once its first tiles are in (with the raster image where no surface was hit, as below)
+  const D=PTRACE.oidn;if(PTRACE.dn&&D&&D.texture&&PTRACE.rts){if(!PTRACE.dnM){const {uv,vec4,select}=TSL;
+      PTRACE.dnM=SMG({t:'tex',tD:'depth',tR:'tex',invK:1},u=>{const q=uv();return vec4(select(u.tD.sample(q).x.greaterThan(.99999),u.tR.sample(q).rgb.mul(u.invK),u.t.sample(q).rgb),1);});}
+    const u=PTRACE.dnM.uniforms;u.t.value=D.texture;u.tD.value=PIPE.enc.depthTexture;u.tR.value=PTRACE.ras.texture;u.invK.value=1/PTRACE.expK;fs(PTRACE.dnM,PTRACE.rts[1]);src=PTRACE.rts[1].texture;
+    const o=PTRACE.out.uniforms,s0=OUT_MAT.uniforms;for(const k in s0)if(k!=='t'&&o[k])o[k].value=s0[k].value;o.exposure.value=s0.exposure.value*PTRACE.expK;o.t.value=src;fs(PTRACE.out,null);return;}
   if(PTRACE.guides&&PTRACE.rts&&PIPE.enc&&PTRACE.show!=='raw'){   // (PTRACE.show='raw': the trace without denoising)
     if(!PTRACE.den)PTRACE.den=[0,1,2].map(ptrDenMat);   // (one material per mode: a pass's inputs are bound when it first compiles)
     const [r0,r1]=PTRACE.rts,cam=PTRACE.cam,spp=Math.max(1,PTRACE.sppAvg||1),sig=Math.min(6,4/Math.sqrt(spp));
@@ -3957,16 +4027,35 @@ function ptrPresent(now){const T=PTRACE.tracer;let src=T.target;
     for(const st of [1,2,4,8]){set(PTRACE.den[1],a.texture,1,st);fs(PTRACE.den[1],b);[a,b]=[b,a];}
     set(PTRACE.den[2],a.texture,2,1);fs(PTRACE.den[2],b);src=b.texture;
     // exposure: once there are enough samples, match the raster image's log-average luminance
+    if(only)return;
     if(!PTRACE.expDone&&spp>=12){PTRACE.expDone=true;Promise.all([ptrLogLum(PTRACE.ras.texture,0),ptrLogLum(src,1)]).then(([r,p])=>{if(isFinite(r)&&isFinite(p))PTRACE.expK=Math.min(16,Math.max(.35,Math.exp(r-p)));});}}
   // present through the output pass (ACES, grade), as the raster pipeline does
   const o=PTRACE.out.uniforms,s0=OUT_MAT.uniforms;for(const k in s0)if(k!=='t'&&o[k])o[k].value=s0[k].value;o.exposure.value=s0.exposure.value*PTRACE.expK;o.t.value=src;fs(PTRACE.out,null);}
+// the finished trace, linear, at the trace's size: the denoised image (the trained denoiser's, or the a-trous filter's) with the ambient
+// occlusion (where no surface was hit the fade shows the raster image instead)
+function ptrFinMat(){const {uv,vec2,vec4,float,mix}=TSL;
+  return SMG({t:'tex',tAO:'tex',aoK:.3,px:new THREE.Vector2()},u=>{const q=uv();let a=float(0);
+    for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++)a=a.add(u.tAO.sample(q.add(vec2(x,y).mul(u.px).mul(1.5))).r);
+    return vec4(u.t.sample(q).rgb.mul(mix(1,a.div(9),u.aoK)),1);});}
+function ptrFinal(){const [r0,r1]=PTRACE.rts,D=PTRACE.oidn;let src,slot;
+  if(ptrOidnOK()&&D&&D.texture){src=D.texture;slot=0;}else{PTRACE.show=null;ptrPresent(0,true);src=PTRACE.rts[1].texture;slot=1;}
+  const M=(PTRACE.finM||(PTRACE.finM=[]))[slot]||(PTRACE.finM[slot]=ptrFinMat()),u=M.uniforms;   // (one per kind of input: inputs are bound when a pass first compiles)
+  u.t.value=src;u.tAO.value=PIPE.ao.texture;u.aoK.value=PTRACE_AO;u.px.value.set(1/PIPE.size[0],1/PIPE.size[1]);
+  const out=slot?r0:r1;fs(M,out);return out.texture;}
+// the fade: the raster image (as shown before) mixed into the finished trace, at full size, through the output pass with the trace's exposure
+function ptrShow(t){const [W,H]=PIPE.size;if(!PTRACE.fadeRT||PTRACE.fadeRT.width!==W||PTRACE.fadeRT.height!==H){if(PTRACE.fadeRT)PTRACE.fadeRT.dispose();PTRACE.fadeRT=rt(W,H);}
+  if(!PTRACE.fadeM){const {uv,vec4,mix,select}=TSL;PTRACE.fadeM=SMG({tA:'tex',tB:'tex',tD:'depth',t:0,invK:1},u=>{const q=uv(),r=u.tA.sample(q).rgb.mul(u.invK);
+      return vec4(mix(r,select(u.tD.sample(q).x.greaterThan(.99999),r,u.tB.sample(q).rgb),u.t),1);});}
+  const u=PTRACE.fadeM.uniforms;u.tA.value=PTRACE.ras.texture;u.tB.value=PTRACE.fin;u.tD.value=PIPE.enc.depthTexture;u.t.value=t;u.invK.value=1/PTRACE.expK;fs(PTRACE.fadeM,PTRACE.fadeRT);
+  const o=PTRACE.out.uniforms,s0=OUT_MAT.uniforms;for(const k in s0)if(k!=='t'&&o[k])o[k].value=s0[k].value;o.exposure.value=s0.exposure.value*PTRACE.expK;o.t.value=PTRACE.fadeRT.texture;fs(PTRACE.out,null);}
 // log-average luminance of a texture (64 x 40 taps, read back); slot: its own pass and target (the readback lands later, and a pass's
 // texture input is bound when it first compiles)
-function ptrLogLum(tex,slot){const L=PTRACE.lum||(PTRACE.lum=[]);if(!L[slot]){const {uv,vec4,log,max,dot,vec3}=TSL;
-    L[slot]={m:SMG({t:'tex'},u=>{const c=u.t.sample(uv()).rgb;return vec4(log(max(dot(c,vec3(.2126,.7152,.0722)),1e-4)).add(16),0,0,1);}),   // (+16: a pass output here cannot go negative)
+function ptrLogLum(tex,slot){const L=PTRACE.lum||(PTRACE.lum=[]);if(!L[slot]){const {uv,vec4,log,max,dot,vec3,select}=TSL;
+    // (+16: a pass output here cannot go negative; g: 1 where a surface was hit, so the backdrop does not count)
+    L[slot]={m:SMG({t:'tex',tD:'depth'},u=>{const q=uv(),c=u.t.sample(q).rgb;return vec4(log(max(dot(c,vec3(.2126,.7152,.0722)),1e-4)).add(16),select(u.tD.sample(q).x.greaterThan(.99999),0,1),0,1);}),
       rt:rt(64,40,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter})};}
-  const J=L[slot];J.m.uniforms.t.value=tex;fs(J.m,J.rt);
-  return renderer.readRenderTargetPixelsAsync(J.rt,0,0,64,40).then(b=>{let s=0;for(let i=0;i<64*40;i++)s+=b[i*4];return s/(64*40)-16;});}
+  const J=L[slot];J.m.uniforms.t.value=tex;J.m.uniforms.tD.value=PIPE.enc.depthTexture;fs(J.m,J.rt);
+  return renderer.readRenderTargetPixelsAsync(J.rt,0,0,64,40).then(b=>{let s=0,w=0;for(let i=0;i<64*40;i++){s+=b[i*4]*b[i*4+1];w+=b[i*4+1];}return w?s/w-16:NaN;});}
 </script>
 <script>window.__APP_LINE0=298;</script>
 <script type="module">
