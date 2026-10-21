@@ -291,3 +291,22 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
   - Probe shadows are Ultra-only again, and a change of quality no longer restarts the prewarm.
   - Heap is back to the last commit's levels: about 210 MB in High and about 970 MB in Ultra (the last commit: 207 and 956).
   - The cost is part of the transition gain. Back to High is now 2.6 s, Ultra again 1.8 s, and the first Ultra 6.4 s. Preset changes stay near-instant.
+
+### 2026-10-21: efficiency pass
+
+- **Path:**
+  - The trace starts as soon as the camera rests, with Ultra refining its first 48 frames alongside.
+  - It runs at 40 samples per pixel in walk view and 32 elsewhere.
+  - The wait from rest to the final walk-view image fell from about 10 s to about 6 s.
+- **Models smoke test:** it now runs in fast rendering. Software-rendered high-quality frames starved the model loader, so the test timed out on main too. It now reports real placement issues: the bar stools overlap by 1.3–1.5", and the nursery recliner runs 3.4" into a wall.
+- **Furniture shadows (WebGPU):** each level's furniture is also one merged, shadow-only mesh on layer 1, which only the shadow cameras see.
+  - The ¾ Ultra frame went from about 34 ms to about 30 ms.
+  - The shadows are unchanged: the plan view differs by 0.1/255 from the original pieces' shadows.
+- **Room-light (GI) build (WebGPU):** "off" in the capture state is 1e-6, not 0, which stopped a node-graph rebuild of every material in every slice. The build went from 36 s to about 30 s.
+  - **What is left:** 412 probes × 2 passes × 6 cube-face renders, at about 2.3 ms of CPU per render for the ~400 objects. WebGL takes about 0.17 ms.
+  - **Tried and dropped:**
+    - Leaving furniture out of the captures made the rooms 17% brighter.
+    - Leaving out only the small pieces gained nothing measurable.
+    - Leaving out the grass gained about 7%, within the noise.
+    - A larger time slice per frame changed nothing.
+  - **Next lever:** render bundles (`BundleGroup`) for the static house. They need care with culling, fades and material swaps.

@@ -112,7 +112,7 @@ function ptrBuild(sig){const t0=performance.now(),S=new THREE.Scene(),src=[];sce
     if([].concat(mat).some(x=>x&&x.transmission>0))q.visibleToShadowRays=false;
     q.matrixAutoUpdate=false;q.matrix.copy(o.matrixWorld);S.add(q);src.push([q,o]);};
   const walk=o=>{if(!o.visible||o.userData.faded)return;   // (faded levels and trees are left to the raster image, see ptrPresent)
-    if(o.isMesh&&o!==SKY&&!o.userData.horizon&&!o.userData.isTwin&&o.geometry&&o.geometry.attributes.position){
+    if(o.isMesh&&o!==SKY&&!o.userData.horizon&&!o.userData.isTwin&&!o.userData.furnShadow&&o.geometry&&o.geometry.attributes.position){
       // the shadow proxy (the cutaway's ceilings and roofs) only where it is wholly above the cut, so the camera never sees it
       if(o.userData.shadowOnly){const g=o.geometry;if(!g.boundingBox)g.computeBoundingBox();if(_ptrBox.copy(g.boundingBox).applyMatrix4(o.matrixWorld).min.y>=CLIP_TOP.constant-.05)add(o,PTRACE.proxyMat);}
       else{const m=o.material;if(Array.isArray(m)){const a=m.map(x=>ptrMat(x,o.geometry));if(a.every(Boolean))add(o,a);}

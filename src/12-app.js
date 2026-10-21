@@ -270,6 +270,33 @@ function setDiorama(on){DIO.on=on;const k=on?1:-1e5;
 // level's walls and floors) that only casts shadows (its material writes neither colour nor depth; Ultra's extra passes skip it), so the
 // cut-away roof, ceilings and upper walls still keep the sun and sky out and light reaches the rooms through their windows only. The
 // rooms' flat fill is turned down to match (CUT_FILL in applyLightBalance), and by day their lamps glow dimly (lampsDim).
+// ---------- WebGPU: furniture shadows merged per level ----------
+// Under WebGPU every object costs CPU time in every shadow map, and Ultra draws about 35 a frame; the furniture is half the shadow
+// casters. So each level's furniture also exists as one merged, shadow-only mesh (positions only) on layer 1, which only the lights'
+// shadow cameras see; while it is on, the pieces themselves cast no shadow. Pieces with transparent or cut-out parts (plants) keep
+// their own shadows. A level's merged mesh is used only while all its pieces are shown in full (not faded or hidden), is set aside
+// while a piece is dragged, and is rebuilt after a move or once the imported models are in.
+const FURN_SH={tags:new Map(),sig:'',mat:null};
+const furnShadowSig=()=>INSTS.length+'|'+(MODELS_READY?1:0)+'|'+INSTS.map(i=>(i.dx||0).toFixed(3)+','+(i.dz||0).toFixed(3)+','+(i.ry||0).toFixed(4)).join(';');
+function furnShadowBuild(){for(const e of FURN_SH.tags.values()){scene.remove(e.mesh);e.mesh.geometry.dispose();for(const o of e.src)o.castShadow=true;}FURN_SH.tags.clear();
+  scene.updateMatrixWorld();const by=new Map();
+  for(const i of INSTS){if(!i.group||!i.group.traverse)continue;i.group.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||!(o.castShadow||o.userData.furnCast))return;const m=o.material;
+      if([].concat(m).some(x=>x.transparent||x.alphaTest>0))return;if(!by.has(i.tag))by.set(i.tag,[]);by.get(i.tag).push(o);});}
+  const mat=FURN_SH.mat||(FURN_SH.mat=new THREE.MeshBasicMaterial()),v=new THREE.Vector3();
+  for(const [tag,src] of by){let nv=0,ni=0;for(const o of src){const g=o.geometry;nv+=g.attributes.position.count;ni+=g.index?g.index.count:g.attributes.position.count;}
+    const P=new Float32Array(nv*3),I=new Uint32Array(ni);let pv=0,pi=0;
+    for(const o of src){const g=o.geometry,a=g.attributes.position,base=pv;
+      for(let k=0;k<a.count;k++){v.fromBufferAttribute(a,k).applyMatrix4(o.matrixWorld);P[pv*3]=v.x;P[pv*3+1]=v.y;P[pv*3+2]=v.z;pv++;}
+      if(g.index){const ix=g.index;for(let k=0;k<ix.count;k++)I[pi++]=base+ix.getX(k);}else for(let k=0;k<a.count;k++)I[pi++]=base+k;}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(P,3));geo.setIndex(new THREE.BufferAttribute(I,1));geo.computeBoundingSphere();
+    const mesh=new THREE.Mesh(geo,mat);mesh.castShadow=true;mesh.receiveShadow=false;mesh.matrixAutoUpdate=false;mesh.visible=false;mesh.layers.set(1);
+    mesh.userData.shadowOnly=true;mesh.userData.furnShadow=true;scene.add(mesh);for(const o of src)o.userData.furnCast=true;FURN_SH.tags.set(tag,{mesh,src,on:false});}
+  scene.traverse(o=>{if(o.isLight&&o.shadow)o.shadow.camera.layers.enable(1);});}
+function furnShadowSync(){if(!window.GPU||!INSTS.length)return;const drag=typeof ARR!=='undefined'&&ARR.drag;
+  if(!drag){const sig=furnShadowSig();if(sig!==FURN_SH.sig){FURN_SH.sig=sig;furnShadowBuild();shadowDirty=true;}}
+  for(const e of FURN_SH.tags.values()){let on=!drag;
+    if(on)for(const o of e.src){if(o.userData.faded){on=false;break;}for(let q=o;q;q=q.parent)if(!q.visible){on=false;break;}if(!on)break;}
+    if(on!==e.on){e.on=on;e.mesh.visible=on;for(const o of e.src)o.castShadow=!on;shadowDirty=true;}}}
 let SHADOW_PROXY=null;
 function syncShadowProxy(on){if(!on&&!SHADOW_PROXY)return;
   if(!SHADOW_PROXY){SHADOW_PROXY=new THREE.Group();const mats={};
@@ -485,7 +512,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   animate(dt);updatePaper();
   if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
   updateFog();
-  giFrame(now);updateLampPool();updateGlassEnv(false);
+  giFrame(now);updateLampPool();updateGlassEnv(false);furnShadowSync();
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;LOOK.lastMove=now;}
   // 3/4 view: room labels fade out after 2 s without camera movement and come back as soon as it moves
   {const idle=ST.view==='three'&&!ST.pending&&now-(LOOK.lastMove||0)>2000,el=$('labels');if(el.classList.contains('idle')!==idle)el.classList.toggle('idle',idle);}if(dirty){PIPE.n=0;dirty=false;}

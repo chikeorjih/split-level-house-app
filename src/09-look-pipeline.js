@@ -559,6 +559,9 @@ function giAbort(){const J=GI.job;if(!J)return;GI.job=null;J.atlas.dispose();if(
 // sun, lamps, the sky through the windows and what those light, with no flat fill and outdoor surfaces at their full sky light), capture
 // probes for up to ms, and put everything back exactly as it was, without restarting the view's refinement. At the end of a pass:
 // dilate, then start the second pass (lit by the first) or keep the result.
+// "off" during a capture is a tiny strength, not 0: a material's program is keyed partly on whether such values are zero, and under WebGPU
+// switching them to 0 and back every slice rebuilt every material's node graph twice a slice
+const GI_OFF=1e-6;
 function giSlice(ms){const J=GI.job,N=GI.N,t0=performance.now(),P=PRESETS[LOOK.preset],walk=ST.view==='walk'&&!ST.pending&&!ST.cutL;
   const sv={view:ST.view,pending:ST.pending,cutL:ST.cutL,clips:CLIPS.map(c=>c.constant),far:FAR_TREES.value,st:SKY_MAT.uniforms.st.value,dg:DIO.grp?DIO.grp.visible:false,
     fog:scene.fog?scene.fog.density:0,hemi:LOOK.hemi.intensity,skyl:SKYL.map(L=>L.intensity),sig:LAMP_SIG,shade:MAT.shade.emissiveIntensity,pool:LOOK.lights.map(q=>[q.position.clone(),q.color.getHex(),q.intensity,q.distance]),
@@ -569,8 +572,8 @@ function giSlice(ms){const J=GI.job,N=GI.N,t0=performance.now(),P=PRESETS[LOOK.p
   // glowing fixtures (cans, shades, LED strips, flames) captured dark: their light is already in the scene as real lights, and counting
   // their glow too made the rooms blow out once the room light came on, most of all in the evening
   sv.glow=['light','shade','ledStrip','flame'].filter(k=>MAT[k]).map(k=>[MAT[k],MAT[k].emissiveIntensity]);
-  for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;sv.env.push([m,m.envMapIntensity]);if(EXT_MATS.has(k))m.envMapIntensity=P.envE;else if(m.envMap)m.envMapIntensity=0;}
-  for(const [m] of sv.glow)m.emissiveIntensity=0;GI_U.uGI.value=J.pass>0?1:0;GI_U.tGIa.value=J.prev?J.prev.texture:null;GI_U.giGain.value=1;renderer.toneMapping=THREE.NoToneMapping;
+  for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;sv.env.push([m,m.envMapIntensity]);if(EXT_MATS.has(k))m.envMapIntensity=P.envE;else if(m.envMap)m.envMapIntensity=GI_OFF;}
+  for(const [m] of sv.glow)m.emissiveIntensity=GI_OFF;GI_U.uGI.value=J.pass>0?1:0;GI_U.tGIa.value=J.prev?J.prev.texture:null;GI_U.giGain.value=1;renderer.toneMapping=THREE.NoToneMapping;
   try{while(J.i<GI.probes.length&&performance.now()-t0<ms){const pr=GI.probes[J.i++];updateLampPool(pr.p);SKY.position.copy(pr.p);GI.cube.position.copy(pr.p);GI.cube.update(renderer,scene);
       const u=SHP_MAT.uniforms;u.cube.value=GI.cubeRT.texture;
       const ac=renderer.autoClear;if(window.GPU)renderer.autoClear=false;
@@ -579,7 +582,7 @@ function giSlice(ms){const J=GI.job,N=GI.N,t0=performance.now(),P=PRESETS[LOOK.p
   finally{renderer.toneMapping=sv.tm;GI_U.uGI.value=sv.uGI;GI_U.giGain.value=giGainNow();GI_U.tGIa.value=sv.tGIa;for(const [m,v] of sv.env)m.envMapIntensity=v;SKYL.forEach((L,i)=>L.intensity=sv.skyl[i]);LOOK.hemi.intensity=sv.hemi;
     LOOK.lights.forEach((q,i)=>{const o=sv.pool[i];q.position.copy(o[0]);q.color.setHex(o[1]);q.intensity=o[2];q.distance=o[3];});LAMP_SIG=sv.sig;for(const [m,v] of sv.glow)m.emissiveIntensity=v;MAT.shade.emissiveIntensity=sv.shade;
     if(scene.fog)scene.fog.density=sv.fog;if(DIO.grp)DIO.grp.visible=sv.dg;SKY_MAT.uniforms.st.value=sv.st;FAR_TREES.value=sv.far;CLIPS.forEach((c,i)=>c.constant=sv.clips[i]);
-    if(!walk){ST.view=sv.view;ST.pending=sv.pending;ST.cutL=sv.cutL;retarget(true);for(const [o,v] of sv.vis)o.visible=v;}
+    if(!walk){ST.view=sv.view;ST.pending=sv.pending;ST.cutL=sv.cutL;retarget(true);}for(const [o,v] of sv.vis)o.visible=v;
     shadowDirty=sv.sd;dirty=sv.dirty;}
   if(J.i<GI.probes.length)return;
   DIL_MAT.uniforms.N.value.copy(N);for(let d=0;d<4;d++){DIL_MAT.uniforms.t.value=J.atlas.texture;fs(DIL_MAT,GI.tmp);const sw=J.atlas;J.atlas=GI.tmp;GI.tmp=sw;}
