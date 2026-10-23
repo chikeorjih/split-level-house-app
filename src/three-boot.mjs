@@ -23,7 +23,14 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const pick = (() => { const q = new URLSearchParams(location.search).get('renderer'); let s = null; try { s = localStorage.getItem('renderer'); } catch (e) {}
   return q || s || 'auto'; })();
-const adapter = pick === 'webgl' || !navigator.gpu ? null : await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null);
+// (the loading screen names each step; an adapter request that hasn't answered in 5 s counts as none, so a browser whose WebGPU hangs
+// there, as reported on an iPad, starts on WebGL instead of waiting forever)
+const ld = (d) => { try { window.LOADUI && window.LOADUI.stage('engine', d); } catch (e) {} };
+ld(pick === 'webgl' || !navigator.gpu ? 'starting WebGL…' : 'checking WebGPU…');
+const adapter = pick === 'webgl' || !navigator.gpu ? null : await Promise.race([
+  navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null),
+  new Promise(r => setTimeout(() => { console.warn('three-boot: WebGPU adapter request timed out; using WebGL'); r(null); }, 5000))]);
+ld('loading the app scripts…');
 const GPU = pick !== 'webgl' && !!adapter;
 
 THREE_GL.ColorManagement.enabled = false;

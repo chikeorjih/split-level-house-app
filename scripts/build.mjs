@@ -16,8 +16,9 @@ html = html.replace(/<script type="importmap">[^\n]*<\/script>/, () => '<script 
 // the path tracer's packages, from the CDN at the installed versions
 function pkgCdn(name, entries) { const v = JSON.parse(fs.readFileSync(path.join(root, 'node_modules', name, 'package.json'), 'utf8')).version, o = {};
   for (const k in entries) o[name + k] = 'https://cdn.jsdelivr.net/npm/' + name + '@' + v + entries[k]; return o; }
-const bootTag = '<script type="module" src="src/three-boot.mjs"></script>\n';
-if (!html.includes(bootTag)) throw new Error('No three-boot.mjs module tag in index.html');
+// (the boot module's tag, whatever attributes it carries, such as the loading screen's onerror)
+const bootTag = (html.match(/<script type="module" src="src\/three-boot\.mjs"[^>]*><\/script>\n/) || [])[0];
+if (!bootTag) throw new Error('No three-boot.mjs module tag in index.html');
 html = html.replace(bootTag, '');
 const tags = [...html.matchAll(/<script type="text\/x-app" src="(src\/[^"]+\.js)"><\/script>\n?/g)];
 if (!tags.length) throw new Error('No src/*.js script tags found in index.html');

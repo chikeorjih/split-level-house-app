@@ -83,7 +83,11 @@
   btn.onclick=enter;addEventListener('keydown',e=>{if(!gone&&(e.key==='Enter'||e.key==='Escape')&&ready){e.preventDefault();enter();}});
   // a start-up error (anything thrown before the first view is drawn) shows on the loading screen instead of leaving it waiting
   addEventListener('error',e=>{if(!ready&&!gone)LOADUI.fail('Something went wrong while starting ('+(e.message||'unknown error')+'). Try reloading the page, or switch the renderer to WebGL.');});
-  LOADUI.stage('engine');})();
+  // a watchdog: if the engine hasn't started after 20 s (a browser whose WebGPU stalls, or a very slow connection), offer WebGL
+  setTimeout(()=>{if(st.engine&&st.engine.done||el.classList.contains('failed'))return;const n=el.querySelector('.ld-note');
+    n.innerHTML='Still loading the 3D engine. If this does not move on, <button type="button" class="ld-swap" id="ldGL">use the WebGL renderer</button>, which works in every browser.';
+    document.getElementById('ldGL').onclick=()=>{try{localStorage.setItem('renderer','webgl');}catch(e){}const u=new URL(location.href);u.searchParams.set('renderer','webgl');location.href=u.href;};},20000);
+  LOADUI.stage('engine','loading three.js…');})();
 </script>
 <div id="todBusy" role="status" aria-label="Loading" hidden><div class="busyBox"><span class="busy"></span><p id="busyText"></p></div></div>
 <div id="err" class="panel"></div>
@@ -172,7 +176,7 @@
 </div>
 
 <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/webgpu":"./vendor/three/build/three.webgpu.js","three/tsl":"./vendor/three/build/three.tsl.js","three/addons/":"./vendor/three/examples/jsm/","three/examples/jsm/":"./vendor/three/examples/jsm/","three-mesh-bvh":"./vendor/three-mesh-bvh/src/index.js","three-mesh-bvh/webgpu":"./vendor/three-mesh-bvh/src/webgpu/index.js","three-gpu-pathtracer/webgpu":"./vendor/three-gpu-pathtracer/src/webgpu/index.js","oidn-web":"./vendor/oidn-web/oidn.js"}}</script>
-<script type="module" src="src/three-boot.mjs"></script>
+<script type="module" src="src/three-boot.mjs" onerror="window.LOADUI&&LOADUI.fail('The 3D engine could not be downloaded. Check your connection and reload the page.')"></script>
 <script type="text/x-app" src="src/00-boot.js"></script>
 <script type="text/x-app" src="src/01-registry.js"></script>
 <script type="text/x-app" src="src/02-spec.js"></script>

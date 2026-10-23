@@ -383,7 +383,11 @@ html.phone #dbg,html.phone #arr{bottom:calc(var(--sheetT,72px) + 10px);left:8px;
   btn.onclick=enter;addEventListener('keydown',e=>{if(!gone&&(e.key==='Enter'||e.key==='Escape')&&ready){e.preventDefault();enter();}});
   // a start-up error (anything thrown before the first view is drawn) shows on the loading screen instead of leaving it waiting
   addEventListener('error',e=>{if(!ready&&!gone)LOADUI.fail('Something went wrong while starting ('+(e.message||'unknown error')+'). Try reloading the page, or switch the renderer to WebGL.');});
-  LOADUI.stage('engine');})();
+  // a watchdog: if the engine hasn't started after 20 s (a browser whose WebGPU stalls, or a very slow connection), offer WebGL
+  setTimeout(()=>{if(st.engine&&st.engine.done||el.classList.contains('failed'))return;const n=el.querySelector('.ld-note');
+    n.innerHTML='Still loading the 3D engine. If this does not move on, <button type="button" class="ld-swap" id="ldGL">use the WebGL renderer</button>, which works in every browser.';
+    document.getElementById('ldGL').onclick=()=>{try{localStorage.setItem('renderer','webgl');}catch(e){}const u=new URL(location.href);u.searchParams.set('renderer','webgl');location.href=u.href;};},20000);
+  LOADUI.stage('engine','loading three.js…');})();
 </script>
 <div id="todBusy" role="status" aria-label="Loading" hidden><div class="busyBox"><span class="busy"></span><p id="busyText"></p></div></div>
 <div id="err" class="panel"></div>
@@ -4502,7 +4506,7 @@ function ptrLogLum(tex,slot){const L=PTRACE.lum||(PTRACE.lum=[]);if(!L[slot]){co
   const J=L[slot];J.m.uniforms.t.value=tex;J.m.uniforms.tD.value=PIPE.enc.depthTexture;fs(J.m,J.rt);
   return renderer.readRenderTargetPixelsAsync(J.rt,0,0,64,40).then(b=>{let s=0,w=0;for(let i=0;i<64*40;i++){s+=b[i*4]*b[i*4+1];w+=b[i*4+1];}return w?s/w-16:NaN;});}
 </script>
-<script>window.__APP_LINE0=475;</script>
+<script>window.__APP_LINE0=479;</script>
 <script type="module">
 // three-boot.mjs: loads three.js (an ES module) and hands it to the app's classic scripts as the global THREE, before any of them run.
 // index.html loads this module first and the src/*.js scripts with `defer`, so they run after it, in order.
@@ -4529,7 +4533,14 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const pick = (() => { const q = new URLSearchParams(location.search).get('renderer'); let s = null; try { s = localStorage.getItem('renderer'); } catch (e) {}
   return q || s || 'auto'; })();
-const adapter = pick === 'webgl' || !navigator.gpu ? null : await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null);
+// (the loading screen names each step; an adapter request that hasn't answered in 5 s counts as none, so a browser whose WebGPU hangs
+// there, as reported on an iPad, starts on WebGL instead of waiting forever)
+const ld = (d) => { try { window.LOADUI && window.LOADUI.stage('engine', d); } catch (e) {} };
+ld(pick === 'webgl' || !navigator.gpu ? 'starting WebGL…' : 'checking WebGPU…');
+const adapter = pick === 'webgl' || !navigator.gpu ? null : await Promise.race([
+  navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null),
+  new Promise(r => setTimeout(() => { console.warn('three-boot: WebGPU adapter request timed out; using WebGL'); r(null); }, 5000))]);
+ld('loading the app scripts…');
 const GPU = pick !== 'webgl' && !!adapter;
 
 THREE_GL.ColorManagement.enabled = false;
