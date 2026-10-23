@@ -24,8 +24,9 @@ function modelScale(m,raw){const sp=m.spec;
 async function loadModels(){
   try{let man=window.__MODEL_MANIFEST||null;
     if(!man&&/^https?:/.test(location.protocol)){try{const r=await fetch('assets/models/manifest.json',{cache:'no-store'});if(r.ok)man=await r.json();}catch(e){}}
-    if(!man||!man.models||!THREE.GLTFLoader)return;const L=new THREE.GLTFLoader();
-    for(const m of man.models){if(m.enabled===false)continue;
+    if(!man||!man.models||!THREE.GLTFLoader)return;const L=new THREE.GLTFLoader();if(THREE.MeshoptDecoder)L.setMeshoptDecoder(THREE.MeshoptDecoder);   // (models compressed with gltfpack -c)
+    const on=man.models.filter(q=>q.enabled!==false);let mi=0;
+    for(const m of on){if(typeof LD!=='undefined')LD.stage('models',(++mi)+' of '+on.length,(mi-1)/on.length);
       const url=(window.__MODEL_FILES&&window.__MODEL_FILES[m.file])||('assets/models/'+m.file);
       try{const g=await new Promise((res,rej)=>L.load(url,res,undefined,rej));placeModel(m,g.scene);}catch(e){console.warn('model '+m.id+' failed to load',e);}}
     if(MODELS.length){retarget(true);updateSectionDisplay();arrLoad();shadowDirty=true;dirty=true;schedulePrewarm();}}
@@ -59,12 +60,14 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   const bb=new THREE.Box3().setFromObject(root),raw={w:bb.max.x-bb.min.x,d:bb.max.z-bb.min.z,h:bb.max.y-bb.min.y},sc=modelScale(m,raw);
   const inner=new THREE.Group();inner.add(root);const sv=sc.v||{x:sc.s,y:sc.s,z:sc.s};inner.scale.set(sv.x,sv.y,sv.z);inner.position.set(-(bb.min.x+bb.max.x)/2*sv.x,-bb.min.y*sv.y,-(bb.min.z+bb.max.z)/2*sv.z);
   // the T() piece it replaces: the nearest piece with that name; it also supplies any position, level or turn the manifest leaves out
-  let rep=null;if(m.replaces){const near=new THREE.Vector3(pl.x||0,0,pl.z||0),c=INSTS.filter(i=>{const e=REG.get(i.okey)||{};return i.group&&!i.hiddenByModel&&(e.label===m.replaces||e.id===m.replaces);});
+  // (replaces may also be a list, for one model standing in for several pieces: the first supplies its place, every one is hidden)
+  const repNames=[].concat(m.replaces||[]),repName=repNames[0];
+  let rep=null;if(repName){const near=new THREE.Vector3(pl.x||0,0,pl.z||0),c=INSTS.filter(i=>{const e=REG.get(i.okey)||{};return i.group&&!i.hiddenByModel&&(e.label===repName||e.id===repName);});
     rep=c.sort((a,b)=>(pl.x===undefined?0:a.group.position.distanceToSquared(near)-b.group.position.distanceToSquared(near)))[0]||null;
-    if(!rep)console.warn('model '+m.id+': no furniture piece named "'+m.replaces+'"');else if(REG.get(rep.okey).id===m.replaces)console.warn('model '+m.id+': replaces uses Debug ID '+m.replaces+', which can change when code is edited; give that T() piece a name instead');}
-  const rb=rep?new THREE.Box3().setFromObject(rep.group):null,lv=pl.lv||(rep&&/^[1-4]$/.test(rep.tag)?+rep.tag:3);
+    if(!rep)console.warn('model '+m.id+': no furniture piece named "'+repName+'"');else if(REG.get(rep.okey).id===repName)console.warn('model '+m.id+': replaces uses Debug ID '+repName+', which can change when code is edited; give that T() piece a name instead');}
+  const rb=rep?new THREE.Box3().setFromObject(rep.group):null,lv=pl.lv||(rep&&/^[1-4]$/.test(tagBase(rep.tag))?+tagBase(rep.tag):3);
   const x=pl.x!==undefined?pl.x:(rb?(rb.min.x+rb.max.x)/2:0),z=pl.z!==undefined?pl.z:(rb?(rb.min.z+rb.max.z)/2:0);
-  const ry=pl.ry!==undefined?pl.ry*D:(rep?rep.ry0+rep.ry:0)+(pl.turn||0)*D,y=pl.y!==undefined?pl.y:E[lv]+(pl.dy||0),tag=m.tag||String(lv);
+  const ry=pl.ry!==undefined?pl.ry*D:(rep?rep.ry0+rep.ry:0)+(pl.turn||0)*D,y=pl.y!==undefined?pl.y:E[lv]+(pl.dy||0),tag=m.tag||(rep&&tagPh(rep.tag)?rep.tag:String(lv));
   const outer=new THREE.Group();outer.position.set(x,y,z);outer.rotation.y=ry;outer.add(inner);outer.userData.model=m.id;
   const P=PRESETS[LOOK.preset];let n=0;
   const fix=mt=>{mt.clippingPlanes=CLIPS;mt.clipShadows=true;if(mt.isMeshStandardMaterial){mt.envMap=ROOM_ENV;mt.envMapIntensity=P.envI;}MAT['model:'+m.id+':'+(n++)]=mt;if(typeof giPatch==='function')giPatch(mt);mt.needsUpdate=true;return mt;};
@@ -77,12 +80,13 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
       [].concat(c.material).forEach(mt=>{if(mt.isMeshStandardMaterial){mt.roughness=.88;mt.metalness=0;if(window.GPU)gpuCorduroy(mt,(m.walePitchIn||.2)/12/(sc.v?sc.v.x:sc.s),M);else corduroy(mt,(m.walePitchIn||.2)/12/(sc.v?sc.v.x:sc.s),M);}});}
     c.castShadow=c.receiveShadow=true;c.userData.tag=tag;c.userData.model=m.id;
     c.material=Array.isArray(c.material)?c.material.map(fix):fix(c.material);c.userData.baseMat=c.material;});
-  if(rep){rep.group.visible=false;rep.hiddenByModel=true;for(const q of rep.cols){const i=COLS.indexOf(q.c);if(i>=0)COLS.splice(i,1);}}
+  const hide=r=>{r.group.visible=false;r.hiddenByModel=true;for(const q of r.cols){const i=COLS.indexOf(q.c);if(i>=0)COLS.splice(i,1);}};if(rep)hide(rep);
+  for(const nm of repNames.slice(1)){const c=INSTS.filter(i=>{const e=REG.get(i.okey)||{};return i.group&&!i.hiddenByModel&&e.label===nm;});if(!c.length)console.warn('model '+m.id+': no furniture piece named "'+nm+'"');c.forEach(r=>{hide(r);if(rb)rb.union(new THREE.Box3().setFromObject(r.group));});}   // (the report compares the model with all of them together)
   addTag(tag,outer);outer.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(outer);
   const R={m,outer,raw,sc,box,rep,repBox:rb,lv,tag,ry};MODELS.push(R);
   // an Arrange piece: the model's group already pivots on its footprint centre at floor level; its base turn stays in rybase
   const inst={key:'model:'+m.id,okey:'model:'+m.id,n:1,tag,group:outer,pivot0:outer.position.clone(),grp:box.clone(),dx:0,dz:0,ry:0,rybase:ry,cols:[],lights:[],isModel:true,model:R};
-  if(m.collide!==false){const c=addCol(box.min.x,box.max.x,box.min.z,box.max.z,box.min.y,box.max.y);inst.cols.push({c,r:[box.min.x,box.max.x,box.min.z,box.max.z]});}
+  if(m.collide!==false){const c=phase(rep?rep.ph:null,()=>addCol(box.min.x,box.max.x,box.min.z,box.max.z,box.min.y,box.max.y));inst.cols.push({c,r:[box.min.x,box.max.x,box.min.z,box.max.z]});}
   outer.traverse(o=>{if(o.isMesh)o.userData.inst=inst;});outer.userData.inst=inst;INSTS.push(inst);R.inst=inst;}
 // ---------- dimension and fit check ----------
 function modelReport(){const r2=v=>Math.round(v*100)/100,ro=o=>{const q={};for(const k in o)q[k]=r2(o[k]);return q;};
@@ -119,11 +123,15 @@ function modelReport(){const r2=v=>Math.round(v*100)/100,ro=o=>{const q={};for(c
     // other furniture and models (ignores rugs and anything barely overlapping)
     const others=[...INSTS.filter(i=>i.group&&!i.hiddenByModel&&!i.isModel).map(i=>({n:(REG.get(i.okey)||{}).label||'furniture',b:new THREE.Box3().setFromObject(i.group)})),
       ...MODELS.filter(q=>q!==R).map(q=>({n:'model '+q.m.id,b:q.box}))];
+    // (a box overlap is confirmed against the model's own surface, so a piece standing in the notch of an L-shaped sectional is not counted)
+    const pts=R.pts||(R.pts=(()=>{const a=[],v=new THREE.Vector3();R.outer.updateMatrixWorld(true);R.outer.traverse(o=>{if(!o.isMesh)return;const P=o.geometry.attributes.position;
+      for(let i=0;i<P.count;i+=3){v.fromBufferAttribute(P,i).applyMatrix4(o.matrixWorld);a.push(v.x,v.y,v.z);}});return a;})());
+    const hits=b=>{for(let i=0;i<pts.length;i+=3)if(pts[i]>b.min.x+.08&&pts[i]<b.max.x-.08&&pts[i+2]>b.min.z+.08&&pts[i+2]<b.max.z-.08&&pts[i+1]>b.min.y&&pts[i+1]<b.max.y)return true;return false;};
     for(const q of others){const b=q.b;if(b.isEmpty()||ov(f.y0,f.y1,b.min.y,b.max.y)<.2)continue;
-      const px=ov(f.x0,f.x1,b.min.x,b.max.x),pz=ov(f.z0,f.z1,b.min.z,b.max.z);if(px>.08&&pz>.08)issues.push(`overlaps ${q.n} by ${(Math.min(px,pz)*12).toFixed(1)}"`);}
+      const px=ov(f.x0,f.x1,b.min.x,b.max.x),pz=ov(f.z0,f.z1,b.min.z,b.max.z);if(px>.08&&pz>.08&&hits(b))issues.push(`overlaps ${q.n} by ${(Math.min(px,pz)*12).toFixed(1)}"`);}
     // compared with the piece it replaces (plan footprint and height, both as placed)
     if(R.rep){const b=R.repBox,o={w:(b.max.x-b.min.x)*12,d:(b.max.z-b.min.z)*12,h:(b.max.y-b.min.y)*12},n={w:(f.x1-f.x0)*12,d:(f.z1-f.z0)*12,h:(f.y1-f.y0)*12};
-      r.replaces={name:m.replaces,old_in:ro(o),new_in:ro(n)};
-      for(const [k,lab] of [['w','x (east-west)'],['d','z (toward the street)'],['h','tall']]){const d=n[k]-o[k];if(Math.abs(d)>3)notes.push(`${Math.abs(d).toFixed(1)}" ${d>0?'bigger':'smaller'} ${k==='h'?'in height':'along '+lab} than the ${m.replaces} it replaces`);}}
-    else if(m.replaces)issues.push('no furniture piece named "'+m.replaces+'" to replace');
+      r.replaces={name:[].concat(m.replaces).join(' + '),old_in:ro(o),new_in:ro(n)};
+      for(const [k,lab] of [['w','x (east-west)'],['d','z (toward the street)'],['h','tall']]){const d=n[k]-o[k];if(Math.abs(d)>3)notes.push(`${Math.abs(d).toFixed(1)}" ${d>0?'bigger':'smaller'} ${k==='h'?'in height':'along '+lab} than the ${[].concat(m.replaces).join(' + ')} it replaces`);}}
+    else if(m.replaces)issues.push('no furniture piece named "'+[].concat(m.replaces)[0]+'" to replace');
     r.ok=!issues.length;return r;});}

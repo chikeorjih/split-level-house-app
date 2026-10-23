@@ -11,8 +11,8 @@ const out = path.join(root, 'vendor/three');
 fs.rmSync(out, { recursive: true, force: true });
 const copy = rel => { const d = path.join(out, rel); fs.mkdirSync(path.dirname(d), { recursive: true }); fs.copyFileSync(path.join(pkg, rel), d); };
 for (const f of ['three.core.js', 'three.module.js', 'three.webgpu.js', 'three.webgpu.nodes.js', 'three.tsl.js']) copy('build/' + f);
-// add-ons: the GLTF loader and what it imports
-for (const f of ['loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js', 'utils/SkeletonUtils.js', 'postprocessing/Pass.js']) copy('examples/jsm/' + f);
+// add-ons: the GLTF loader and what it imports, and the meshopt decoder for compressed models (gltfpack -c)
+for (const f of ['loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js', 'utils/SkeletonUtils.js', 'postprocessing/Pass.js', 'libs/meshopt_decoder.module.js']) copy('examples/jsm/' + f);
 copy('package.json');
 // the path tracer (Ultra's "Path traced" mode, WebGPU only) and the BVH library it traces with: their ES module sources
 for (const name of ['three-mesh-bvh', 'three-gpu-pathtracer']) { const src = path.join(root, 'node_modules', name), dst = path.join(root, 'vendor', name);

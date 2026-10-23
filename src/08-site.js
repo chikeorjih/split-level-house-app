@@ -8,7 +8,7 @@ function sstep(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
 const FRONT_PTS=[[-95,-14.5],[-24,-11.8],[-2,-11.5],[3,-7],[14,-7],[18,-3.2],[26,-2.2],[30,-1.5],[135,-1.5]];
 function yFront(x){const P=FRONT_PTS;if(x<=P[0][0])return P[0][1];for(let i=1;i<P.length;i++)if(x<=P[i][0]){const a=P[i-1],b=P[i];return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);}return P[P.length-1][1];}
 function yStreet(x){return x>=20?-1.3:-1.3-(20-x)*.07;}
-function terrainH(x,z){
+function terrainH(x,z,asItStands){   // asItStands: without the dig-out for the addition's lower openings
   const yF=yFront(x),yR=-16.25-Math.max(0,-z-12)*.12;
   let h=yR+(yF-yR)*sstep((z+1)/35);
   if(z>34)h=yF+(yStreet(x)-yF)*sstep((z-36)/24);
@@ -17,7 +17,7 @@ function terrainH(x,z){
   if(x>60&&z<34)h+=Math.min(3,(x-60)*.03)*sstep((z+1)/35);
   if(x>-27&&x<=10.3&&z>-3.75&&z<=0)h=Math.min(h,-16.15);
   if(x>-27&&x<=0&&z>-3.75&&z<=15)h=Math.min(h,-16.15+Math.max(0,z-6.5)*.5);
-  if(x>-21.5&&x<=0&&z>12.9&&z<32.5)h=Math.min(h,-12);
+  if(!asItStands&&x>-21.5&&x<=0&&z>12.9&&z<32.5)h=Math.min(h,-12);
   return h;
 }
 // far ground: a coarse skirt from just inside the terrain's edge out to the horizon, at the height of the nearest terrain edge, so the view
@@ -59,11 +59,13 @@ function buildSiteHard(){
   fd(-0.3,18.8,-0.3,0.3,-14.5);fd(-0.3,0.3,0,31.6,-14.5);fd(-0.3,18.8,31.3,31.9,-14.5);fd(18.2,18.8,31.6,31.9,-14.5);
   fd(14.2,44.9,-0.3,0.3,-14.5);fd(44.3,44.9,0,9.5,-14.5);fd(35.6,44.9,8.9,9.5,-14.5);fd(35.6,36.2,9.2,31.9,-14.5);fd(18.5,36.2,31.3,31.9,-14.5);
   box('X','brick',35.6,54.4,-4,-1,31.3,31.9);box('X','brick',53.8,54.4,-17,-1,10.3,31.9);
+  // the earth under the garage slab (the terrain stops at the house footprint), so with the garage hidden the cutaway shows ground, not the block's underside
+  {const g=new THREE.BufferGeometry(),x0=35.6,x1=54.1,z0=10.6,z1=31.6,y=-1.42;g.setAttribute('position',new THREE.Float32BufferAttribute([x0,y,z0, x0,y,z1, x1,y,z1, x0,y,z0, x1,y,z1, x1,y,z0],3));
+    g.setAttribute('uv',new THREE.Float32BufferAttribute([x0,z0, x0,z1, x1,z1, x0,z0, x1,z1, x1,z0],2));g.computeVertexNormals();addGeo('site','soilTop',g);g.dispose();}
   // driveway and the street (which falls gently toward the west, like the lawn)
   // the driveway: a thin slab on top of the ground, stopping just inside the block's front face so it never shows in the soil cross-section
   quadSlab('site','driveway',[[36.0,-.52,31.95],[53.8,-.52,31.95],[53.8,-1.0,SITE.street0-.08],[36.0,-1.0,SITE.street0-.08]],.35);
   addWalk(36,53.8,31.95,SITE.street0,-.8);
-  quadSlab('site','concrete',[[33.5,-.6,29.3],[36.0,-.6,29.3],[36.0,-.6,33.5],[33.5,-.6,33.5]],1.5);
   for(let x=-95;x<135;x+=5){const a=yStreet(x),b=yStreet(x+5);
     quadSlab('site','asphalt',[[x,a,SITE.street0+.6],[x+5,b,SITE.street0+.6],[x+5,b,SITE.street1],[x,a,SITE.street1]],3);
     quadSlab('site','concrete',[[x,a+.35,SITE.street0],[x+5,b+.35,SITE.street0],[x+5,b+.35,SITE.street0+.6],[x,a+.35,SITE.street0+.6]],3);
@@ -98,8 +100,9 @@ const inDio=(x,z,m)=>{m=m||0;return x>DIO.x0+m&&x<DIO.x1-m&&z>DIO.z0+m&&z<DIO.z1
 function farPatch(m){const o=m.onBeforeCompile;m.onBeforeCompile=sh=>{if(o)o(sh);sh.uniforms.uFar=FAR_TREES;
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float uFar;').replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n  if(uFar>.5)discard;');};
   m.customProgramCacheKey=()=>'far|'+(o?String(o):'');npAdd(m,{mask:()=>npU(FAR_TREES).lessThan(.5)});return m;}
-function soilTex(){const S=TX(512),[c,g]=cv(S,S);const gr=g.createLinearGradient(0,0,0,S);gr.addColorStop(0,'#5a4130');gr.addColorStop(1,'#3b2a20');g.fillStyle=gr;g.fillRect(0,0,S,S);
-  let y=0;while(y<S){const h=rr(6,30)*S/512;g.fillStyle='rgba('+(rnd()<.5?'120,90,60':'40,28,20')+','+rr(.05,.18)+')';g.fillRect(0,y,S,h);y+=h;}
+// flat: the same earth seen from above (one even tone, no strata bands), for the dug-out ground
+function soilTex(flat){const S=TX(512),[c,g]=cv(S,S);const gr=g.createLinearGradient(0,0,0,S);gr.addColorStop(0,flat?'#4b3628':'#5a4130');gr.addColorStop(1,flat?'#4b3628':'#3b2a20');g.fillStyle=gr;g.fillRect(0,0,S,S);
+  let y=flat?S:0;while(y<S){const h=rr(6,30)*S/512;g.fillStyle='rgba('+(rnd()<.5?'120,90,60':'40,28,20')+','+rr(.05,.18)+')';g.fillRect(0,y,S,h);y+=h;}
   for(let i=0;i<S*3;i++){g.fillStyle='rgba('+(rnd()<.5?'150,120,90':'25,18,12')+','+rr(.1,.35)+')';g.fillRect(rr(0,S),rr(0,S),rr(1,3),rr(1,2));}
   return tex(c,12,12);}
 // the studio floor under the block: plain soft lilac, fading out toward its edges into the backdrop
@@ -113,10 +116,11 @@ function contactShadowTex(w,d,S){const R=TX(512),[c,g]=cv(R,R),im=g.createImageD
     const a=Math.min(1,.9*Math.exp(-e/.7)+.225*Math.exp(-e/4.5))*Math.max(0,1-e/S),k=(j*R+i)*4;im.data[k]=im.data[k+1]=im.data[k+2]=12;im.data[k+3]=Math.round(a*255);}
   g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 function buildDiorama(){const grp=new THREE.Group(),P=[],N=[],U=[],B=DIO.base;
-  const quad=(a,b,c2,d,n)=>{for(const v of [a,b,c2,a,c2,d]){P.push(v[0],v[1],v[2]);N.push(...n);U.push(v[3],v[1]);}};
+  // (each corner: x, y, z, then u, and optionally v; the sides use height for v, the bottom its plan position, so the photo lies flat there)
+  const quad=(a,b,c2,d,n)=>{for(const v of [a,b,c2,a,c2,d]){P.push(v[0],v[1],v[2]);N.push(...n);U.push(v[3],v.length>4?v[4]:v[1]);}};
   const side=(ax,fixed,a0,a1,n)=>{for(let a=a0;a<a1-1e-6;a+=2){const b=Math.min(a1,a+2),pt=t=>ax==='x'?[t,fixed]:[fixed,t],[xa,za]=pt(a),[xb,zb]=pt(b),ya=terrainH(xa,za)+.06,yb=terrainH(xb,zb)+.06;
     quad([xa,ya,za,a],[xb,yb,zb,b],[xb,B,zb,b],[xa,B,za,a],n);}};
-  side('x',DIO.z1,DIO.x0,DIO.x1,[0,0,1]);side('x',DIO.z0,DIO.x0,DIO.x1,[0,0,-1]);side('z',DIO.x0,DIO.z0,DIO.z1,[-1,0,0]);side('z',DIO.x1,DIO.z0,DIO.z1,[1,0,0]);quad([DIO.x0,B,DIO.z0,0],[DIO.x1,B,DIO.z0,DIO.x1-DIO.x0],[DIO.x1,B,DIO.z1,DIO.x1-DIO.x0],[DIO.x0,B,DIO.z1,0],[0,-1,0]);
+  side('x',DIO.z1,DIO.x0,DIO.x1,[0,0,1]);side('x',DIO.z0,DIO.x0,DIO.x1,[0,0,-1]);side('z',DIO.x0,DIO.z0,DIO.z1,[-1,0,0]);side('z',DIO.x1,DIO.z0,DIO.z1,[1,0,0]);quad([DIO.x0,B,DIO.z0,DIO.x0,DIO.z0],[DIO.x1,B,DIO.z0,DIO.x1,DIO.z0],[DIO.x1,B,DIO.z1,DIO.x1,DIO.z1],[DIO.x0,B,DIO.z1,DIO.x0,DIO.z1],[0,-1,0]);
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
   MAT.soil=new THREE.MeshStandardMaterial({map:soilTex(),roughness:1,side:THREE.DoubleSide});
   const soil=new THREE.Mesh(g,MAT.soil);soil.castShadow=true;soil.receiveShadow=true;grp.add(soil);
@@ -247,15 +251,17 @@ function frontLandscape(){
 }
 function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chunks=new Map();RNG_SEED=4242;
   const lin=h=>new THREE.Color(h).convertSRGBToLinear(),tipA=lin(0x7fa245),tipB=lin(0x93ad55),tipDeep=lin(0x5f8436),tipDry=lin(0xbdb36e),tmp=new THREE.Color(),cc=new THREE.Color();
-  const hard=(x,z)=>inFoot(x,z,.8)||isBed(x,z)||nearPath(x,z,.95)||WALKS.some(w=>x>w.x0-.4&&x<w.x1+.4&&z>w.z0-.4&&z<w.z1+.4)||SPEC.rooms.some(r=>x>Math.min(r.x0,r.x1)-.4&&x<Math.max(r.x0,r.x1)+.4&&z>Math.min(r.z0,r.z1)-.4&&z<Math.max(r.z0,r.z1)+.4)||
-    (x>-31&&x<-.4&&Math.abs(z-33.3)<.5);
+  // a blade where something stands in one state only (the addition and its deck; the balcony) belongs to the other state's lawn
+  const hardIn=ph=>(x,z)=>inFoot(x,z,.8)||isBed(x,z)||nearPath(x,z,.95)||WALKS.some(w=>!w.lawn&&(!w.ph||w.ph===ph)&&x>w.x0-.4&&x<w.x1+.4&&z>w.z0-.4&&z<w.z1+.4)||
+    (ph==='a'&&x>-21.9&&x<.4&&z>-2.05&&z<32.9)||SPEC.allRooms.some(r=>(!r.ph||r.ph===ph)&&r.name!=='Balcony'&&x>Math.min(r.x0,r.x1)-.4&&x<Math.max(r.x0,r.x1)+.4&&z>Math.min(r.z0,r.z1)-.4&&z<Math.max(r.z0,r.z1)+.4)||
+    (x>-31&&x<-.4&&Math.abs(z-33.3)<.5),hardA=hardIn('a'),hardC=hardIn('c');
   const noise=(x,z)=>.5+.25*Math.sin(x*.21+Math.cos(z*.17)*1.7)+.25*Math.sin(z*.13-x*.07+Math.sin(x*.05)*2);
   // more fields for natural variety: patches of taller grass, lusher deep-green areas and drier, straw-tinted spots
   const tallF=(x,z)=>.5+.3*Math.sin(x*.33+Math.sin(z*.29)*2.1)+.2*Math.sin(z*.41-x*.19),deepF=(x,z)=>noise(z*1.7+31,x*1.3-17),dryF=(x,z)=>noise(x*2.3-7,z*2.1+13);
   const cl=v=>Math.min(1,Math.max(0,v));
-  for(let x=DIO.x0;x<DIO.x1;x+=cell)for(let z=DIO.z0;z<SITE.street0-.3;z+=cell){const px=x+rr(0,cell),pz=z+rr(0,cell);if(hard(px,pz))continue;
-    const k=Math.floor(px/CH)+','+Math.floor(pz/CH);let A=chunks.get(k);if(!A){A={p:[],n:[],u:[],c:[],i:[]};chunks.set(k,A);}
-    const y=terrainH(px,pz)-.03,yaw=rr(0,3.1416),w=rr(.7,1.1),t=cl(Math.pow(rnd(),2.2)*.75+Math.max(0,tallF(px,pz)-.55)*1.4+(rnd()<.04?rr(.4,.9):0)),h=.56*(1+2*t);
+  for(let x=DIO.x0;x<DIO.x1;x+=cell)for(let z=DIO.z0;z<SITE.street0-.3;z+=cell){const px=x+rr(0,cell),pz=z+rr(0,cell),hA=hardA(px,pz),hC=hardC(px,pz);if(hA&&hC)continue;
+    const ph=hA?'c':hC?'a':'',k=ph+Math.floor(px/CH)+','+Math.floor(pz/CH);let A=chunks.get(k);if(!A){A={p:[],n:[],u:[],c:[],i:[]};chunks.set(k,A);}
+    const y=terrainH(px,pz,ph==='c')-.03,yaw=rr(0,3.1416),w=rr(.7,1.1),t=cl(Math.pow(rnd(),2.2)*.75+Math.max(0,tallF(px,pz)-.55)*1.4+(rnd()<.04?rr(.4,.9):0)),h=.56*(1+2*t);
     // height: .56 ft at the low end, up to three times that (.56 plus twice .56) in taller patches and the odd stray tuft
     tmp.copy(tipA).lerp(tipB,cl(noise(px,pz)+rr(-.15,.15))).lerp(tipDeep,cl(deepF(px,pz)-.4)*1.3).lerp(tipDry,cl(dryF(px,pz)-.68)*1.1+t*.1+rr(0,.04))
       .multiplyScalar(rr(.86,1.1));
@@ -263,7 +269,7 @@ function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chu
       cc.copy(tmp).offsetHSL(rr(-.012,.012),rr(-.04,.04),0).multiplyScalar(rr(.9,1.08));
       for(const [e,top] of [[-1,0],[1,0],[1,1],[-1,1]]){A.p.push(px+ca*e*w/2+(top?tx:0),y+(top?ty:0),pz+sa*e*w/2+(top?tz:0));A.n.push(0,1,0);A.u.push(u0+(e+1)*.25,top);A.c.push(cc.r,cc.g,cc.b);}
       A.i.push(base,base+1,base+2,base,base+2,base+3);}}
-  const mat=new THREE.MeshStandardMaterial({map:grassCardTex(),vertexColors:true,alphaTest:.5,alphaToCoverage:true,side:THREE.DoubleSide,roughness:1,clippingPlanes:CLIPS,clipShadows:true});
+  const mat=new THREE.MeshStandardMaterial({map:grassCardTex(),vertexColors:true,alphaTest:.5,alphaToCoverage:true,side:THREE.DoubleSide,roughness:1,clippingPlanes:CLIPS_SITE,clipShadows:true});
   const gBase={value:lin(0x3e4f1f)};
   mat.onBeforeCompile=sh=>{sh.uniforms.gBase=gBase;
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec3 gBase;')
@@ -271,10 +277,10 @@ function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chu
       .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n  normal=normalize(vNormal);');};
   npAdd(mat,{color:c=>NP.vec4(NP.mix(npU(gBase,'color'),c.rgb,NP.smoothstep(0,.9,NP.uv().y)),c.a)});
   if(window.GPU)mat.normalNode=NP.normalView.mul(NP.faceDirection);   // (cancels the back-face flip: blades shade by their built normal on both sides, as in the GLSL patch)
-  const grp=new THREE.Group();grp.userData.mat=mat;
-  for(const A of chunks.values()){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
+  const grp=new THREE.Group(),grpPh={a:new THREE.Group(),c:new THREE.Group()};grp.userData.mat=mat;grp.userData.ph=grpPh;
+  for(const [k,A] of chunks){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(A.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(A.n,3));
     g.setAttribute('uv',new THREE.Float32BufferAttribute(A.u,2));g.setAttribute('color',new THREE.Float32BufferAttribute(A.c,3));g.setIndex(A.i);g.computeBoundingSphere();
-    const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.castShadow=false;grp.add(m);}
+    const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.castShadow=false;(grpPh[k[0]]||grp).add(m);}
   return grp;}
 function setbackLines(){const g=new THREE.Group();const mat=new THREE.LineDashedMaterial({color:0xd0453b,dashSize:2.2,gapSize:1.4,depthTest:false,transparent:true});
   const line=(pts)=>{const L=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p[0],terrainH(p[0],p[1])+.4,p[1]))),mat);L.computeLineDistances();L.renderOrder=20;g.add(L);};

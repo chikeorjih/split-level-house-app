@@ -46,7 +46,8 @@ if (manifest.models.length) {
     const errors = []; page.on('pageerror', e => errors.push(String(e))); page.on('console', m => { if (/^model /.test(m.text())) errors.push(m.text()); });
     await page.addInitScript(m => { window.__MODEL_MANIFEST = m; try { localStorage.removeItem('panelMin'); } catch (e) {} }, manifest);
     await page.goto(`http://localhost:${port}/`);
-    await page.waitForFunction(() => document.getElementById('loading')?.style.display === 'none' && MODELS_READY, null, { timeout: 120000 });
+    await page.waitForFunction(() => document.getElementById('ldEnter')?.disabled === false && MODELS_READY, null, { timeout: 120000 });
+    await page.evaluate(() => document.getElementById('ldEnter').click());
     const report = await page.evaluate(() => { setQuality('fast'); for (const p of document.querySelectorAll('#top,#levels,#hud')) p.classList.add('min'); return modelReport(); });
     const outDir = path.join(root, 'test-results/models'); fs.mkdirSync(outDir, { recursive: true });
     const settle = () => page.waitForFunction(() => !CT && !PT && !ST.pending && !Object.keys(FTW).length && CLIPT.t >= CLIPT.dur, null, { timeout: 180000 }).then(() => page.waitForTimeout(700));

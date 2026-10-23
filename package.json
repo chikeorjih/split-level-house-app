@@ -12,7 +12,8 @@
     "sketchfab": "node scripts/sketchfab.mjs",
     "model:check": "node scripts/model-check.mjs",
     "model:shot": "node scripts/model-shot.mjs",
-    "postinstall": "node scripts/vendor-three.mjs"
+    "postinstall": "node scripts/vendor-three.mjs",
+    "model:textures": "node scripts/model-textures.cjs"
   },
   "dependencies": {
     "oidn-web": "^0.5.0",

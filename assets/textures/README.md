@@ -17,6 +17,15 @@ Real photo textures override the generated ones when the app runs from the dev s
 - **`material`:** a key in `MAT`. The common architectural ones are `oak`, `brick`, `brickWhite`, `wall`, `slate`, `tileBath`, `subway`, `slateRoof`, `roof`, `metalRoof`, `deckOld`, `deckNew`, `stone`, `grass`, `concrete`, `drive` and `paver`. Turn on Debug IDs and tap a surface to see its materials.
 - **`repeatFt`:** how many feet one copy of the image covers. Add `repeatFtY` if the height differs.
 
-This works best for architectural surfaces, which use feet-based texture coordinates. Furniture uses per-face coordinates, so ask Claude Code to wire up furniture textures individually. Good free sources: Poly Haven and ambientCG (CC0).
+This works best for architectural surfaces, which use feet-based texture coordinates. Good free sources: Poly Haven and ambientCG (CC0).
 
-The single-file build doesn't load these files, because published artifacts can't load outside images. Ask Claude Code to embed them as data URIs if you want them in the published version.
+## Photos on furniture (rugs and the like)
+
+Furniture faces use 0–1 texture coordinates, so `"repeatFt": 1` lays the image once across a face. The two bedroom rugs work this way: their product photos are cropped to the rug and listed for `rugNurseryBig` (`rug_floral_charcoal_8x10.jpg`) and `rugCheck` (`rug_confetti_check_8x10.jpg`). Crop the photo to the piece and turn it so its long side matches the piece's long side; the material needs a plain fallback in `MAT` for the single-file build.
+
+## What is here now
+
+- **Poly Haven (CC0):** brick, roof slates, wood floor, deck planks, driveway gravel concrete, forest ground (the soil block and the bare earth in cutaways), laminate (lower-level floors), curly teddy (lower-level rugs). Each entry in `manifest.json` records its source and scale.
+- **Owner-supplied:** the two bedroom rug photos.
+
+The single-file build doesn't load these files, because published artifacts can't load outside images, so it shows the generated textures (and plain fallbacks for the rugs). Embedding them as data URIs is possible, but they are large: the 2k photo sets here total well over the 16 MB artifact limit.

@@ -28,7 +28,8 @@ try {
   const errors = []; page.on('pageerror', e => errors.push(String(e)));
   await page.addInitScript(() => { try { localStorage.removeItem('house-arrange-v1'); localStorage.removeItem('panelMin'); } catch (e) {} });
   await page.goto(`http://localhost:${port}/`);
-  await page.waitForFunction(() => document.getElementById('loading')?.style.display === 'none' && MODELS_READY, null, { timeout: 180000 });
+  await page.waitForFunction(() => document.getElementById('ldEnter')?.disabled === false && MODELS_READY, null, { timeout: 180000 });
+  await page.evaluate(() => document.getElementById('ldEnter').click());
 
   // find the piece, measure it in its own frame, isolate it in a studio and draw the four views into one sheet
   const res = await page.evaluate(sel => {

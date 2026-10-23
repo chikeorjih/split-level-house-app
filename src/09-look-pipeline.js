@@ -24,7 +24,7 @@ const PRESETS={
 // bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
 const LOOK={bloomScale:.5,dof:0,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
 const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
-  'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil']);
+  'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil','soilTop','wicker']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
 const FOG_D=.0014;
 const fogColor=P=>new THREE.Color(P.hor).lerp(new THREE.Color(P.zen),.12);
@@ -90,13 +90,13 @@ function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6
   const pr={chandelier:0,pendant:1,ceiling:2,lamp:3,outdoor:4};const L=LAMPS.slice().sort((a,b)=>pr[a.k]-pr[b.k]);let pend=null;const out=[];
   for(const l of L){if(l.k==='pendant'){if(!pend){pend=l.v.clone();out.push({v:pend,k:'pendant'});}else pend.lerp(l.v,.5);continue;}out.push(l);}
   for(const f of fills)out.push({v:new THREE.Vector3(...f),k:'fill'});
-  for(const l of out){const v={k:l.k,position:l.v.clone(),color:l.k==='outdoor'?0xffa75c:0xffb36b,i:l.k==='fill'?.55:(l.k==='outdoor'?.9:1.1),d:l.k==='fill'?22:16};
+  for(const l of out){const v={k:l.k,position:l.v.clone(),color:l.k==='outdoor'?0xffa75c:0xffb36b,i:l.k==='fill'?.55:(l.k==='outdoor'?.9:1.1),d:l.k==='fill'?22:16,ph:l.ph||null};
     LAMPV.push(v);if(l.inst)l.inst.lights.push({light:v,v0:l.v.clone()});}
   for(let i=0;i<(COARSE?5:10);i++){const p=new THREE.PointLight(0xffb36b,0,16,1.6);scene.add(p);LOOK.lights.push(p);}}
 // point the pool at the lamps nearest the view (the walker, or the 3/4 view's target); only touches the lights when that set changes
 function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?LAMP_EVE:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
-  const pick=on?LAMPV.slice().sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
-  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':'on'):'off')+og;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
+  const pick=on?LAMPV.filter(v=>phOn(v.ph)).sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
+  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':'on'):'off')+og+HOUSE.ph;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
   if(sig===LAMP_SIG)return;LAMP_SIG=sig;
   LOOK.lights.forEach((p,i)=>{const v=pick[i];if(v){p.position.copy(v.position);p.color.setHex(v.color);p.intensity=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1);p.distance=v.d;}else p.intensity=0;});
   MAT.shade.emissiveIntensity=P.lamps?1.4:(dim?.8:.35);if(typeof syncDerived==='function')syncDerived();
@@ -183,7 +183,7 @@ const ULTRA={frames:192,pixels:5.5e6,giS:1,giR:7,ssrS:1,reflBoost:1.4,aoBoost:1.
   refl:{glass:.04,oak:.02,slate:.06,tileBath:.14,subway:.18,showerTile:.16,barTile:.14,cab:.05,cabDark:.05,quartz:.14,walnutDark:.12,oakFurn:.09,oakLight:.08,porcelain:.2,
     ceramicWhite:.12,washer:.12,blackGlass:.25,tvScreen:.3,mirror:1,doorWhite:.06,doorGrey:.06,trim:.05,leather:.06,tread:.1}};
 // the rooms' flat fill (their environment light) in the 3/4 cutaway, where they are lit as if their ceilings were on
-const CUT_FILL=.35,cutFill=()=>typeof SHADOW_PROXY!=='undefined'&&SHADOW_PROXY&&SHADOW_PROXY.visible?CUT_FILL:1;
+const CUT_FILL=.35,cutFill=()=>typeof SHADOW_PROXY!=='undefined'&&SHADOW_PROXY&&SHADOW_PROXY.userData.on?CUT_FILL:1;
 const ultraFill=()=>isUltra()?ULTRA.fill:{hemi:1,env:1,envI:1};
 const isHQ=()=>LOOK.quality!=='fast',isUltra=()=>LOOK.quality==='ultra'||LOOK.quality==='path';   // (path: Ultra, traced once the camera rests; 15-pathtrace.js)
 function qualityPR(q){const dpr=window.devicePixelRatio||1;if(q==='fast')return Math.min(dpr,2);if(q==='high')return Math.min(dpr,1.5);
@@ -352,8 +352,10 @@ function updateInteriorShadows(){const U=ULTRA;
     sp.shadow.mapSize.set(1024,1024);sp.shadow.bias=-.0006;sp.shadow.normalBias=.03;sp.shadow.camera.near=.6;scene.add(sp,sp.target);U.probes=[sp];
     for(let i=0;i<2;i++){const pt=new THREE.PointLight(0xffffff,0,16,1.6);pt.shadow.mapSize.set(512,512);pt.shadow.bias=-.003;pt.shadow.normalBias=.04;pt.shadow.camera.near=1.3;scene.add(pt);U.probes.push(pt);}}
   for(const l of [...(LOOK.kitchen||[]).map(k=>k.l),...LOOK.lights])l.castShadow=false;
-  // (only in Ultra, also under WebGPU: shadows always on cost every object a shadow pass per cube face, about 500 MB of memory)
-  for(const pr of U.probes)pr.castShadow=isUltra();shadowDirty=true;}
+  // (WebGL: only in Ultra; shadows always on cost every object a shadow pass per cube face, about 500 MB of memory. WebGPU: always on, so a
+  // change of quality never adds or removes shadow maps: that changed the light setup built into every shader, recompiling them all, and
+  // destroyed shadow maps that compiled state still referred to. Outside Ultra the probes are dark and their maps are never redrawn.)
+  for(const pr of U.probes)pr.castShadow=window.GPU?true:isUltra();shadowDirty=true;}
 // soft shadows from the room lights nearest the view (one spot, two point lights): a shadow-casting probe takes over each one, at the same
 // strength and colour, moved a little every refinement frame for a soft edge. (An earlier version shadowed every light by picking one at
 // random each frame and cancelling it with negative light: correct on average, but it flashed black while refining.)
@@ -496,8 +498,10 @@ function setQuality(q,why){if(typeof giAbort==='function')giAbort();
   if(typeof sun!=='undefined'&&sun){const mx=maxTexSize(),sz=(q==='ultra'||q==='path')&&mx>=8192&&!window.GPU?8192:(mx>=4096?4096:2048);
     if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map&&!window.GPU){sun.shadow.map.dispose();sun.shadow.map=null;}shadowDirty=true;}}
   if(LOOK.hemi)updateInteriorShadows();ULTRA.focus=0;
-  PIPE.n=0;dirty=true;applyGrade();if(LOOK.hemi)applyLightBalance();const note=document.getElementById('qnote');if(note){note.textContent=why||'';note.style.display=why?'block':'none';}
-  document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.q===q)));}
+  PIPE.n=0;dirty=true;applyGrade();if(LOOK.hemi)applyLightBalance();if(typeof notice==='function')notice(why||'');
+  document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.q===q)));
+  // (WebGPU: a quality changes the target the scene draws into and, in Ultra, which lights cast shadows: shaders for transitions compile afresh)
+  if(window.GPU&&typeof schedulePrewarm==='function'&&typeof scene!=='undefined'&&scene){schedulePrewarm();warmShadowProxy();}}
 // ---------- Ultra: room light from a grid of light probes ----------
 // Probes sit on a grid through the house (4 ft apart, 4.5 ft between layers), only where a probe is inside a room. Each one renders the
 // scene around it into a small cube map (sun, sky through the windows, lamps, everything on view lit as it is), and that cube is reduced
@@ -548,7 +552,7 @@ function giGrid(){if(GI.N)return;roomMask();const R=indoorRooms(),st=GI_U.giStep
     if(R.some(r=>x>r.x0+.3&&x<r.x1-.3&&z>r.z0+.3&&z<r.z1-.3&&y>E[r.lv]+.8&&y<CEIL[r.lv]-.4))GI.probes.push({ix,iy,iz,p:new THREE.Vector3(x,y,z)});}
   GI.N=new THREE.Vector3(Nx,Ny,Nz);GI_U.giN.value.copy(GI.N);GI_U.giMin.value.set(x0,y0,z0);}
 const giGainNow=()=>ULTRA.giGain;
-const giKey=()=>LOOK.preset+'|'+(LOOK.sunTurn||0)+'|'+(ST.trees?1:0)+(ST.surround?1:0);
+const giKey=()=>LOOK.preset+'|'+(LOOK.sunTurn||0)+'|'+(ST.trees?1:0)+(ST.surround?1:0)+'|'+HOUSE.ph;
 function giAtlas(){const N=GI.N,t=rt(4*N.x,N.z*N.y);const cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha();
   renderer.setRenderTarget(t);renderer.setClearColor(0,0);renderer.clear();renderer.setClearColor(cc,ca);return t;}
 function giBegin(key){giGrid();if(!GI.cube){GI.cubeRT=new THREE.WebGLCubeRenderTarget(16,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,generateMipmaps:false,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});
@@ -604,5 +608,4 @@ function giFrame(now){const want=isUltra()&&!PRESETS[LOOK.preset].lamps&&ST.view
 // start over when the probe light comes on anyway), and each frame gives the build about 14 ms
 const giBuilding=now=>!!GI.job&&!PREWARM_JOB&&!ST.pending&&!CT&&!Object.keys(FTW).length&&CLIPT.t>=CLIPT.dur&&SKYT.t>=SKYT.dur&&now-(LOOK.lastMove||0)>=400;
 function giAfterFrame(now){if(!giBuilding(now))return;
-  giSlice(14);
-  const r=document.getElementById('refine');if(r&&GI.job){r.textContent='Lighting the rooms, '+Math.round((GI.job.pass+GI.job.i/GI.probes.length)/ULTRA.giPasses*100)+'%';r.style.display='block';}}
+  giSlice(14);}

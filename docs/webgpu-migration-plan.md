@@ -112,6 +112,10 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
 - **Live reload:** the dev server reloads only on real file changes (mtime/size), because Windows `fs.watch` fires on reads.
 - **Night bounce:** room light that includes lamp bounce from lamps that aren't lit on screen looks wrong. Keep the evening rule.
 - **Big compiles:** spread compiles over frames, or the browser shows "page unresponsive".
+- **Playwright's bundled Chromium has no WebGPU device here:** `dxcompiler.dll` fails to load, and `WebGPURenderer` quietly falls back to its WebGL 2 backend. Profile with the installed Chrome (`channel: 'chrome'`), and check `renderer.backend.isWebGPUBackend`.
+- **Shader cache keys (r186):** a built node graph is shared only when the whole key matches. The key covers the material's settings and `customProgramCacheKey` (here that includes the material id for unkeyed patches), the geometry's attribute layout, `receiveShadow`, the lights, fog and environment, and the render context (the target). For instanced meshes it also holds the object's own id.
+- **`compileAsync` and two-pass transparency:** a see-through double-sided material is drawn back-then-front by switching `material.side`. `compileAsync` reads `side` only after it is switched back, so it warms a shader that is never drawn.
+- **Precompile skips shadow maps:** `compileAsync` can't warm a shadow shader. Each see-through shadow caster needs a shadow shader of its own.
 
 ## Run log
 
@@ -310,3 +314,23 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
     - Leaving out the grass gained about 7%, within the noise.
     - A larger time slice per frame changed nothing.
   - **Next lever:** render bundles (`BundleGroup`) for the static house. They need care with culling, fades and material swaps.
+
+### 2026-10-22: level transitions in Ultra (WebGPU)
+
+- **Measured:** the longest frame after the first visit to each level in the ¾ view, Ultra, real WebGPU (installed Chrome, NVIDIA).
+
+  | Change | Before | After |
+  |---|---|---|
+  | Lower level | 9.6 s | 0.12 s |
+  | Back to whole house | 5.4 s | 0.05–0.08 s |
+  | Family room level | 10 s | 0.13 s |
+  | Main level | 0.3 s | 0.22 s |
+  | Bedroom level | 0.5 s | 0.22 s |
+
+  Repeat visits were already smooth and still are.
+- **Cause:** every first fade compiled its shaders in a single frame. WebGPU had no prewarm. Each fade made a see-through copy of every material, plus a shadow shader for each one once it turned see-through.
+- **What fixed them (`12-app.js`):**
+  - **No see-through copies for fades all the way out or in.** A leaving piece keeps its own material while the cut plane sweeps through it, then hides. An arriving piece shows at once. Pale massing still fades as massing and casts no shadow, since `SHADOW_PROXY` casts the cutaway's shadows.
+  - **WebGPU prewarm.** `compileAsync` runs on stand-in meshes that share each original's geometry and matrix. They compile into `PIPE.rt` itself and copy `receiveShadow`. Double-sided see-through materials are warmed set to back and then to front, each with stand-ins of their own. Instanced meshes are skipped. Prewarm also runs after a quality change.
+  - **Shadow stand-ins warmed** for the first drawn frames after a quality change, outside the cutaway and plan, where they change nothing on screen. `SHADOW_PROXY.userData.on` holds the cutaway's state.
+- **Left:** a few first-visit builds for the cut fills' normal and albedo passes, at about 0.1–0.2 s. Those passes draw without fog, so a prewarm against the live scene can't match their keys. The first switch into Ultra still takes about 8 s while every material compiles for its pipeline.

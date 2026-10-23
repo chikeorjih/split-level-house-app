@@ -3,7 +3,7 @@
     {
       "id": "living-sofa",
       "name": "Arhaus Rowland two-seat sofa",
-      "file": "arhaus-rowland-two.glb",
+      "file": "arhaus-rowland-two.min.glb",
       "scale": "m",
       "place": {
         "x": 17.57,
@@ -14,47 +14,11 @@
       "note": "Replaces the deleted living room sofa and ottoman, against the west wall facing the room. The file is true to scale in metres (74.8\" W x 38.4\" D x 38.7\" H). Add \"spec\" (the product's W/D/H in inches) to check it against the real piece."
     },
     {
-      "id": "dining-table",
-      "name": "Dining table",
-      "file": "dining table.glb",
-      "place": {
-        "x": 37.35,
-        "z": 5.07,
-        "lv": 3,
-        "ry": 0
-      },
-      "note": "Fitted to the product size given by the owner (61\" W x 38\" D x 29.5\" H).",
-      "spec": {
-        "w": 61,
-        "d": 38,
-        "h": 29.5
-      },
-      "fit": "axes"
-    },
-    {
-      "id": "sideboard",
-      "name": "Sideboard",
-      "file": "sideboard.glb",
-      "place": {
-        "x": 38.37,
-        "z": 9.47,
-        "lv": 3,
-        "ry": 179
-      },
-      "note": "Fitted to the product size given by the owner: 61.02\" W x 15.75\" D x 29.21\" H (listed as 29.21 H x 15.75 W x 61.02 D). Against wall W48.",
-      "spec": {
-        "w": 61.02,
-        "d": 15.75,
-        "h": 29.21
-      },
-      "fit": "axes"
-    },
-    {
       "id": "bar-stool-1",
       "name": "Bar stool 1",
-      "file": "bar stools.glb",
+      "file": "bar-stools.min.glb",
       "place": {
-        "x": 25,
+        "x": 24.7,
         "z": 11.28,
         "lv": 3,
         "ry": 346
@@ -70,9 +34,9 @@
     {
       "id": "bar-stool-2",
       "name": "Bar stool 2",
-      "file": "bar stools.glb",
+      "file": "bar-stools.min.glb",
       "place": {
-        "x": 26.85,
+        "x": 26.69,
         "z": 11.28,
         "lv": 3,
         "ry": 0
@@ -88,9 +52,9 @@
     {
       "id": "bar-stool-3",
       "name": "Bar stool 3",
-      "file": "bar stools.glb",
+      "file": "bar-stools.min.glb",
       "place": {
-        "x": 28.7,
+        "x": 28.69,
         "z": 11.28,
         "lv": 3,
         "ry": 16
@@ -106,9 +70,9 @@
     {
       "id": "bar-stool-4",
       "name": "Bar stool 4",
-      "file": "bar stools.glb",
+      "file": "bar-stools.min.glb",
       "place": {
-        "x": 30.55,
+        "x": 30.69,
         "z": 11.28,
         "lv": 3,
         "ry": 0
@@ -124,7 +88,7 @@
     {
       "id": "swivel-chair-1",
       "name": "Swivel chair 1",
-      "file": "swivel.glb",
+      "file": "swivel.min.glb",
       "place": {
         "x": 22.43,
         "z": 2.43,
@@ -142,7 +106,7 @@
     {
       "id": "swivel-chair-2",
       "name": "Swivel chair 2",
-      "file": "swivel.glb",
+      "file": "swivel.min.glb",
       "place": {
         "x": 28.35,
         "z": 2.93,
@@ -160,11 +124,11 @@
     {
       "id": "nursery-recliner",
       "name": "cream corduroy La-Z-Boy power recliner",
-      "file": "recliner-lazboy.opt.glb",
+      "file": "recliner-lazboy.min.glb",
       "scale": 1.8,
       "place": {
-        "x": 2.1,
-        "z": 22.01,
+        "x": 2.78,
+        "z": 22.45,
         "lv": 4,
         "ry": 73
       },
@@ -176,28 +140,85 @@
     {
       "id": "nursery-crib",
       "name": "honey-wood slatted crib",
-      "file": "crib.glb",
+      "file": "crib.min.glb",
       "scale": 4.703,
       "place": {
-        "x": 1.64,
-        "z": 27.03,
+        "x": 10.56,
+        "z": 24.36,
         "lv": 4,
-        "ry": 89
+        "ry": 90
       },
       "note": "Owner-supplied model. No product size was given: scaled to a standard full-size crib, 53.5\" long (about 28\" W x 33\" H). Long side against the west wall, per the owner's layout."
     },
     {
+      "id": "bedroom2-crib",
+      "name": "honey-wood slatted crib (second bedroom)",
+      "file": "crib.min.glb",
+      "scale": 4.703,
+      "place": {
+        "x": 5.06,
+        "z": 11.42,
+        "lv": 4,
+        "ry": 180
+      },
+      "note": "A copy of the nursery crib for the second bedroom, the same model and size. Long side against the north wall, west of the door."
+    },
+    {
+      "id": "bedroom2-recliner",
+      "name": "Thomasville recliner (second bedroom)",
+      "file": "recliner-thomasville.min.glb",
+      "scale": 5.935,
+      "place": {
+        "x": 3.3,
+        "z": 8.65,
+        "lv": 4,
+        "ry": 90
+      },
+      "note": "Owner-supplied model, shown reclined with its footrest out. No product size was given: scaled to a typical recliner, 36\" wide (about 40.5\" tall, 68\" deep reclined). Back to the west wall, right beside the crib (on the north wall), facing into the room."
+    },
+    {
       "id": "nursery-daybed",
       "name": "natural rattan daybed with rust-red bedding and patterned pillows",
-      "file": "daybed.opt.glb",
+      "file": "daybed.min.glb",
       "scale": "m",
       "place": {
-        "x": 10.18,
-        "z": 23.23,
+        "x": 2.26,
+        "z": 27.9,
         "lv": 4,
-        "ry": 270
+        "ry": 92
       },
       "note": "Owner-supplied model, slimmed from daybed.glb (1.1M to 150k triangles, texture seams locked so the bedding texture stays clean, full 2048 texture kept); true to scale in metres (75\" L x 38\" D x 35\" H). Back against the east wall, per the owner's layout."
+    },
+    {
+      "id": "theater-sofa",
+      "name": "Compton sofa",
+      "file": "couch-compton.min.glb",
+      "scale": 8.376,
+      "place": {
+        "x": 26.5,
+        "z": 6.15,
+        "lv": 1,
+        "ry": 270
+      },
+      "note": "Owner-supplied model. No product size was given: scaled to a typical low, deep sofa, 96\" wide (about 64\" deep, 27\" tall). In the lower-level sitting room, centred on the 100\" projector screen on the west wall and facing it, about 11 ft back."
+    },
+    {
+      "id": "family-sectional",
+      "name": "Crate & Barrel Drift sectional, Moss",
+      "file": "drift-moss.min.glb",
+      "replaces": [
+        "sectional, window side",
+        "sectional, wall side"
+      ],
+      "scale": 5.505,
+      "place": {
+        "x": 10.05,
+        "z": 5.57,
+        "lv": 2,
+        "ry": 270
+      },
+      "note": "Owner-supplied model (drift-moss.glb, 374k triangles, 11.1 MB), slimmed with gltfpack -si 0.22 to drift-moss.opt.glb (82k triangles, 2.3 MB, textures kept). Not to scale: scaled to the Crate & Barrel Drift pieces' 29.5\" height, which gives 125\" x 92\", about a three-piece L of Drift pieces (wedge, armless and arm chairs, 129\" x 95\"). Stands in for both halves of the old sectional: corner in the north-east, long side along the east wall, short side under the rear windows.",
+      "specSource": "https://www.crateandbarrel.com/drift-stationary-wedge-chair-sectional-piece/s446889"
     }
   ]
 }

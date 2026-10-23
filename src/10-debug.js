@@ -34,7 +34,7 @@ function dbgPick(cx,cy){const cam=activeCam(),rc=new THREE.Raycaster();rc.setFro
   if(hit.object===TERRAIN||hit.object.userData.skirt){dbgSelect({id:'GROUND',kind:'terrain',label:'ground',loc:srcFind('function terrainH('),mats:new Set(['grass'])});return;}
   const fi=hit.object.userData.inst;if(fi){const e=REG.get(fi.okey);if(e){dbgSelect(e);const b=new THREE.Box3().setFromObject(fi.group);dbgHighlight({boxes:[[b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z]]});return;}}
   const p=hit.point,tag=hit.object.userData.tag;let best=null,bv=1e18;
-  for(const e of REG.values())for(const b of e.boxes){if(b[6]!==tag)continue;
+  for(const e of REG.values())for(const b of e.boxes){if(tagBase(String(b[6]))!==tagBase(String(tag)))continue;
     if(p.x>=b[0]-.05&&p.x<=b[3]+.05&&p.y>=b[1]-.05&&p.y<=b[4]+.05&&p.z>=b[2]-.05&&p.z<=b[5]+.05){const v=Math.max(.01,b[3]-b[0])*Math.max(.01,b[4]-b[1])*Math.max(.01,b[5]-b[2]);if(v<bv){bv=v;best=e;}}}
   dbgSelect(best);}
 function dbgRoom(){let best=null;for(const r of SPEC.rooms){const e=r.lv?E[r.lv]:0;if(WLK.x>=r.x0&&WLK.x<=r.x1&&WLK.z>=r.z0&&WLK.z<=r.z1&&Math.abs(WLK.f-e)<2.8)best=r;}return best;}

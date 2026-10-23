@@ -75,15 +75,17 @@ function dormer(cx,side,w,opt){opt=opt||{};const ax=opt.axis==='x',lights=opt.li
 // ================= HOUSE ASSEMBLY =================
 let SPEC;
 function buildHouse(){
-  SPEC=buildSpec();
+  SPEC=buildSpec();{const all=SPEC.rooms;SPEC.allRooms=all;Object.defineProperty(SPEC,'rooms',{get:()=>all.filter(r=>phOn(r.ph))});}
   for(const w of SPEC.walls)wallBuild(w);
-  for(const f of SPEC.floors){OWNER={key:'F@'+(f.loc?locKey(f.loc):f.x0+','+f.z0),kind:'floor',fn:'F',loc:f.loc,label:f.mat+' floor'};box(String(f.lv),f.mat,f.x0,f.x1,f.y-.9,f.y,f.z0,f.z1);addWalk(f.x0,f.x1,f.z0,f.z1,f.y);}
-  for(const c of SPEC.ceils){OWNER={key:'C@'+(c.loc?locKey(c.loc):c.x0+','+c.z0),kind:'ceiling',fn:'C',loc:c.loc,label:'ceiling'};box('C'+c.lv,'ceiling',c.x0,c.x1,c.y,c.y+.12,c.z0,c.z1);}
-  OWNER=null;
+  for(const f of SPEC.floors){PH=f.ph||null;OWNER={key:'F@'+(f.loc?locKey(f.loc):f.x0+','+f.z0),kind:'floor',fn:'F',loc:f.loc,label:f.mat+' floor'};box(String(f.lv),f.mat,f.x0,f.x1,f.y-.9,f.y,f.z0,f.z1);addWalk(f.x0,f.x1,f.z0,f.z1,f.y);}
+  for(const c of SPEC.ceils){PH=c.ph||null;OWNER={key:'C@'+(c.loc?locKey(c.loc):c.x0+','+c.z0),kind:'ceiling',fn:'C',loc:c.loc,label:'ceiling'};box('C'+c.lv,'ceiling',c.x0,c.x1,c.y,c.y+.12,c.z0,c.z1);}
+  OWNER=null;PH=null;
   // recessed can lights (hidden with ceilings); the two upper-floor bedrooms have a ceiling fan with a light instead (07-furniture.js)
   const cans=[[2,2,12.5,2,17],[3,16,30,2,10],[3,25,34,15,30],[3,19.5,22.5,13,30],[1,3,34,3,28],[2,-20,-2,20,31],[2,2,10,21,30]];
-  for(const [lv,x0,x1,z0,z1] of cans){const y=CEIL[lv];for(let x=x0;x<=x1;x+=Math.max(3.5,(x1-x0)/3))for(let z=z0;z<=z1;z+=Math.max(3.5,(z1-z0)/3)){
+  for(const [lv,x0,x1,z0,z1] of cans){const y=CEIL[lv];PH=x1<=0?'a':null;   // (the suite's: the addition only)
+   for(let x=x0;x<=x1;x+=Math.max(3.5,(x1-x0)/3))for(let z=z0;z<=z1;z+=Math.max(3.5,(z1-z0)/3)){
     addGeo('C'+lv,'light',new THREE.CylinderGeometry(.22,.22,.04,14),M(x,y-.01,z));addGeo('C'+lv,'trim',new THREE.TorusGeometry(.25,.03,5,16),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(x,y-.02,z));}}
+  PH=null;
 
   // ---------- stairs ----------
   const st={};for(const s of SPEC.stairs)st[s.id]=s;
@@ -145,7 +147,8 @@ box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
     box('roof','trim',x0,x1,ey-.3,ey-.05,z1-.15,z1);box('roof','trim',x1-.15,x1,ey-.3,ey-.05,32.85,z1);box('3','trim',x0,x1,ey-.35,ey-.25,31.6,z1);
     for(const x of [18.75,23.4]){box('3','trim',x-.17,x+.17,-0.5,ey-.35,z1-.42,z1-.08);addCol(x-.17,x+.17,z1-.42,z1-.08,-0.5,ey-.35);}}
   for(const [x,z] of [[18.75,31.98],[45.0,31.95],[35.95,31.95]]){box('3','blackMetal',x-.22,x+.22,5.6,6.5,z,z+.32);box('3','shade',x-.17,x+.17,5.68,6.38,z+.06,z+.3);LAMPS.push({v:new THREE.Vector3(x,6.0,z+.6),k:'outdoor'});}
-  // addition: brick box under a near-flat dark standing-seam roof (draining to the rear), dark fascia
+  // addition: brick box under a near-flat dark standing-seam roof (draining to the rear), dark fascia (all of it: the addition state only)
+  PH='a';
   quadSlab('roof','metalRoof',[[-21.85,addRoofY(-2.0)+.12,-2.0],[0.2,addRoofY(-2.0)+.12,-2.0],[0.2,addRoofY(32.85)+.12,32.85],[-21.85,addRoofY(32.85)+.12,32.85]],.3,'new');
   polyWall('2','brick','z',-21.5,.6,[[-1.65,3.85],[32.5,3.85],[32.5,4.6],[-1.65,3.92]]);
   box('roof','frameDark',-21.95,0.2,addRoofY(32.85)-.45,addRoofY(32.85)+.2,32.75,32.95);
@@ -162,6 +165,7 @@ box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
   box('2','trim',-21.8,0,-6.0,-5.4,-1.95,12.9);
   for(const [x,z] of [[-21.2,-1.35],[-14.3,-1.35],[-7.3,-1.35],[-0.9,-1.35],[-21.2,5.8]]){box('X','brick',x-.65,x+.65,-16.05,-5.9,z-.65,z+.65);addCol(x-.65,x+.65,z-.65,z+.65,-16.05,-5.9);}
   box('X','beam',-21.8,0,-6.6,-5.95,-1.7,-1.0);
+  PH=null;
 
   // ---------- decks, porch, patio ----------
   const deck=(tag,mat,x0,x1,z0,z1,top,postMat)=>{box(tag,mat,x0,x1,top-.15,top,z0,z1);addWalk(x0,x1,z0,z1,top);
@@ -170,15 +174,18 @@ box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
   deck('1','deckOld',14.7,29.7,-8.9,0,E[1]-.1,'deckRailOld');
   railRun('1',[14.8,E[1]-.1,-8.8],[29.6,E[1]-.1,-8.8],3,'wood');
   railRun('1',[14.8,E[1]-.1,-8.8],[14.8,E[1]-.1,-3.6],3,'wood');railRun('1',[29.6,E[1]-.1,-8.8],[29.6,E[1]-.1,-3.1],3,'wood');
+  PH='c';railRun('1',[29.6,E[1]-.1,-3.1],[29.6,E[1]-.1,-0.1],3,'wood');PH=null;   // (as it stands there is no stair from the dining-room deck: the railing runs on to the house)
   stairFlight({x0:10.3,x1:14.7,z0:-3.6,z1:-0.3,yLow:-16.05,yHigh:E[1]-.1,dir:1},{tag:'1',tread:'deckOld',riser:'deckRailOld',open:true,stringer:'deckRailOld'});
   railRun('1',[10.3,-16.05,-3.55],[14.7,E[1]-.1,-3.55],3,'wood');
   stairFlight({x0:-2.4,x1:-0.3,z0:2.4,z1:6.0,yLow:-16.05,yHigh:E[1],dir:1},{tag:'1',tread:'paver',riser:'concrete',soffit:'concrete'});
-  // new deck off the dining room (level 3) and Route A stair down to the existing deck
+  // new deck off the dining room (level 3) and Route A stair down to the existing deck (the addition state only)
+  PH='a';
   deck('3','deckNew',43.8,54.1,-2.15,10.35,-0.15,'deckNew');deck('3','deckNew',43.8,46.8,-2.95,-2.15,-0.15,'deckNew');
   for(const [a,b] of [[[43.9,-.15,-2.85],[46.8,-.15,-2.85]],[[46.8,-.15,-2.85],[46.8,-.15,-2.05]],[[46.8,-.15,-2.05],[54.0,-.15,-2.05]],[[54.0,-.15,-2.05],[54.0,-.15,10.3]]])railRun('3',a,b,3,'wood',{post:'deckNew',rail:'deckNew',bal:'blackMetal',postDown:.9});
   stairFlight({x0:29.8,x1:43.8,z0:-3.0,z1:-0.05,yLow:E[1]-.1,yHigh:-0.15,dir:1},{tag:'3',tread:'deckNew',riser:'deckNew',open:true,stringer:'deckNew'});
   railRun('3',[29.8,E[1]-.1,-2.95],[43.8,-.15,-2.95],3,'wood',{post:'deckNew',rail:'deckNew',bal:'blackMetal'});
   for(const x of [31.5,35,38.5,42]){const z=-2.8,top=-0.15-(43.8-x)/14*(13.45),g=terrainH(x,z);box('3','deckNew',x-.22,x+.22,g-.4,top-.9,z-.22,z+.22);}
+  PH=null;
   // front entry, as in the listing photo: a concrete walk runs along the house front from the driveway to the front door, level at the door
   // and easing down to the driveway; a low brick wall with a concrete cap encloses it on the yard side and the west end, with a wood rail by
   // the door. No stair down to the lawn.
@@ -193,6 +200,33 @@ box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
   // patio
   box('1','paver',-27,10.3,-16.25,-16.05,-3.75,0);box('1','paver',-27,0,-16.25,-16.05,0,6.5);
   addWalk(-27,10.3,-3.75,0,-16.05);addWalk(-27,0,0,6.5,-16.05);
+  // ---------- as it stands (the current state) ----------
+  PH='c';{
+    // the balcony off the family room (8'11" x 16'5"), at the family room's floor, over the brick patio, round the chimney; posts down to
+    // the patio and the lower deck's wood railing on its three open sides; no stair
+    const top=E[2]-.1;deck('2','deckOld',-8.9,0,0,16.4,top,'deckRailOld');
+    railRun('2',[-8.8,top,0.1],[-0.1,top,0.1],3,'wood');railRun('2',[-8.8,top,0.1],[-8.8,top,16.3],3,'wood');railRun('2',[-8.8,top,16.3],[-0.1,top,16.3],3,'wood');
+    for(const [x,z] of [[-8.6,0.3],[-8.6,8.2],[-8.6,16.1],[-0.6,0.3],[-0.6,16.1]]){const g=terrainH(x,z,true);box('2','deckRailOld',x-.28,x+.28,g-.3,top-.15,z-.28,z+.28);}
+    // the patio as in the photo: a brick seat wall (rowlock cap) round two sides of a sitting area
+    const py=-16.05,sw=(x0,x1,z0,z1)=>{box('1','brick',x0,x1,py,py+1.6,z0,z1);box('1','brick',x0-.06,x1+.06,py+1.6,py+1.85,z0-.06,z1+.06);addCol(x0,x1,z0,z1,py,py+1.85);};
+    sw(-20.6,-9.6,-3.5,-2.75);sw(-20.6,-19.85,-2.75,5.6);
+    // the lawn where the suite will stand, at its natural grade (the terrain there is dug down for the addition's lower openings)
+    {const x0=-21.5,x1=0,z0=12.9,z1=32.5,N=22,M2=20,g=new THREE.BufferGeometry(),P=[],I=[];
+      for(let j=0;j<=M2;j++)for(let i=0;i<=N;i++){const x=x0+(x1-x0)*i/N,z=z0+(z1-z0)*j/M2;P.push(x,terrainH(x,z,true)+.02,z);}
+      for(let j=0;j<M2;j++)for(let i=0;i<N;i++){const a=j*(N+1)+i,b=a+1,c=a+N+1,d=c+1;I.push(a,c,b,b,c,d);}
+      g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();
+      const uv=[];for(let k=0;k<P.length;k+=3)uv.push(P[k]/8,P[k+2]/8);g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+      addGeo('site','grass',g);g.dispose();
+      for(let i=0;i<N;i++)for(let j=0;j<M2;j++){const x=x0+(x1-x0)*(i+.5)/N,z=z0+(z1-z0)*(j+.5)/M2;addWalk(x0+(x1-x0)*i/N,x0+(x1-x0)*(i+1)/N,z0+(z1-z0)*j/M2,z0+(z1-z0)*(j+1)/M2,terrainH(x,z,true));WALKS[WALKS.length-1].lawn=true;}}
+  }PH=null;
+  // with the addition: bare earth over the dig-out (seen when its level is hidden), on the terrain's own grid lines so it follows the pit's
+  // floor and steep sides; texture laid flat on the floor and upright on the sides
+  PH='a';{const xs=[-21.5,0],zs=[12.9,32.5],P=[],U=[];for(let x=-21;x<0;x+=2)xs.push(x);for(let z=13;z<32.5;z+=2)zs.push(z);xs.sort((a,b)=>a-b);zs.sort((a,b)=>a-b);
+    const v=(x,z)=>[x,terrainH(x,z)+.02,z],tri=(a,b,c)=>{const n=new THREE.Vector3(...b).sub(new THREE.Vector3(...a)).cross(new THREE.Vector3(...c).sub(new THREE.Vector3(...a))).normalize(),flat=Math.abs(n.y)>.5;
+      for(const p of [a,b,c]){P.push(...p);U.push(...(flat?[p[0],p[2]]:[p[0]+p[2],p[1]]));}};
+    for(let j=0;j<zs.length-1;j++)for(let i=0;i<xs.length-1;i++){const a=v(xs[i],zs[j]),b=v(xs[i+1],zs[j]),c=v(xs[i],zs[j+1]),d=v(xs[i+1],zs[j+1]);tri(a,c,b);tri(b,c,d);}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.computeVertexNormals();
+    addGeo('site','soilTop',g);g.dispose();}PH=null;
   // garage apron & thresholds
   addWalk(35.6,54.1,28.6,29.2,-0.45);box('3','concrete',35.9,53.8,-0.9,-0.45,28.5,29.2);
 }

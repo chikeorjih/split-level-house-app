@@ -1,14 +1,14 @@
 // 07-furniture.js: furniture, fixtures, appliances and decor (each T() call is a movable piece)
 "use strict";
 // ================= FURNITURE, FIXTURES, APPLIANCES =================
-const KITCHEN_LIGHTS={cans:[[25,20],[25,25],[32,25],[25,30],[28.5,30],[32,30]],drum:null};const DOORS=[];const CAPS=[];const cap=(tag,x0,x1,z0,z1,y0,y1)=>CAPS.push({tag,x0,x1,z0,z1,y0,y1});
+const KITCHEN_LIGHTS={cans:[[25,20],[25,25],[32,25],[25,30],[28.5,30],[32,30]],drum:null};const DOORS=phStamp([]);const CAPS=phStamp([]);const cap=(tag,x0,x1,z0,z1,y0,y1)=>CAPS.push({tag,x0,x1,z0,z1,y0,y1});
 function roundedGeo(w,h,d,r){r=Math.max(.01,Math.min(r,w/2-.02,h/2-.02,d/2-.02));
   const iw=w-2*r,ih=h-2*r,cr=Math.min(r*.6,iw/2-.001,ih/2-.001),s=new THREE.Shape();
   const x=-iw/2,y=-ih/2;s.moveTo(x+cr,y);s.lineTo(x+iw-cr,y);s.quadraticCurveTo(x+iw,y,x+iw,y+cr);s.lineTo(x+iw,y+ih-cr);
   s.quadraticCurveTo(x+iw,y+ih,x+iw-cr,y+ih);s.lineTo(x+cr,y+ih);s.quadraticCurveTo(x,y+ih,x,y+ih-cr);s.lineTo(x,y+cr);s.quadraticCurveTo(x,y,x+cr,y);
   const g=new THREE.ExtrudeGeometry(s,{depth:Math.max(.01,d-2*r),bevelEnabled:true,bevelThickness:r,bevelSize:r,bevelSegments:3,curveSegments:4});
   g.translate(0,0,-(d-2*r)/2);return g;}
-const FURN=[],LAMPS=[],INSTS=[],INST_N={};
+const FURN=[],LAMPS=phStamp([]),INSTS=[],INST_N={};
 function P(tag,ox,oy,oz,ry){const base=new THREE.Matrix4().makeRotationY(ry||0).setPosition(ox,oy,oz);let self;
   const addGeo=(tg,mat,geo,m)=>{const g2=(geo.index?geo.toNonIndexed():geo.clone()).applyMatrix4(m);if(self&&self._grp){g2.computeBoundingBox();self._grp.union(g2.boundingBox);}
     const prev=OWNER,pi=INST_TARGET;if(self&&self._owner)OWNER=self._owner;if(self&&self._inst)INST_TARGET=self._inst;ADDGEO(tg,mat,g2,null);OWNER=prev;INST_TARGET=pi;};
@@ -185,7 +185,7 @@ function legTo(p,mat,a,b,r0,r1){const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[
 function buildFurniture(){
   const e1=E[1],e2=E[2],e3=E[3],e4=E[4];
   const T=(tag,x,y,z,ry,name)=>{const p=P(tag,x,y,z,ry);p._tag=tag;p._grp=new THREE.Box3();FURN.push(p._grp);const h=here();p._owner={key:'FU@'+locKey(h),kind:'furniture',fn:'T',loc:h,label:name||''};
-    const k=p._owner.key;INST_N[k]=(INST_N[k]||0)+1;p._inst={key:k+'#'+INST_N[k],n:INST_N[k],okey:k,tag,buckets:new Map(),cols:[],lights:[],grp:p._grp,dx:0,dz:0,ry:0,ry0:ry||0,ox:x,oz:z};INSTS.push(p._inst);return p;};
+    const k=p._owner.key;INST_N[k]=(INST_N[k]||0)+1;p._inst={key:k+'#'+INST_N[k],n:INST_N[k],okey:k,tag:phTag(tag),ph:PH,buckets:new Map(),cols:[],lights:[],grp:p._grp,dx:0,dz:0,ry:0,ry0:ry||0,ox:x,oz:z};INSTS.push(p._inst);return p;};
   // ================= FAMILY ROOM (level 2), styled after the reference photo =================
   const SB=(p,mat,x,y,z,w,h,d,e,ez,o)=>{o=o||{};const [rx,ry,rz]=o.rot||[o.rx||0,0,0];p.g(mat,superBox(w,h,d,e,ez,o.pinch||0,o.seg||26,o.unit?false:true),x,y,z,rx,ry,rz);};
   const pillowAt=(p,mat,x,y,z,ry,s,lean,roll)=>SB(p,mat,x,y,z,s,s,.5,.38,.85,{pinch:.6,seg:30,unit:/Stripe|Chevron/.test(mat),rot:rotE(ry,lean,roll)});
@@ -371,6 +371,7 @@ function buildFurniture(){
   // upper-floor bedrooms: a ceiling fan with a light, centred in each room, and no other ceiling lights
   ceilingFan('C4',6.25,6.7,CEIL[4]);ceilingFan('C4',6.25,23.85,CEIL[4]);
   // ================= FOUR-SEASONS ROOM, gallery, suite (level 2, new) =================
+  PH='a';
   rug('2','rugLiving',-11.4,e2,5.9,11,8.2);
   {const p=T('2',-11.4,e2,9.7,Math.PI,'four-seasons sofa');sofa(p,8.2,3.0,{mat:'fabricGrey',pillows:['pillowBlue','pillowOchre','pillowCream']});}
   {const p=T('2',-14.3,e2,2.6,.25);loungeChair(p,'fabricCream');} {const p=T('2',-8.5,e2,2.6,-.25);loungeChair(p,'fabricCream');}
@@ -395,6 +396,14 @@ function buildFurniture(){
   {const p=T('2',-20.3,e2,26.15,Math.PI/2);toilet(p);}
   showerTileWalls('2',[[-21.2,-19.65,32.1,32.2],[-15.15,-14.0,32.1,32.2],[-21.2,-21.1,28.9,32.2],[-14.1,-14.0,28.9,32.2]],e2,e2+7.6);showerTileWalls('2',[[-19.65,-15.15,32.1,32.2]],e2,e2+1.7);showerTileWalls('2',[[-19.65,-15.15,32.1,32.2]],e2+7.05,e2+7.6);
   box('2','showerTile',-21.15,-14.05,e2,e2+.12,28.95,32.15);glassPanel('2','x',28.9,-19.0,-14.05,e2+.15,e2+7.0);showerHead('2',-17.6,e2+6.8,32.0,0,-1);
+  PH=null;
+  // ================= THE PATIO AS IT STANDS (current state; under the four-seasons room once it is built) =================
+  // grey-brown wicker sofa and two armchairs with white cushions round a wood coffee table on a blue and white rug (the listing photo)
+  PH='c';{const py=-16.05;rug('1','rugLiving',-14.6,py,0.9,7.4,5.6);
+    {const p=T('1',-14.6,py,3.6,Math.PI,'patio wicker sofa');sofa(p,6.6,2.8,{mat:'wicker',pillows:['fabricCream','fabricCream']});}
+    {const p=T('1',-16.7,py,-1.4,.12,'patio wicker armchair');loungeChair(p,'wicker');}{const p=T('1',-12.5,py,-1.4,-.12,'patio wicker armchair');loungeChair(p,'wicker');}
+    coffeeTable(T('1',-14.6,py,1.0,0,'patio coffee table'),3.6,1.9);
+    {const p=T('1',-10.4,py,-2.2,0,'patio planter');plant(p,0,0,0,'tall');}}PH=null;
   // ================= LEVEL 4 BATHS (fixtures only) =================
   {const p=T('4',16.45,e4,20.6,-Math.PI/2);p._tag='4';vanity(p,1.9,1.6,{mat:'doorWhite',tap:'steel'});}bathMirror('4',17.08,e4+7.0,20.6,-Math.PI/2,1.6,2.4);
   {const p=T('4',16.5,e4,22.6,-Math.PI/2);toilet(p);}
@@ -406,7 +415,8 @@ function buildFurniture(){
   // upper-floor primary bedroom, a nursery (owner's layout; colours and feel from the inspiration photo). The recliner, crib and daybed
   // are imported models (assets/models/manifest.json)
   // an 8' x 10' rug, its long side across the room, under the front of the crib, recliner and daybed
-  {const p=T('4',6.25,e4,26.4,0,'8x10 oat wool rug with olive border');p.b('rugNurseryBig',0,0,0,10,.03,8);}
+  // (its pattern: the owner's charcoal floral rug, assets/textures/rug_floral_charcoal_8x10.jpg)
+  {const p=T('4',6.25,e4,26.4,0,'8x10 charcoal floral rug');p.b('rugNurseryBig',0,0,0,10,.03,8);}
   // two-column toy cubbies under the west window, beside the closets (their back to the wall)
   {const p=T('4',.78,e4,18.75,-Math.PI/2,'light-oak toy cubbies with fabric bins'),cols=2,t=.07,W=2*1.38+t,H=2.0,D=.95;
     p.b('oakLight',0,0,0,W,t,D);p.b('oakLight',0,H-t,0,W,t,D);p.b('oakLight',0,H/2-t/2,0,W,t,D);p.b('oakLight',0,0,D/2-.03,W,H,.06);
@@ -417,8 +427,10 @@ function buildFurniture(){
   // Babyletto Gelato 3-drawer changer dresser (33.5" W x 19.25" D x 36.5" H with its removable changing tray, babyletto.com), all in the
   // crib's honey wood (cribWood): a case with softly rounded edges on four short round feet with gold tips, three drawer fronts with a
   // pair of round knobs each, and the empty tray on top. Against the front wall under
-  // the front window (the bathroom door, in the corner beyond it, keeps its swing clear)
-  {const p=T('4',8.4,e4,30.5,0,'Babyletto Gelato 3-drawer changer dresser, honey wood'),W=33.5/12,D=19.25/12,H=36.5/12,leg=.36,top=34.5/12,zf=-D/2;
+  // the front window (the bathroom door, in the corner beyond it, keeps its swing clear); a second one in the bedroom across the hall,
+  // against its rear wall under the window (the crib takes its north wall), facing into the room
+  for(const [x,z,ry,nm] of [[8.4,30.5,0,'Babyletto Gelato 3-drawer changer dresser, honey wood'],[6.9,1.15,Math.PI,'Babyletto Gelato changer dresser, second bedroom']]){
+    const p=T('4',x,e4,z,ry,nm),W=33.5/12,D=19.25/12,H=36.5/12,leg=.36,top=34.5/12,zf=-D/2;
     p.r('cribWood',0,leg,0,W,top-leg,D,.09);
     const d0=leg+.12,d1=top-.12,gap=.035,dh=(d1-d0-2*gap)/3;
     for(let i=0;i<3;i++){const y=d0+i*(dh+gap);p.r('cribWood',0,y,zf-.03,W-.24,dh,.07,.025);
@@ -427,14 +439,38 @@ function buildFurniture(){
     const tw=32.5/12,td=17.5/12,rh=H-top,rw=.07;p.r('cribWood',0,top,0,tw,.05,td,.02);
     for(const sz of [-1,1])p.r('cribWood',0,top,sz*(td/2-rw/2),tw,rh,rw,.03);for(const sx of [-1,1])p.r('cribWood',sx*(tw/2-rw/2),top,0,rw,rh,td,.03);
     p.col(0,0,W,D,0,H);}
+  // second bedroom: an 8' x 10' rug, its long side along the room, under the front of the crib (an imported model, on the north wall) and
+  // the changer dresser; its pattern is the owner's confetti-check rug, assets/textures/rug_confetti_check_8x10.jpg
+  {const p=T('4',4.9,e4,6.4,0,'8x10 confetti check rug');p.b('rugCheck',0,0,0,8,.03,10);}
   cap('3',32.8,35.3,18.3,21.3,0,6);cap('3',23.85,25.75,20.6,27.35,0,7.6);cap('3',32.75,35.3,21.35,21.9,0,7.95);
   cap('2',0.3,1.6,7.0,12.6,e2,CEIL[2]);cap('X',-1.85,-0.3,6.9,12.9,-17,18.2);
-  cap('1',19.4,21.4,28.6,30.6,e1,e1+5);cap('1',22.1,24.3,28.8,31.2,e1,e1+5.2);
   // ================= LOWER LEVEL: laundry & mechanicals =================
-  {const p=T('1',31.4,e1,29.8,Math.PI);washer(p,false);} {const p=T('1',33.8,e1,29.8,Math.PI);washer(p,true);}
-  {const p=T('1',20.4,e1,29.6,0);p.c('washer',0,0,0,1.0,1.0,5.0,24);p.c('steel',0,5,0,.15,.15,1,8);p.col(0,0,2,2,0,5);}
-  {const p=T('1',23.2,e1,30.0,0);p.b('washer',0,0,0,2.2,5.2,2.4);p.b('steel',0,5.2,0,1.6,1.4,1.6);p.col(0,0,2.2,2.4,0,5.2);}
-  {const p=T('1',27.6,e1,30.4,Math.PI);p.b('washer',0,0,0,2.4,2.8,1.6);p.b('steel',0,2.6,0,1.9,.2,1.2);}
+  // sitting room (listing photos): a brass sputnik light with ten globe bulbs; teddy rugs in it and the room past the cased opening, 8 in
+  // from the walls (built like floors, so the photo texture tiles at its real size)
+  {const g=8/12;box('1','rugTeddy',14.9+g,35.7-g,e1,e1+.05,0.3+g,12.0-g);box('1','rugTeddy',36.1+g,44.3-g,e1,e1+.05,0.3+g,9.0-g);}
+  {const yc=CEIL[1],x=25.1,z=6.2,yh=yc-1.45;LAMPS.push({v:new THREE.Vector3(x,yh,z),k:'chandelier'});const p=P('C1',x,0,z,0,'sitting room light');
+    p.c('brass',0,yc-.05,0,.22,.22,.05,16);p.c('brass',0,yh,0,.03,.03,yc-yh,8);p.g('brass',new THREE.SphereGeometry(.1,14,10),0,yh,0);
+    for(let i=0;i<10;i++){const az=i*Math.PI/5+.2,el=(i%2?.38:-.3)+(i%3-1)*.12,L=1.05+(i%3)*.18,dx=Math.cos(el)*Math.cos(az)*L,dy=Math.sin(el)*L,dz=Math.cos(el)*Math.sin(az)*L;
+      beam('C1','brass',[x,yh,z],[x+dx,yh+dy,z+dz],.035,.035);p.c('brass',dx*1.02,yh+dy*1.02-.04,dz*1.02,.045,.045,.08,8);p.g('light',new THREE.SphereGeometry(.15,14,10),dx*1.1,yh+dy*1.1,dz*1.1);}}
+  // home theatre mock-up (the user's photo) on the sitting room's west wall, W19 (inside face x 14.9, z 0.3 to 12.0): a 100" 16:9 ALR screen
+  // (picture 87.2" x 49") centred on it, 2.4 ft up; a long low console under it, its top slab flush with the two-drawer body, on slim black
+  // legs; an ultra-short-throw laser projector on the console (bronze fabric grille round three sides, brushed top, the rear lid tilted open
+  // over the lens, which faces the screen). Each faces the room (+x); their backs are local -z.
+  {const zc=6.15;
+    {const p=T('1',15.0,e1,zc,Math.PI/2,'ALR projector screen'),w=87.2/12,h=49/12,f=.05;p.b('black',0,2.4,0,w+2*f,h+2*f,.12);p.b('alrScreen',0,2.4+f,.061,w,h,.004);}
+    {const p=T('1',15.0+.1+.78,e1,zc,Math.PI/2,'media console'),L=8.4,D=1.45,y0=.42,y1=1.13;
+      for(const [x,z] of [[-L/2+.6,-D/2+.3],[L/2-.6,-D/2+.3],[-L/2+.6,D/2-.3],[L/2-.6,D/2-.3]])p.c('blackMetal',x,0,z,.04,.04,y0,10);
+      p.b('blackMetal',0,y0-.03,0,L-1.0,.03,D-.5);p.b('consoleWalnut',.05,y0,0,L,y1-y0,D);
+      p.b('consoleWalnut',.05,y1+.02,0,L,.12,D);p.b('black',.05,y1,0,L-.4,.02,D-.2);   // the top slab, flush with the body, floating on a shadow line
+      for(const s of [-1,1]){p.b('consoleWalnut',.05+s*L/4,y0+.06,D/2,L/2-.08,y1-y0-.12,.02);p.b('black',.05+s*(L/2-.6),y0+.5,D/2+.012,.5,.025,.01);}   // drawer fronts, finger pulls
+      p.b('black',.05,y0+.04,D/2+.006,.025,y1-y0-.08,.01);}
+    {const p=T('1',15.95,e1+1.27,zc,Math.PI/2,'UST laser projector'),W=1.75,D=1.15;
+      for(const [x,z] of [[-W/2+.15,-D/2+.15],[W/2-.15,-D/2+.15],[-W/2+.15,D/2-.15],[W/2-.15,D/2-.15]])p.c('black',x,0,z,.05,.05,.025,12);
+      p.r('projGrille',0,.025,0,W,.29,D,.035);p.b('black',0,.31,0,W-.01,.014,D-.01);p.r('projBody',0,.32,0,W,.1,D,.03);
+      p.b('tvScreen',0,.418,-D/2+.24,W*.62,.012,.3);p.b('steel',0,.421,D/2-.13,.22,.004,.05);
+      const a=.38,zh=-D/2+.42,L=.4;p.g('projBody',new THREE.BoxGeometry(W*.66,.025,L),0,.43+Math.sin(a)*L/2,zh-Math.cos(a)*L/2,a,0,0);}}
+  // washer and dryer side by side against the laundry's west wall (W18, x 18.5), facing into the room
+  {const p=T('1',20.1,e1,29.9,Math.PI/2,'washer');washer(p,false);} {const p=T('1',20.1,e1,27.5,Math.PI/2,'dryer');washer(p,true);}
   for(const inst of INSTS){const b=inst.grp;if(b.isEmpty())continue;const h=b.max.y-b.min.y,a=(b.max.x-b.min.x)*(b.max.z-b.min.z);if(h<.35||a>140||a<.04)continue;
     const r=[b.min.x+.08,b.max.x-.08,b.min.z+.08,b.max.z-.08];inst.cols.push({c:addCol(r[0],r[1],r[2],r[3],b.min.y,b.max.y),r});}
 }

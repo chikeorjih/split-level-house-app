@@ -19,6 +19,7 @@ import * as THREE_GL from 'three';
 import * as THREE_GPU from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const pick = (() => { const q = new URLSearchParams(location.search).get('renderer'); let s = null; try { s = localStorage.getItem('renderer'); } catch (e) {}
   return q || s || 'auto'; })();
@@ -69,7 +70,7 @@ fix('alphatest_fragment', '\tdiffuseColor.a = smoothstep( alphaTest, alphaTest +
 }
 
 // the global the classic scripts use: a plain copy of the module namespace (which is read-only), plus the add-ons they need
-window.THREE = Object.assign({}, GPU ? THREE_GPU : THREE_GL, { GLTFLoader });
+window.THREE = Object.assign({}, GPU ? THREE_GPU : THREE_GL, { GLTFLoader, MeshoptDecoder });
 window.GPU = GPU;
 window.TSL = TSL;
 window.RENDERER_PICK = { pick, webgpu: !!adapter || (pick === 'webgl' && !!navigator.gpu) };

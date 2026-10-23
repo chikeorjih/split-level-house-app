@@ -1,13 +1,13 @@
 // 05-geometry.js: geometry engine: merged buckets, walls with openings, stairs, railings, collisions
 "use strict";
 // ================= GEOMETRY ENGINE =================
-const BUCKETS=new Map(); const COLS=[]; const WALKS=[]; const PIECES=[];
+const BUCKETS=new Map(); const COLS=phStamp([]); const WALKS=phStamp([]); const PIECES=phStamp([]);
 const ROOF_MATS=new Set(['roof','slateRoof','roofBrown','metalRoof']);
-function bucket(tag,mat,flags){const k=tag+'|'+mat+'|'+(flags||'');let b=BUCKETS.get(k);
+function bucket(tag,mat,flags){tag=phTag(tag);const k=tag+'|'+mat+'|'+(flags||'');let b=BUCKETS.get(k);
   if(!b){b={tag,mat,flags:flags||'',p:[],n:[],u:[]};BUCKETS.set(k,b);}return b;}
 function addCol(x0,x1,z0,z1,y0,y1){const c={x0:Math.min(x0,x1),x1:Math.max(x0,x1),z0:Math.min(z0,z1),z1:Math.max(z0,z1),y0,y1};COLS.push(c);return c;}
 let INST_TARGET=null;
-function instBucket(inst,tag,mat){let b=inst.buckets.get(mat);if(!b){b={tag,mat,p:[],n:[],u:[]};inst.buckets.set(mat,b);}return b;}
+function instBucket(inst,tag,mat){tag=phTag(tag);let b=inst.buckets.get(mat);if(!b){b={tag,mat,p:[],n:[],u:[]};inst.buckets.set(mat,b);}return b;}
 function addWalk(x0,x1,z0,z1,top){WALKS.push({x0:Math.min(x0,x1),x1:Math.max(x0,x1),z0:Math.min(z0,z1),z1:Math.max(z0,z1),top});}
 // axis-aligned box with world-scale UVs (1 unit = 1 ft)
 function box(tag,mat,x0,x1,y0,y1,z0,z1,flags){
@@ -74,6 +74,9 @@ function polyWall(tag,mat,axis,c,t,pts,flags){const sh=new THREE.Shape();pts.for
 // walk-through openings sit on the floor: the wall under them stops just short of it, so its top face does not flicker against the floor
 const DOORISH=new Set(['open','open0','door','door2','gdoor','dbl','slide','closet','garage']);
 function wallBuild(w){
+  // a wall that differs as it stands (cur: its openings, cladding...) is built twice, once per state; a wall of one state is built in it
+  if(w.cur){phase('a',()=>wallBuild(Object.assign({},w,{cur:null,ph:'a'})));phase('c',()=>wallBuild(Object.assign({},w,w.cur,{cur:null,ph:'c'})));return;}
+  if(w.ph&&PH!==w.ph){phase(w.ph,()=>wallBuild(w));return;}
   const ax=(w.z0===w.z1)?'x':'z';const a0=Math.min(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1),a1=Math.max(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1);
   const c=ax==='x'?w.z0:w.x0,t=w.t,tag=String(w.lv);
   const wloc=w.loc||here(),wkey='W@'+locKey(wloc),WOWN={key:wkey,kind:'wall',fn:'W',loc:wloc,label:(w.isNew?'new ':'')+(w.ext?'exterior wall':'interior wall')};
@@ -150,7 +153,7 @@ function openingBuild(w,o,ax,c,t,tag,B){const B0=B;
         for(const [a0,a1] of [[.6,3.1],[3.5,6.2]])B(mat,oa0+.4,oa1-.4,c-.085,c+.085,y0+a0,y0+Math.min(a1,h-.4));for(const sd of [-1,1])B('brass',k-.06,k+.06,Math.min(c+sd*.085,c+sd*.17),Math.max(c+sd*.085,c+sd*.17),y0+3.0,y0+3.12);
         col(oa0,oa1,y0,y0+h);}
       else leaf(o.sw[0],o.sw[1],o.w-.1,o.dark?'doorGrey':'doorWhite',false);break;}
-    case 'door2':{casing([-1,1]);const h=o.w/2-.05;leaf(-1,1,h,'doorWhite',true);leaf(1,1,h,'doorWhite',true);break;}
+    case 'door2':{casing([-1,1]);const h=o.w/2-.05,sd=o.sw?o.sw[1]:1;leaf(-1,sd,h,'doorWhite',true);leaf(1,sd,h,'doorWhite',true);break;}
     case 'gdoor':{DOORS.push({tag,ax,c,t,oa0,oa1,y0,hinge:o.sw[0],side:o.sw[1],isNew:!!o.isNew});casing([-1,1]);leaf(o.sw[0],o.sw[1],o.w-.1,'doorWhite',true);break;}
     case 'dbl':{casing([-ext]);const h=o.w/2-.05;
       // open French doors while walking; closed two-tone doors (wood outside, white inside) for the outside views

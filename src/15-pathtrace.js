@@ -48,7 +48,7 @@ function ptrLoad(){if(PTRACE.loading)return PTRACE.loading;
 // geometry (what is shown: a rebuild), furniture moves (Arrange: the copies' transforms are updated), light (preset, sun, lamps: the
 // lights and sky are swapped)
 function ptrSigGeo(){const f=[];for(const t in FCUR)f.push(t+(FCUR[t]>=.5?1:0));
-  return [ST.view,ST.cutL,ST.trees,ST.surround,!!(SHADOW_PROXY&&SHADOW_PROXY.visible),f.join(''),MODELS_READY?1:0].join('|');}
+  return [HOUSE.ph,ST.view,ST.cutL,ST.trees,ST.surround,!!(SHADOW_PROXY&&SHADOW_PROXY.userData.on),f.join(''),MODELS_READY?1:0].join('|');}
 const ptrSigXf=()=>INSTS.map(i=>(i.dx||0).toFixed(3)+','+(i.dz||0).toFixed(3)+','+(i.ry||0).toFixed(4)).join(';');
 function ptrSigLight(){const P=PRESETS[LOOK.preset];return [LOOK.preset,LOOK.sunTurn||0,LOOK.studio?1:0,P.lamps?1:(lampsDim()?.5:0),ULTRA.overhead||1].join('|');}
 // ---------- materials ----------
@@ -100,7 +100,7 @@ function ptrLights(S){const P=PRESETS[LOOK.preset],PI=Math.PI,add=(...o)=>{S.add
     L.position.copy(c).addScaledVector(dir,D);L.target.position.copy(c);L.radius=Math.tan(ang)*D;add(L,L.target);}
   // lamps: physical point lights, matched to the legacy falloff I*PI*(1-r/d)^1.6 at PTRACE_R0
   const dim=lampsDim();if(P.lamps||dim){const k=P.lamps?LAMP_EVE:LAMP_DAY*PTRACE_CFG.dayLamps,og=ULTRA.overhead||1;
-    for(const v of LAMPV){if(v.k==='fill')continue;const I=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1),r0=Math.min(PTRACE_R0,v.d*.5);
+    for(const v of LAMPV){if(v.k==='fill'||!phOn(v.ph))continue;const I=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1),r0=Math.min(PTRACE_R0,v.d*.5);
       const L=new THREE.PointLight(v.color,I*PI*Math.pow(1-r0/v.d,1.6)*r0*r0,0,2);L.position.copy(v.position);add(L);}}}
 // ---------- the scene copy ----------
 // built in three steps so the page never freezes: the copy (fast), then a BVH per geometry a few per frame (kept on the cached copy, so

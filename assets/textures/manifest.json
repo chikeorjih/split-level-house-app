@@ -102,7 +102,51 @@
       "source": "Forest Ground 06 by Charlotte Baglioni, Poly Haven (CC0), https://polyhaven.com/a/forest_ground_06; 2.11 m square",
       "note": "the soil on all four sides of the diorama block, lit and shadowed like the rest of the scene with a very faint glow of its own (selfLit .08) so it never goes fully black; each copy covers four times the photo's real size (27.68 ft) to show fewer repeats",
       "selfLit": 0.15
-    
+    },
+    {
+      "material": "soilTop",
+      "map": "forest_ground_06_diff_2k.jpg",
+      "normal": "forest_ground_06_nor_gl_2k.jpg",
+      "roughness": "forest_ground_06_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 27.68,
+      "note": "the bare earth the cutaways show from above: under the garage slab and in the dig-out for the addition; the same photo and scale as the block's sides",
+      "selfLit": 0.15
+    },
+    {
+      "material": "rugTeddy",
+      "map": "curly_teddy_natural_diff_2k.jpg",
+      "normal": "curly_teddy_natural_nor_gl_2k.jpg",
+      "roughness": "curly_teddy_natural_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1.1,
+      "source": "Curly Teddy Natural by colormass, Poly Haven (CC0), https://polyhaven.com/a/curly_teddy_natural; 336 x 331 mm",
+      "note": "the lower-level sitting room and side room rugs"
+    },
+    {
+      "material": "rugNurseryBig",
+      "map": "rug_floral_charcoal_8x10.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1,
+      "source": "Owner-supplied product photo of an 8' x 10' charcoal floral rug, cropped to the rug and turned to lie long side across",
+      "note": "the primary bedroom (nursery) rug; the rug's faces have 0-1 UVs, so the photo covers its top once"
+    },
+    {
+      "material": "rugCheck",
+      "map": "rug_confetti_check_8x10.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1,
+      "source": "Owner-supplied product photo of an 8' x 10' cream check rug with coloured squares, cropped to the rug",
+      "note": "the second bedroom rug, long side along the room; the photo covers its top once"
+    },
+    {
+      "material": "laminate",
+      "map": "laminate_floor_diff_2k.jpg",
+      "normal": "laminate_floor_nor_gl_2k.jpg",
+      "roughness": "laminate_floor_rough_2k.jpg",
+      "repeatFt": 6.56,
+      "source": "Laminate Floor by Dimitrios Savva and Dario Barresi, Poly Haven (CC0), https://polyhaven.com/a/laminate_floor; 2 m square",
+      "note": "the lower level floors only; MAT.laminate's colour (03-textures.js) tints it yellower"
     }
   ]
 }

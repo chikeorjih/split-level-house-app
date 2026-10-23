@@ -41,6 +41,23 @@ function addLivingMaterials(){
   MAT.knitIvory=std({map:knitTex('#ebe3d2'),roughness:1,side:THREE.DoubleSide});MAT.knitMustard=std({map:knitTex('#c3892b'),roughness:1,side:THREE.DoubleSide});
   MAT.rugShag=std({map:shagTex(),roughness:1});MAT.rugFringe=std({map:fringeTex(),alphaTest:.45,side:THREE.DoubleSide,roughness:1});
   MAT.linen2=std({map:weaveTex('#eee8dc',1),roughness:.95,side:THREE.DoubleSide});
+  MAT.wicker=std({map:weaveTex('#8b8275',1),roughness:.9});   // the patio set (current state)
+  // the lower-level sitting room (listing photos): dark grey walls; its rugs (and the next room's) are Poly Haven's Curly Teddy Natural
+  // (assets/textures/manifest.json; this weave until it loads, and in the single-file build)
+  // the home theatre: the projected picture (a sunset over the sea, painted here; it glows as a running projector's image
+  // would), the projector's bronze fabric grille and brushed champagne top, the console's dark walnut
+  {const W=1024,H=576,[c,g]=cv(W,H);let gr=g.createLinearGradient(0,0,0,H*.7);gr.addColorStop(0,'#7d7896');gr.addColorStop(.45,'#d9ad8c');gr.addColorStop(1,'#f4c27a');g.fillStyle=gr;g.fillRect(0,0,W,H);
+    gr=g.createRadialGradient(W*.3,H*.62,10,W*.3,H*.62,W*.45);gr.addColorStop(0,'rgba(255,214,140,.9)');gr.addColorStop(1,'rgba(255,214,140,0)');g.fillStyle=gr;g.fillRect(0,0,W,H);
+    for(let i=0;i<70;i++){const x=rr(W*.45,W),y=rr(H*.05,H*.5),r=rr(20,70);gr=g.createRadialGradient(x,y,1,x,y,r);gr.addColorStop(0,'rgba(255,240,225,.55)');gr.addColorStop(1,'rgba(255,240,225,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,2*r,2*r);}
+    g.fillStyle='rgba(120,118,150,.7)';g.fillRect(W*.62,H*.665,W*.38,H*.035);
+    gr=g.createLinearGradient(0,H*.7,0,H);gr.addColorStop(0,'#6b5646');gr.addColorStop(1,'#1d1b20');g.fillStyle=gr;g.fillRect(0,H*.7,W,H*.3);
+    for(let i=0;i<500;i++){g.fillStyle='rgba(255,'+Math.round(rr(170,220))+',140,'+rr(.05,.25)+')';g.fillRect(rr(0,W),rr(H*.7,H),rr(4,26),1.5);}
+    gr=g.createRadialGradient(W*.32,H*.69,4,W*.32,H*.69,60);gr.addColorStop(0,'rgba(255,248,225,1)');gr.addColorStop(1,'rgba(255,220,150,0)');g.fillStyle=gr;g.fillRect(0,0,W,H);   // the setting sun
+    for(let i=0;i<260;i++){const x=W*.32+rr(-60,60)*(1+rnd()),y=rr(H*.71,H);g.fillStyle='rgba(255,226,160,'+rr(.2,.6)+')';g.fillRect(x,y,rr(6,30),1.5);}   // its path on the water
+    const t=tex(c,1,1);MAT.alrScreen=std({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.85,roughness:.75});}
+  MAT.projGrille=std({map:weaveTex('#7d6b52',1),roughness:.85});MAT.projBody=std({map:brushedTex(),color:0xb3aa9c,metalness:.8,roughness:.32});
+  MAT.consoleWalnut=std({map:woodGrainTex('#2e2722'),roughness:.5});
+  MAT.slatePaint=std({color:0x45474a,roughness:.92});MAT.rugTeddy=std({map:weaveTex('#dcd3c3',1.1),roughness:1});
   MAT.artArcs=std({map:arcArtTex(),roughness:.85});MAT.artTV=std({map:tvArtTex(),roughness:.3,emissive:0xffffff,emissiveIntensity:.06,emissiveMap:null});
   MAT.ceramicBlack=std({color:0x1c1c1e,roughness:.55});MAT.book1=std({color:0x6f8173,roughness:.8});MAT.book2=std({color:0xd8cbb4,roughness:.8});MAT.pages=std({color:0xf1ece0,roughness:.9});
 }

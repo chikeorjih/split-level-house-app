@@ -177,14 +177,16 @@ const MAT={};
 const CLIP_TOP=new THREE.Plane(new THREE.Vector3(0,-1,0),1e5), CLIP_BOT=new THREE.Plane(new THREE.Vector3(0,1,0),1e5);
 // the diorama's sides: everything outside the block is cut away in the 3/4 view (constants are 1e5 when off)
 const CLIP_X0=new THREE.Plane(new THREE.Vector3(1,0,0),1e5),CLIP_X1=new THREE.Plane(new THREE.Vector3(-1,0,0),1e5),CLIP_Z0=new THREE.Plane(new THREE.Vector3(0,0,1),1e5),CLIP_Z1=new THREE.Plane(new THREE.Vector3(0,0,-1),1e5);
-const CLIPS=[CLIP_TOP,CLIP_BOT,CLIP_X0,CLIP_X1,CLIP_Z0,CLIP_Z1],CLIPS_V=[CLIP_TOP,CLIP_BOT];
+// the house's wipe when it switches state (12-app.js): it cuts the house, not the ground (the site's materials leave it out: CLIPS_SITE)
+const CLIP_PH=new THREE.Plane(new THREE.Vector3(0,-1,0),1e5);
+const CLIPS=[CLIP_TOP,CLIP_BOT,CLIP_X0,CLIP_X1,CLIP_Z0,CLIP_Z1,CLIP_PH],CLIPS_SITE=CLIPS.slice(0,6),CLIPS_V=[CLIP_TOP,CLIP_BOT];
 function std(o,clip){const m=new THREE.MeshStandardMaterial(Object.assign({roughness:.8,metalness:0},o));if(clip!==false)m.clippingPlanes=CLIPS;return m;}
 function physify(k,cc,ccr){const m=MAT[k];if(!m||!m.isMeshStandardMaterial||m.isMeshPhysicalMaterial)return;const p=new THREE.MeshPhysicalMaterial();
-  THREE.MeshStandardMaterial.prototype.copy.call(p,m);if(!window.GPU)p.defines={STANDARD:'',PHYSICAL:''};p.onBeforeCompile=m.onBeforeCompile;p.customProgramCacheKey=m.customProgramCacheKey;npClonePatches(m,p);
+  THREE.MeshStandardMaterial.prototype.copy.call(p,m);p.clippingPlanes=m.clippingPlanes;   // (copy clones the planes: the copy would clip against frozen ones and never cut away)if(!window.GPU)p.defines={STANDARD:'',PHYSICAL:''};p.onBeforeCompile=m.onBeforeCompile;p.customProgramCacheKey=m.customProgramCacheKey;npClonePatches(m,p);
   p.clearcoat=0;p.clearcoatRoughness=ccr;p.userData.cc=[cc,ccr];MAT[k]=p;m.dispose();}
 function makeMaterials(){
   const T=n=>n;
-  MAT.oak=std({map:oakTex(),roughness:.55});
+  MAT.oak=std({map:oakTex(),roughness:.55});MAT.laminate=std({map:oakTex(),color:0xf0f2b4,roughness:.5});   // the lower level's floors (Poly Haven Laminate Floor, tinted yellower by the colour)
   MAT.wall=std({color:0xd9d8d3,roughness:.92});            // light warm grey, as in living/family/kitchen photos
   MAT.charcoal=std({color:0x4a4e53,roughness:.9});          // dining room walls
   MAT.ceiling=std({color:0xf5f4f0,roughness:.95});
@@ -209,6 +211,7 @@ function makeMaterials(){
   MAT.deckNew=std({map:deckTex(30,14,46),roughness:.75});
   MAT.deckRailOld=std({color:0x6e3a28,roughness:.7});
   MAT.grass=std({map:grassTex(),vertexColors:true,roughness:1});
+  MAT.soilTop=std({map:soilTex(true),roughness:1});
   // glass: almost clear head-on, turning to a mirror toward grazing angles (Fresnel). The colour it adds is its reflection only (a barely
   // tinted, near-black body), blended as "add the reflection, let through what is not reflected": src x 1 + dst x (1 - coverage), where the
   // coverage rises with the Fresnel term from the base opacity. Its reflections come from the sky outdoors and from the room indoors
@@ -268,7 +271,7 @@ function makeMaterials(){
   MAT.rugLiving=std({map:rugTex('living'),roughness:1});
   MAT.rugDining=std({map:rugTex('dining'),roughness:1});
   // upper-floor primary bedroom, now a nursery (inspiration photo): soft olive walls, a large oat rug under the furniture, a round play mat
-  MAT.sage=std({color:0x777b58,roughness:.92});MAT.rugNurseryBig=std({map:nurseryBigRugTex(),roughness:1});MAT.playMat=std({map:playMatTex(),roughness:.9});
+  MAT.sage=std({color:0x777b58,roughness:.92});MAT.rugNurseryBig=std({map:nurseryBigRugTex(),roughness:1});MAT.rugCheck=std({color:0xe8e0d0,roughness:1});MAT.playMat=std({map:playMatTex(),roughness:.9});
   MAT.cribWood=std({map:woodGrainTex('#b68a60'),roughness:.5});   // the crib model's honey wood (its texture's median colour), for the Gelato dresserMAT.oat=std({color:0xe4dccb,roughness:.92});MAT.rugNursery=std({map:nurseryRugTex(),roughness:1});
   MAT.bark=std({map:barkTex(),roughness:1},false);
   MAT.leaf=new THREE.MeshStandardMaterial({roughness:.85,flatShading:true});

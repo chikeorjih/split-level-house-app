@@ -1,0 +1,47 @@
+# Working context (handoff)
+
+Read this first when picking the project up in a new Claude session or account. It says what is in progress, what was decided, and what was done recently. Update it as work moves on: tick steps off, add decisions, add a dated line under "Recent changes".
+
+Last updated: 2026-10-23.
+
+## In progress: loading screen, status messages, mobile and iPad, READMEs
+
+The owner approved this plan on 2026-10-23. Work through the steps in order.
+
+| Step | Work | Status |
+|---|---|---|
+| 1 | Status pill: one `status(kind, text, pct)` function replaces the `#refine` line in the Help panel. The pill sits top centre under the top bar (above the bottom controls on phones), can't be clicked, fades out when work finishes, and is a polite live region. The quality note (`#qnote`) moves into it as a dismissible notice. The full-screen busy spinner appears later. Clearer wording: "Calculating bounced light (the view sharpens when done)", and "Path tracing · n% · move to cancel". | **done 2026-10-23**: `statusFrame()` and `notice()` in `12-app.js`, `#status` and `#notice` in `index.html`, styles at the end of `styles.css` |
+| 2 | Loading screen with a getting-started guide, built into `index.html` so it shows before the scripts load. It has what you can do (Walk, ¾ cutaway, Floor plan, Current/Addition, light), controls for the visitor's input type, and tips (Debug IDs, Arrange, quality modes). Real progress stages: 3D engine, building the house, compiling shaders, photo textures, furniture models. When ready it shows an "Enter the house" button; it fades out on its own after a few seconds if the visitor never touched it. | **done 2026-10-23**: markup and the `LOADUI` script in `index.html`; stage hooks in `start()` (`12-app.js`), `loadTextureOverrides` and `loadModels`; no auto-dismiss, since the guide shows every visit; phones pin a compact progress bar and the Enter button to the top; tests and model scripts click `#ldEnter` |
+| 3 | Mobile and iPad. Layout by input type (`pointer: coarse`, `hover: none`) as well as width. Phones get a bottom sheet with tabs (Show, Tools, Levels, Light) and a compact top bar. iPads keep collapsible side panels, the Renderer and Light menus, and touch hints. Tap targets ≥ 44 px, no double-tap zoom, overscroll or pull-to-refresh on the canvas, long press as right-click. Mobile defaults: High on iPad, Fast on phones, a capped pixel ratio, a pause when the tab is hidden. Checked with Playwright device emulation (iPhone 15, iPad Air portrait and landscape, Pixel 7). | **done 2026-10-23**: `phoneLayout`, `sheetOpen`, `layoutVars` and `bindLayout` in `12-app.js` (panels move into `#sheet` at ≤640 px); touch and phone CSS at the end of `styles.css`; tablets default to High. Not done: long press as right-click (two-finger pan already covers panning) and an explicit pause when the tab is hidden (requestAnimationFrame already stops) |
+| 4 | README rewrite: screenshots checked into the repo, features, a controls table (mouse/keyboard and touch), browser support, run/build/publish, structure, tests, credits and licences, troubleshooting. Update `assets/models/README.md` (`replaces` can be a list; slimming models with gltfpack) and `assets/textures/README.md` (rug photos; photo textures are not in the single-file build). Add a short `docs/` page on adding content. | **done 2026-10-23**: `README.md` rewritten with screenshots in `docs/images/` (retake them with a WebGPU Chrome script: High quality, shot near the end of refinement); `assets/models/README.md`, `assets/textures/README.md`, new `docs/adding-content.md` |
+| 5 | Tests: update the smoke tests for the new loading screen and add a mobile-layout test. `npm test` passes. | two new tests in `tests/smoke.spec.js` (loading screen; phone bottom sheet) both pass on their own. The full `npm test` run was stopped at the owner's request on 2026-10-23 and has not completed since these changes |
+
+### Owner decisions (2026-10-23)
+
+- **Guide:** show the full getting-started guide on every visit, as part of the loading screen. No "don't show again" and no separate compact strip.
+- **Phones:** a bottom sheet with tabs is fine.
+- **README:** include screenshots, checked into the repo.
+
+## Open issues
+
+- None open. (The single-file build size was fixed on 2026-10-23: see Recent changes.)
+
+## How to work here
+
+- **Tests:** the full suite takes about 18 minutes in software rendering. The owner asked not to run the whole suite routinely: check changes with targeted scripts and screenshots, and run `npm test` at milestones (step 5).
+- **Real WebGPU:** Playwright's bundled Chromium cannot create a WebGPU device on this machine (`dxcompiler.dll`) and quietly falls back to WebGL 2. Use the installed Chrome: `chromium.launch({channel:'chrome', args:['--enable-unsafe-webgpu','--enable-gpu']})`, with `NODE_PATH=<repo>/node_modules` for scratch scripts and `waitUntil:'domcontentloaded'`.
+- **Dev server:** the dev server's Arrange "save" writes moved models straight into `assets/models/manifest.json`. Read the manifest before editing model placements; the owner may have moved things.
+- **Uncommitted work:** everything from this and earlier sessions is uncommitted on `main`. Commit only when the owner asks.
+
+## Recent changes (newest first)
+
+- 2026-10-23 **Furniture models compacted:** each model is now a `.min.glb`: textures at most 1024 px (`npm run model:textures`), meshes simplified and meshopt-compressed with `gltfpack -c`. The loader gets three's `MeshoptDecoder` (`three-boot.mjs`, `13-models.js`, vendored by `scripts/vendor-three.mjs`). Files went from 34 MB to 4.3 MB and the single-file build from 45.7 MB to 7.1 MB. Sizes and placements are unchanged (within 0.1"). The originals stay in `assets/models/` as sources and are not loaded.
+- 2026-10-23 **Rendering fixes found while taking README screenshots:** (1) High was black in the ¾ view until Ultra had been used once, because the WebGPU prewarm compiled into `PIPE.rt` itself. It now compiles into its own 4x4 target in the same formats; three keys render contexts by attachment formats, so the shaders still match. (2) Under WebGPU the Ultra probe lights now always cast shadows (they stay dark and their maps are not redrawn outside Ultra). A quality change therefore no longer changes the light setup baked into every shader, and the first Ultra switch went from 8 to 12 s down to about 4 s. (3) Every light's shadow map is drawn once at start: three replaces a map's placeholder texture on its first draw, and compiled state still pointing at the destroyed placeholder caused "Destroyed texture used in a submit" errors.
+- 2026-10-22 **Drift sectional:** Crate & Barrel Drift sectional, Moss (`drift-moss.opt.glb`, slimmed with `npx gltfpack@0.22.0 -si 0.22` from 374k to 82k triangles, 11.1 to 2.3 MB). It replaces both halves of the family-room sectional. In `13-models.js`, `replaces` can now be a list. The overlap check confirms a box hit against the model's own surface, so an L-shape's notch doesn't count.
+- 2026-10-22 **Square footage** from the model: gross about 3,060 sq ft now and about 3,810 with the addition; net about 2,690 and 3,400. Above grade about 1,790 and 2,510.
+- 2026-10-22 **New models:** the Thomasville recliner (`bedroom2-recliner`, scale 5.935, typical 36" W, reclined) beside the crib in the second bedroom. The Compton sofa (`theater-sofa`, scale 8.376, typical 96" W) in the lower-level sitting room, facing the projector screen. Both sizes are estimates; the owner gave no product sizes.
+- 2026-10-22 **Second bedroom:** a crib copy (`bedroom2-crib`, on the north wall). The changer dresser copy is against the rear wall under the window; both dressers come from one loop in `07-furniture.js`. An 8x10 confetti-check rug (`rugCheck`, photo `rug_confetti_check_8x10.jpg`). The primary bedroom rug now uses `rug_floral_charcoal_8x10.jpg`. Photo textures load under `npm run dev` only.
+- 2026-10-22 **Dining and closet:** the dining table and sideboard models were removed. The foyer closet's stair end is closed by a new wall at z 19.6 (`02-spec.js`).
+- 2026-10-22 **Ultra level transitions (WebGPU):** first visits went from 5 to 10 s stalls to about 0.1 to 0.2 s. On WebGPU, fades to 0 or 1 skip see-through copies. A WebGPU prewarm runs `compileAsync` on stand-ins, and shadow stand-ins are warmed on a quality change. Details are in the run log of `docs/webgpu-migration-plan.md`.
+- 2026-10-22 **Model fit fixes:** the bar stools were re-spaced (x 24.7 to 30.69) and the nursery recliner moved. The models smoke test now has a 240 s timeout.
+- 2026-10-22 **Ground:** soil fills the dug-out pit under the addition and the space under the garage slab (`MAT.soilTop`, photo `forest_ground_06`). The diorama block's bottom face gets plan UVs. A stray concrete slab on the entry walk was removed.
