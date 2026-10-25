@@ -15,23 +15,31 @@
 //  - legacy light units: r128 lit with "legacy" units by default, where direct, hemisphere and ambient light were PI x stronger than in
 //    the physical units newer releases always use, and a point or spot light faded smoothly to zero at its distance instead of falling off
 //    with the inverse square. WebGL: the shader chunks are patched; WebGPU: the light nodes are.
+//
+// Only the WebGL build is imported up front. The WebGPU build and TSL (about 2.5 MB more to download and parse) load only when WebGPU is
+// chosen, so a phone or tablet on WebGL never fetches them, and a fault there can't stop the WebGL path.
 import * as THREE_GL from 'three';
-import * as THREE_GPU from 'three/webgpu';
-import * as TSL from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const pick = (() => { const q = new URLSearchParams(location.search).get('renderer'); let s = null; try { s = localStorage.getItem('renderer'); } catch (e) {}
   return q || s || 'auto'; })();
+// touch devices (phones, iPads) start on WebGL when the choice is Auto: WebGPU on mobile is new, and an iPad and phones were reported stuck on
+// "Loading the 3D engine" with it. The Renderer menu (or ?renderer=webgpu) still turns WebGPU on there.
+const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+const wantGPU = pick === 'webgpu' || (pick === 'auto' && !TOUCH);
 // (the loading screen names each step; an adapter request that hasn't answered in 5 s counts as none, so a browser whose WebGPU hangs
 // there, as reported on an iPad, starts on WebGL instead of waiting forever)
 const ld = (d) => { try { window.LOADUI && window.LOADUI.stage('engine', d); } catch (e) {} };
-ld(pick === 'webgl' || !navigator.gpu ? 'starting WebGL…' : 'checking WebGPU…');
-const adapter = pick === 'webgl' || !navigator.gpu ? null : await Promise.race([
+ld(!wantGPU || !navigator.gpu ? 'starting WebGL…' : 'checking WebGPU…');
+const adapter = !wantGPU || !navigator.gpu ? null : await Promise.race([
   navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null),
   new Promise(r => setTimeout(() => { console.warn('three-boot: WebGPU adapter request timed out; using WebGL'); r(null); }, 5000))]);
+let GPU = wantGPU && !!adapter, THREE_GPU = null, TSL = null;
+if (GPU) { ld('loading WebGPU…');
+  try { [THREE_GPU, TSL] = await Promise.all([import('three/webgpu'), import('three/tsl')]); }
+  catch (e) { console.warn('three-boot: the WebGPU build could not load; using WebGL', e); GPU = false; } }
 ld('loading the app scripts…');
-const GPU = pick !== 'webgl' && !!adapter;
 
 THREE_GL.ColorManagement.enabled = false;
 
@@ -58,6 +66,7 @@ fix('alphatest_fragment', '\tdiffuseColor.a = smoothstep( alphaTest, alphaTest +
 // ---------------- WebGPU: light nodes ----------------
 // colour spaces: with ColorManagement off, WebGPU's colour-space nodes skip every conversion, including the final linear-to-sRGB output
 // (the WebGL renderer always encodes the output). They are built with it on; hex colours are still read as linear.
+if (GPU) {
 { const CS = THREE_GPU.ColorSpaceNode.prototype, csSetup = CS.setup;
   CS.setup = function (builder) { const e = THREE_GL.ColorManagement.enabled; THREE_GL.ColorManagement.enabled = true; try { return csSetup.call(this, builder); } finally { THREE_GL.ColorManagement.enabled = e; } }; }
 { const PI = Math.PI, { Fn, float } = TSL;
@@ -75,12 +84,13 @@ fix('alphatest_fragment', '\tdiffuseColor.a = smoothstep( alphaTest, alphaTest +
     return { lightDirection: dir, lightColor: this.colorNode.mul(this.getSpotAttenuation(builder, cos)).mul(legacyAtten(v.length(), this.cutoffDistanceNode, this.decayExponentNode)) };
   };
 }
+}
 
 // the global the classic scripts use: a plain copy of the module namespace (which is read-only), plus the add-ons they need
 window.THREE = Object.assign({}, GPU ? THREE_GPU : THREE_GL, { GLTFLoader, MeshoptDecoder });
 window.GPU = GPU;
 window.TSL = TSL;
-window.RENDERER_PICK = { pick, webgpu: !!adapter || (pick === 'webgl' && !!navigator.gpu) };
+window.RENDERER_PICK = { pick, webgpu: GPU || (!wantGPU && !!navigator.gpu) };
 // the adapter's real buffer limits (the default device allows 128 MB storage bindings; the path tracer's scene buffers are larger)
 window.GPU_LIMITS = adapter ? { maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize, maxBufferSize: adapter.limits.maxBufferSize } : null;
 // the app's scripts, in order (the single-file build runs its inlined copy of them after this instead)

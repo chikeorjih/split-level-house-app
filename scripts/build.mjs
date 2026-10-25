@@ -31,6 +31,8 @@ html = html.slice(0, first) + '<script type="text/plain" id="app-src">\n' + code
   const tail = html.lastIndexOf('</body>');
   html = html.slice(0, tail) + '<script>window.__APP_LINE0=' + tagLine + ';</script>\n<script type="module">\n' + boot + '\nconst __s = document.createElement(\'script\'); __s.textContent = document.getElementById(\'app-src\').textContent; document.body.appendChild(__s);\n</script>\n' + html.slice(tail); }
 
+// the loading screen's hero photo (about 0.23 MB), as a data URI in place of its path (same line, so line numbers don't move)
+{ const hp = path.join(root, 'assets/images/hero.jpg'); if (fs.existsSync(hp)) html = html.split('assets/images/hero.jpg').join('data:image/jpeg;base64,' + fs.readFileSync(hp).toString('base64')); }
 // the denoiser's weights (0.6 MB), embedded like the models
 { const wp = path.join(root, 'assets/weights/rt_hdr_alb_nrm_small.tza'); if (fs.existsSync(wp)) { const tail = html.lastIndexOf('</body>'); html = html.slice(0, tail) + '<script>window.__OIDN_WEIGHTS="data:application/octet-stream;base64,' + fs.readFileSync(wp).toString('base64') + '";</script>\n' + html.slice(tail); } }
 // imported models: embed the manifest and each GLB as a data URI, after the app code so Debug ID line numbers don't move
