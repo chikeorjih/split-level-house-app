@@ -31,7 +31,7 @@ The owner approved this plan on 2026-10-23. Work through the steps in order.
 - **Tests:** the full suite takes about 18 minutes in software rendering. The owner asked not to run the whole suite routinely: check changes with targeted scripts and screenshots, and run `npm test` at milestones (step 5).
 - **Real WebGPU:** Playwright's bundled Chromium cannot create a WebGPU device on this machine (`dxcompiler.dll`) and quietly falls back to WebGL 2. Use the installed Chrome: `chromium.launch({channel:'chrome', args:['--enable-unsafe-webgpu','--enable-gpu']})`, with `NODE_PATH=<repo>/node_modules` for scratch scripts and `waitUntil:'domcontentloaded'`.
 - **Dev server:** the dev server's Arrange "save" writes moved models straight into `assets/models/manifest.json`. Read the manifest before editing model placements; the owner may have moved things.
-- **Uncommitted work:** everything from this and earlier sessions is uncommitted on `main`. Commit only when the owner asks.
+- **Uncommitted work:** none; everything up to 2026-10-25 is committed and pushed to `origin/main` (all branches were already merged). Commit only when the owner asks.
 
 ## Recent changes (newest first)
 
