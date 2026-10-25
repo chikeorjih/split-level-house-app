@@ -26,7 +26,8 @@ test('scene builds without errors', async ({ page }) => {
 
 test('the loading screen shows the guide, names each start-up stage, and opens on Enter the house', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('#loading .ld-guide')).toContainText('Three ways to look');
+  await expect(page.locator('#loading .ld-load')).toContainText('Getting the house ready');
+  await expect(page.locator('#loading .ld-guide')).toContainText('Controls');
   await expect(page.locator('#loading .ld-ctl[data-for="mouse"]')).toBeVisible();   // the test browser has a mouse
   await page.waitForFunction(() => document.getElementById('ldEnter')?.disabled === false, null, { timeout: 90_000 });
   const stages = await page.evaluate(() => [...document.querySelectorAll('.ld-stages li')].map(l => l.dataset.k + ':' + l.classList.contains('ok')));

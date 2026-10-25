@@ -37,9 +37,9 @@ The loading screen shows a getting-started guide and live progress while the hou
 
 | View | Mouse and keyboard | Touch |
 |---|---|---|
-| Walk | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrow keys to move, drag to look, <kbd>Shift</kbd> to hurry | Move pad (bottom left) to move, drag anywhere else to look |
 | ¾ view | Drag to orbit, right-drag to pan, scroll to zoom | Drag to orbit, pinch to zoom, two fingers to pan |
 | Floor plan | Drag to pan, scroll to zoom | Drag to pan, pinch to zoom |
+| Walk | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrow keys to move, drag to look, <kbd>Shift</kbd> to hurry | Move pad (bottom left) to move, drag anywhere else to look |
 | Arrange | Click a piece, drag to move, drag the ring to turn; <kbd>Q</kbd> and <kbd>E</kbd> turn 15° | Tap a piece, drag to move, drag the ring to turn |
 
 On a phone the panels live in a bottom sheet with four tabs: **Levels**, **Show**, **Tools** and **Look** (light and quality). Tap a tab to open it and again to close it.
