@@ -490,11 +490,17 @@ function updateUI(){document.querySelectorAll('.seg button[data-state]').forEach
 // the screen widens. Tapping a tab opens the sheet on it; tapping it again closes it. The heights of the sheet and of the help panel are
 // kept in CSS variables so the move pad, the inspector and the arrange panel stay clear of them.
 const PHONE=window.matchMedia?matchMedia('(max-width: 640px)'):{matches:false},MOVED=[];
-function phoneLayout(){const on=PHONE.matches,sheet=$('sheet');document.documentElement.classList.toggle('phone',on);
+// tablets (touch, wider than a phone): the bar's light, sun, quality and renderer controls move into the left panel's Look group, so the
+// bar keeps one row (title, views, house state, full screen). Called before and after phoneLayout's moves so the two never fight.
+const TABLET=window.matchMedia?matchMedia('(pointer: coarse) and (min-width: 641px)'):{matches:false};
+function tabletLayout(){const be=document.querySelector('.barend'),slot=$('lookSlot'),on=TABLET.matches&&!PHONE.matches;if(!be||!slot)return;
+  document.documentElement.classList.toggle('tablet',on);$('lookGrp').hidden=!on;
+  if(on&&be.parentNode!==slot)slot.appendChild(be);else if(!on&&be.parentNode===slot)$('bar').insertBefore(be,$('tFull'));}
+function phoneLayout(){const on=PHONE.matches,sheet=$('sheet');tabletLayout();document.documentElement.classList.toggle('phone',on);
   if(on&&!MOVED.length){const put=(el,pane)=>{if(!el)return;MOVED.push([el,el.parentNode,el.nextSibling]);sheet.querySelector('.sh-pane[data-pane="'+pane+'"]').appendChild(el);};
     const [show,tools]=$('top').querySelectorAll('.grp');put($('levels'),'levels');put(show,'show');put(tools,'tools');put($('tPhoto'),'tools');put($('bar').querySelector('.barend'),'look');}
   else if(!on&&MOVED.length){for(const [el,p,n] of MOVED.reverse())p.insertBefore(el,n);MOVED.length=0;sheetOpen(null);}
-  sheet.hidden=!on;layoutVars();}
+  tabletLayout();sheet.hidden=!on;layoutVars();}
 function sheetOpen(pane){const sheet=$('sheet');if(pane&&sheet.dataset.pane===pane)pane=null;sheet.dataset.pane=pane||'';sheet.classList.toggle('open',!!pane);
   for(const b of sheet.querySelectorAll('.sh-tabs button'))b.setAttribute('aria-selected',String(b.dataset.pane===pane));
   for(const p of sheet.querySelectorAll('.sh-pane'))p.classList.toggle('on',p.dataset.pane===pane);layoutVars();}
@@ -502,8 +508,21 @@ function layoutVars(){const st=document.documentElement.style,sh=$('sheet'),hud=
   st.setProperty('--sheetT',(sh&&!sh.hidden?Math.max(0,innerHeight-sh.getBoundingClientRect().top):0)+'px');
   const hb=hud?hud.getBoundingClientRect():null;st.setProperty('--hudT',(hb&&hb.height>0?Math.max(0,innerHeight-hb.top):0)+'px');}
 function bindLayout(){for(const b of $('sheet').querySelectorAll('.sh-tabs button'))b.addEventListener('click',()=>sheetOpen(b.dataset.pane));
-  (PHONE.addEventListener?PHONE.addEventListener('change',phoneLayout):PHONE.addListener&&PHONE.addListener(phoneLayout));
-  if(window.ResizeObserver){const ro=new ResizeObserver(layoutVars);ro.observe($('sheet'));ro.observe($('hud'));}addEventListener('resize',layoutVars);phoneLayout();}
+  for(const mq of [PHONE,TABLET])(mq.addEventListener?mq.addEventListener('change',phoneLayout):mq.addListener&&mq.addListener(phoneLayout));
+  if(window.ResizeObserver){const ro=new ResizeObserver(layoutVars);ro.observe($('sheet'));ro.observe($('hud'));}addEventListener('resize',layoutVars);phoneLayout();bindFullscreen();}
+// ---------- full screen: the top bar's button puts the whole app (page and panels) in full screen with the Fullscreen API (desktop, Android,
+// iPad; Safari before 16.4 only has the webkit-prefixed one). iPhone Safari has no full screen for pages, so there the button explains
+// Add to Home Screen, which opens the app without browser bars (the apple-mobile-web-app-capable meta). Hidden once running that way.
+const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
+function fullscreenToggle(){const d=document,r=d.documentElement,req=r.requestFullscreen||r.webkitRequestFullscreen,exit=d.exitFullscreen||d.webkitExitFullscreen;
+  if(fsEl()){exit&&Promise.resolve(exit.call(d)).catch(()=>{});return;}
+  if(!req){notice('This browser can’t show a web page full screen. On iPhone, tap Share → Add to Home Screen, then open the house from the new icon: it runs full screen.');return;}
+  try{Promise.resolve(req.call(r,{navigationUI:'hide'})).catch(e=>notice('Full screen was blocked by the browser'+(e&&e.message?': '+e.message:'.')));}catch(e){notice('Full screen is not available here.');}}
+function bindFullscreen(){const b=$('tFull');if(!b)return;
+  const standalone=navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches);
+  if(standalone){b.hidden=true;return;}
+  const sync=()=>{const on=!!fsEl();b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Exit full screen':'Full screen');b.title=on?'Exit full screen':'Full screen';setTimeout(layoutVars,60);};
+  b.addEventListener('click',fullscreenToggle);document.addEventListener('fullscreenchange',sync);document.addEventListener('webkitfullscreenchange',sync);sync();}
 function buildUI(){
   $('noticeX').addEventListener('click',()=>notice(''));
   // the level picker is a little section drawing of the house: roofs over the upper floors, the ground line with soil below it, and each
@@ -651,6 +670,6 @@ async function start(){
   const TABLET=COARSE&&Math.min(screen.width,screen.height)>=700;setQuality(COARSE&&!TABLET?'fast':'high',COARSE?'':undefined);applyPreset('afternoon');resize();setVis(true);updateOrbitCam();arrLoad();dbgAfterReload();
   LD.stage('textures');loadTextureOverrides().catch(e=>console.warn(e)).finally(()=>LD.done('textures'));
   LD.stage('models');loadModels().catch(e=>console.warn(e)).finally(()=>LD.done('models',MODELS.length?MODELS.length+' placed':'none'));
-  requestAnimationFrame(t=>{last=t;frame(t);LD.done('shaders');LD.ready();});
+  requestAnimationFrame(t=>{last=t;frame(t);LD.done('shaders');LD.ready();window.APP_STARTED=true;});
   schedulePrewarm(1500);}
 if(!window.__APP_SCRIPTS)requestAnimationFrame(()=>setTimeout(start,30));   // (the multi-file page starts from three-boot.mjs once every script has run)

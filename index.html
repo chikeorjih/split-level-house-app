@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Split-level walkthrough with addition and deck</title>
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Split-level">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&display=swap" rel="stylesheet">
@@ -119,6 +120,7 @@
     </div>
     <label class="field rendf" title="WebGPU is faster where the browser supports it; WebGL works everywhere. Changing it reloads the page.">Renderer <select id="rend"><option value="auto">Auto</option><option value="webgpu">WebGPU</option><option value="webgl">WebGL</option></select></label>
   </div>
+  <button id="tFull" class="fsbtn" aria-pressed="false" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="fs-on" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path class="fs-off" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg></button>
 </div>
 
 <div id="top" class="panel">
@@ -137,6 +139,8 @@
       <div class="row"><button class="chip" id="tArrange" aria-pressed="false">Arrange furniture</button><button class="chip" id="tDebug" aria-pressed="false">Debug IDs</button></div>
     </div>
   </section>
+  <!-- tablets: the top bar's light, sun, quality and renderer controls move here so the bar fits on one row (tabletLayout in 12-app.js) -->
+  <section class="grp look" id="lookGrp" aria-labelledby="gLook" hidden><h3 id="gLook">Look</h3><div id="lookSlot"></div></section>
 </div>
 
 <div id="levels" class="panel">

@@ -133,6 +133,11 @@ html,body{background:#ebe9f6}
 #bar h1{font-size:15px;font-weight:650;margin:0;letter-spacing:.005em}#bar p{margin:0;font-size:11.5px;color:var(--ink-2)}
 #bar .seg.view{margin-left:auto}#bar .seg.st{margin-right:auto}
 #bar .barend{display:flex;align-items:center;gap:10px}
+/* full screen toggle (fullscreenToggle in 12-app.js): hidden where the page is already an installed full-screen app */
+.fsbtn{all:unset;box-sizing:border-box;flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:999px;cursor:pointer;color:inherit;background:rgba(120,124,170,.12)}
+.fsbtn:hover{background:rgba(120,124,170,.22)}.fsbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.fsbtn[hidden]{display:none}
+.fsbtn .fs-off,.fsbtn[aria-pressed="true"] .fs-on{display:none}.fsbtn[aria-pressed="true"] .fs-off{display:inline}
+@media (pointer:fine){.fsbtn{display:none}}@media (pointer:coarse){.fsbtn{width:42px;height:42px}}
 
 #top{left:14px;top:var(--barB,calc(84px + env(safe-area-inset-top,0px)));width:236px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-width:calc(100vw - 28px)}
 #top .grp{display:block;padding-top:10px;border-top:1px solid rgba(120,120,170,.16)}#top .grp:first-of-type{border-top:0;padding-top:0}
@@ -284,7 +289,12 @@ button,select,input,label{touch-action:manipulation}
 }
 @media (pointer:coarse) and (min-width:641px){.sunf{display:flex}.rendf{display:flex}}
 /* phones: a compact top bar (title, house state, views), a "where am I" chip under it, and a bottom sheet with tabs for everything else */
+/* tablets: one-row top bar; the look controls sit in the left panel's Look group */
+html.tablet #bar{flex-wrap:nowrap;gap:12px}html.tablet #bar .brand p{display:none}html.tablet #bar h1{white-space:nowrap}
+#top .look .barend{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+#top .look .barend .field{display:flex;justify-content:space-between}#top .look .seg.q{display:flex;width:100%}#top .look .seg.q button{flex:1;text-align:center}
 html.phone #top{display:none}
+html.phone #bar .fsbtn{order:2;width:36px;height:36px}
 html.phone #bar{left:8px;right:8px;top:calc(8px + env(safe-area-inset-top,0px));gap:6px 8px;padding:6px 8px;border-radius:18px}
 html.phone #bar .mark{width:30px;height:30px;border-radius:9px}html.phone #bar h1{font-size:14px}html.phone #bar .brand p{display:none}
 html.phone #bar .seg.st{margin-left:auto;order:2}html.phone #bar .seg.st button{min-height:34px;padding:6px 11px;font-size:12.5px}

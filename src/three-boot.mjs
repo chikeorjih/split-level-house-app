@@ -26,7 +26,10 @@ const pick = (() => { const q = new URLSearchParams(location.search).get('render
   return q || s || 'auto'; })();
 // touch devices (phones, iPads) start on WebGL when the choice is Auto: WebGPU on mobile is new, and an iPad and phones were reported stuck on
 // "Loading the 3D engine" with it. The Renderer menu (or ?renderer=webgpu) still turns WebGPU on there.
-const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+// iPads and iPhones count as touch even with a trackpad or mouse attached (any-pointer: fine), and iPadOS reports itself as a Mac, so
+// they are also recognised by their touch points. After a failed WebGPU start (00-boot.js), ?renderer=webgl is set and wins.
+const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const TOUCH = IOS || (matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches);
 const wantGPU = pick === 'webgpu' || (pick === 'auto' && !TOUCH);
 // (the loading screen names each step; an adapter request that hasn't answered in 5 s counts as none, so a browser whose WebGPU hangs
 // there, as reported on an iPad, starts on WebGL instead of waiting forever)
