@@ -210,6 +210,7 @@ function makeMaterials(){
   MAT.deckOld=std({map:deckTex(14,42,30),roughness:.8});
   MAT.deckNew=std({map:deckTex(30,14,46),roughness:.75});
   MAT.deckRailOld=std({color:0x6e3a28,roughness:.7});
+  MAT.pierWood=std({color:0x8a6646,roughness:.75});   // the wood posts under the four-seasons room (photo: assets/textures/manifest.json)
   MAT.grass=std({map:grassTex(),vertexColors:true,roughness:1});
   MAT.soilTop=std({map:soilTex(true),roughness:1});
   // glass: almost clear head-on, turning to a mirror toward grazing angles (Fresnel). The colour it adds is its reflection only (a barely

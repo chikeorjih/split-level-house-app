@@ -24,7 +24,7 @@ The owner approved this plan on 2026-10-23. Work through the steps in order.
 
 ## Open issues
 
-- None open. (The single-file build size was fixed on 2026-10-23: see Recent changes.)
+- None open. (Live-site 404s on `vendor/` were fixed on 2026-10-24 by switching the Pages source to "GitHub Actions": the old "Deploy from a branch" run republished the raw branch, which has no `vendor/` because it is gitignored.)
 
 ## How to work here
 
@@ -34,6 +34,11 @@ The owner approved this plan on 2026-10-23. Work through the steps in order.
 - **Uncommitted work:** everything from this and earlier sessions is uncommitted on `main`. Commit only when the owner asks.
 
 ## Recent changes (newest first)
+
+- 2026-10-25 **Addition foundation in concrete (owner request):** the west side and street-facing walls below the suite (`lv:'X'` walls in `02-spec.js`) are clad in `stone` instead of `brick`, the same plain concrete as the house's exposed front foundation. Then (owner request) the brick wall at z 12.9 was removed, so the space under the suite is open to the patio; the concrete walls' inside faces are painted `stone` too, and the dig-out's ground there (`06-house.js`, after the lawn) is `grass` instead of `soilTop`.
+- 2026-10-25 **Imported models now clip on WebGPU (owner report: furniture floated during the Current/Addition wipe):** GLTFLoader hands back classic materials, whose `clippingPlanes` never became a mask under WebGPU, so the 14 model materials ignored `CLIP_PH` and the cutaway cuts (WebGL was fine). `fix()` in `13-models.js` now copies each into the node material of the same type first. **Lighter posts:** `MAT.pierWood`'s dark colour was multiplying the photo; the texture manifest has two new options, `color` (the tint once the photo is on) and `brightness` (a canvas filter, next to `saturate`), and the posts use `#ffffff` and 1.6.
+- 2026-10-25 **Wood posts under the four-seasons room (owner request):** the five patio piers (`06-house.js`, "soffit under the four-seasons room") were 1.3 ft brick and are now 1.0 ft square wood posts in a new `MAT.pierWood` (`03-textures.js`, dark brown fallback; added to `EXT_MATS`). Its photo is Poly Haven's Fine Grained Wood (`fine_grained_wood_*_2k.jpg`, 0.6 m = 1.97 ft tile, grain running up the posts), listed in `assets/textures/manifest.json`.
+- 2026-10-24 **iPad and phone fixes (owner request):** a full-screen button at the end of the top bar (`#tFull`, `bindFullscreen()` in `12-app.js`), shown on touch screens only. iPhone Safari has no page full screen, so there it explains Add to Home Screen (`apple-mobile-web-app-capable` meta added). iPads now always start on WebGL (`IOS` in `three-boot.mjs`: iPadOS reports itself as a Mac and may have a trackpad). If WebGPU throws before the app has started (`window.APP_STARTED`), `00-boot.js` reloads once with `?renderer=webgl`; this covers the iPad's "GPUDevice.createBindGroup … invalid state" error. On tablets the top bar is one row: Light, Sun, Quality and Renderer move into a Look group in the left panel (`tabletLayout()`, `#lookGrp`).
 
 - 2026-10-24 **Loading screen tuned (owner request):** dark blue instead of indigo (`--ld-*` palette: #0a1428 background, #11203d panels, #7fa8ff accent, blue button gradient); the title about 20% smaller; the card about 15% smaller (1000 px wide, hero 34vh, tighter type and padding); the subtitle is now plain: "A 3D model of the house as it is now, and with the planned addition and new deck."
 - 2026-10-24 **Loading screen in the app's dark indigo theme:** palette set as `--ld-*` variables on `#loading` (deep indigo background with violet glows, indigo panels, blue-violet accent gradient on the bar and Enter button). The big title is now SPLIT-LEVEL HOUSE (`h1#ldTitle`); the pill above it reads Dunwoody Drive, St. Louis. Controls are listed ¾ view, Floor plan, Walk, both in the loading screen and the README.

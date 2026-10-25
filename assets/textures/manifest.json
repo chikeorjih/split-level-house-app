@@ -83,6 +83,18 @@
       "note": "new deck off the dining room (on the side wall at x 43.8): boards turned 90 degrees to run along that wall"
     },
     {
+      "material": "pierWood",
+      "map": "fine_grained_wood_col_2k.jpg",
+      "normal": "fine_grained_wood_nor_gl_2k.jpg",
+      "roughness": "fine_grained_wood_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1.97,
+      "color": "#ffffff",
+      "brightness": 1.6,
+      "source": "Fine Grained Wood by Rob Tuytel, Poly Haven (CC0), https://polyhaven.com/a/fine_grained_wood; 0.6 m square, grain runs up the image",
+      "note": "the wood posts under the four-seasons room; box sides map v to height, so the grain runs up each post"
+    },
+    {
       "material": "driveway",
       "map": "gravel_concrete_diff_2k.jpg",
       "normal": "gravel_concrete_nor_gl_2k.jpg",

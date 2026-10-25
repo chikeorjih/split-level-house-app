@@ -143,10 +143,10 @@ function buildSpec(){
   W({lv:2,x0:-4.9,z0:18.4,x1:0,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
   W({lv:2,x0:-13.7,z0:18.4,x1:-13.7,z1:A.z1,y0:-4.5,y1:3.5,isNew:true,ops:[door(24.45,2.6,E2,[-1,-1])],bb:[[E2,-1],[E2,1]]});
   // addition foundation under the suite; the four-seasons room sits on piers over the patio
-  W({lv:'X',x0:A.x0,z0:12.9,x1:A.x0,z1:A.z1,t:TE,y0:-17,y1:-5.5,ext:{side:-1,mat:'brick'}});
-  W({lv:'X',x0:A.x0,z0:A.z1,x1:0,z1:A.z1,t:TE,y0:-17,y1:-5.5,ops:[op('open0',-17.0,6.0,-11.7,5.1),op('open0',-7.6,7.0,-11.7,5.1)],ext:{side:1,mat:'brick'}});
-  W({lv:'X',x0:A.x0,z0:12.9,x1:0,z1:12.9,t:TE,y0:-17,y1:-5.5,ext:{side:-1,mat:'brick'}});
-  PH=null;
+  // (its side and front are concrete, the same as the house's exposed foundation on the front: MAT.stone; there is no wall under the
+  // four-seasons room's edge, so the space under the suite opens onto the patio)
+  W({lv:'X',x0:A.x0,z0:12.9,x1:A.x0,z1:A.z1,t:TE,y0:-17,y1:-5.5,ext:{side:-1,mat:'stone'},paint:[{side:1,mat:'stone'}]});
+  W({lv:'X',x0:A.x0,z0:A.z1,x1:0,z1:A.z1,t:TE,y0:-17,y1:-5.5,ops:[op('open0',-17.0,6.0,-11.7,5.1),op('open0',-7.6,7.0,-11.7,5.1)],ext:{side:1,mat:'stone'},paint:[{side:-1,mat:'stone'}]});  PH=null;
 
   // ---------- FLOORS ----------
   F(1,0.3,14.7,0.3,12.2,'laminate'); F(1,0.3,18.5,12.2,31.3,'laminate'); F(1,14.7,28,12.2,15.6,'laminate');

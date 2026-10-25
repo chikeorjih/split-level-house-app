@@ -646,14 +646,15 @@ async function loadTextureOverrides(){if(!/^https?:/.test(location.protocol))ret
   // "paint": a colour; the photo's colour map is turned grey, flattened and multiplied by it, for painted brick and the like
   // "cropTop": a fraction of the image's height cut off its top edge, for photos with a stray strip there (keep it a whole number of rows so the tile still wraps)
   const crop=(tx,f)=>{const im=tx.image,h=Math.round(im.height*(1-f)),[c,g]=cv(im.width,h);g.drawImage(im,0,im.height-h,im.width,h,0,0,im.width,h);tx.dispose();return new THREE.CanvasTexture(c);};
-  // "saturate": a factor for the colour map's saturation (1 = unchanged, .85 = 15% less)
-  const satur=(tx,k)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter='saturate('+k+')';g.drawImage(im,0,0);tx.dispose();return new THREE.CanvasTexture(c);};
+  // "saturate": a factor for the colour map's saturation (1 = unchanged, .85 = 15% less); "brightness": the same for its brightness
+  // "color": the material's tint once the photo is on (its MAT colour is the stand-in until then, and multiplies the photo otherwise)
+  const satur=(tx,t)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter=(t.saturate!==undefined?'saturate('+t.saturate+') ':'')+(t.brightness!==undefined?'brightness('+t.brightness+')':'');g.drawImage(im,0,0);tx.dispose();return new THREE.CanvasTexture(c);};
   const paint=(tx,col)=>{const im=tx.image,[c,g]=cv(im.width,im.height);g.filter='grayscale(1) contrast(.4) brightness(2.1)';g.drawImage(im,0,0);g.filter='none';
     g.globalCompositeOperation='multiply';g.fillStyle=col;g.fillRect(0,0,c.width,c.height);tx.dispose();return new THREE.CanvasTexture(c);};
-  const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);if(srgb&&t.saturate!==undefined)tx=satur(tx,t.saturate);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
+  const L=new THREE.TextureLoader(),load=(f,t,srgb)=>new Promise(res=>{if(!f)return res(null);L.load('assets/textures/'+f,tx=>{if(t.cropTop)tx=crop(tx,t.cropTop);if(srgb&&t.paint)tx=paint(tx,t.paint);if(srgb&&(t.saturate!==undefined||t.brightness!==undefined))tx=satur(tx,t);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;const ft=t.repeatFt||4;tx.repeat.set(1/ft,1/(t.repeatFtY||ft));
     if(t.rotateDeg){tx.center.set(.5,.5);tx.rotation=t.rotateDeg*Math.PI/180;}if(srgb)tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=MAXANISO;res(tx);},undefined,()=>{console.warn('texture override not found: '+f);res(null);});});
   let ti=0;for(const t of list){LD.stage('textures',(++ti)+' of '+list.length,(ti-1)/list.length);const m=MAT[t.material];if(!m){console.warn('unknown material in manifest: '+t.material);continue;}
-    const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;npApply(m);m.needsUpdate=true;}
+    const [mp,nm,rm]=await Promise.all([load(t.map,t,true),load(t.normal,t,false),load(t.roughness,t,false)]);if(mp)m.map=mp;if(mp&&t.color)m.color.set(t.color);if(mp&&t.selfLit){m.emissive=new THREE.Color(1,1,1);m.emissiveMap=mp;m.emissiveIntensity=t.selfLit;}if(nm){m.normalMap=nm;const k=t.normalScale!==undefined?t.normalScale:.5;m.normalScale.set(k,k);}if(rm)m.roughnessMap=rm;if(t.roughnessValue!==undefined)m.roughness=t.roughnessValue;npApply(m);m.needsUpdate=true;}
   refreshFades();dirty=true;}
 // (each stage is named on the loading screen as it is reached, through LOADUI in index.html; the page is given a frame to show it before
 // the long, blocking build)

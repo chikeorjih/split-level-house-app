@@ -70,7 +70,10 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   const ry=pl.ry!==undefined?pl.ry*D:(rep?rep.ry0+rep.ry:0)+(pl.turn||0)*D,y=pl.y!==undefined?pl.y:E[lv]+(pl.dy||0),tag=m.tag||(rep&&tagPh(rep.tag)?rep.tag:String(lv));
   const outer=new THREE.Group();outer.position.set(x,y,z);outer.rotation.y=ry;outer.add(inner);outer.userData.model=m.id;
   const P=PRESETS[LOOK.preset];let n=0;
-  const fix=mt=>{mt.clippingPlanes=CLIPS;mt.clipShadows=true;if(mt.isMeshStandardMaterial){mt.envMap=ROOM_ENV;mt.envMapIntensity=P.envI;}MAT['model:'+m.id+':'+(n++)]=mt;if(typeof giPatch==='function')giPatch(mt);mt.needsUpdate=true;return mt;};
+  // (under WebGPU the loader's materials are classic ones, whose clippingPlanes never become a mask, so the house's cuts and its state
+  // wipe passed them by: each is copied into the node material of the same type first)
+  const fix=mt=>{if(window.GPU&&!mt.isNodeMaterial&&THREE[mt.type]){const nm=new THREE[mt.type]();Object.getPrototypeOf(mt).copy.call(nm,mt);mt.dispose();mt=nm;}
+    mt.clippingPlanes=CLIPS;mt.clipShadows=true;if(mt.isMeshStandardMaterial){mt.envMap=ROOM_ENV;mt.envMapIntensity=P.envI;}MAT['model:'+m.id+':'+(n++)]=mt;if(typeof giPatch==='function')giPatch(mt);mt.needsUpdate=true;return mt;};
   // a model without normals (a slimmed scan) gets smooth ones; without texture coordinates its texture can't be placed, so it takes the
   // manifest's colour instead
   const noUV=mt=>{if(mt.map){mt.map=null;mt.needsUpdate=true;}if(m.color)mt.color.set(m.color);};

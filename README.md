@@ -120,7 +120,7 @@ A published artifact must stay under 16 MB. The build is about 7 MB, most of it 
 ## Credits
 
 - **3D engine:** [three.js](https://threejs.org) r186 (MIT). Path tracing uses [three-gpu-pathtracer](https://github.com/gkjohnson/three-gpu-pathtracer) (MIT); denoising uses [Open Image Denoise](https://www.openimagedenoise.org) through oidn-web (Apache 2.0).
-- **Photo textures:** [Poly Haven](https://polyhaven.com) (CC0). Brick 4 and Roof Slates 03 by Rob Tuytel; Wooden Floor 02, Wooden Planks, Gravel Concrete and Forest Ground 06 by Charlotte Baglioni and others; Laminate Floor by Dimitrios Savva and Dario Barresi; Curly Teddy Natural by colormass. Full credits are in [`assets/textures/manifest.json`](assets/textures/manifest.json).
+- **Photo textures:** [Poly Haven](https://polyhaven.com) (CC0). Brick 4, Roof Slates 03 and Fine Grained Wood by Rob Tuytel; Wooden Floor 02, Wooden Planks, Gravel Concrete and Forest Ground 06 by Charlotte Baglioni and others; Laminate Floor by Dimitrios Savva and Dario Barresi; Curly Teddy Natural by colormass. Full credits are in [`assets/textures/manifest.json`](assets/textures/manifest.json).
 - **Furniture models:** supplied by the owner (see [`assets/models/manifest.json`](assets/models/manifest.json)). Models downloaded from Sketchfab record their author and licence there. Product names are used only to describe the pieces modelled.
 - **Rug patterns:** photos supplied by the owner.
 - **Font:** [Archivo](https://fonts.google.com/specimen/Archivo) (SIL Open Font License).

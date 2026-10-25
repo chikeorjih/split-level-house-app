@@ -161,9 +161,9 @@ box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
   box('2','wall',-4.9,0,3.45,3.85,12.7,13.1);
   // underside of the suite floor, seen through the lower openings
   box('X','underside',-21.2,-0.3,-5.62,-5.45,12.9,32.2);
-  // soffit under the four-seasons room + piers over the patio
+  // soffit under the four-seasons room + wood posts (1 ft square) over the patio
   box('2','trim',-21.8,0,-6.0,-5.4,-1.95,12.9);
-  for(const [x,z] of [[-21.2,-1.35],[-14.3,-1.35],[-7.3,-1.35],[-0.9,-1.35],[-21.2,5.8]]){box('X','brick',x-.65,x+.65,-16.05,-5.9,z-.65,z+.65);addCol(x-.65,x+.65,z-.65,z+.65,-16.05,-5.9);}
+  for(const [x,z] of [[-21.2,-1.35],[-14.3,-1.35],[-7.3,-1.35],[-0.9,-1.35],[-21.2,5.8]]){box('X','pierWood',x-.5,x+.5,-16.05,-5.9,z-.5,z+.5);addCol(x-.5,x+.5,z-.5,z+.5,-16.05,-5.9);}
   box('X','beam',-21.8,0,-6.6,-5.95,-1.7,-1.0);
   PH=null;
 
@@ -219,14 +219,14 @@ box('3','brick',44.6,54.4,8.6,GE+.1,10.3,10.9);
       addGeo('site','grass',g);g.dispose();
       for(let i=0;i<N;i++)for(let j=0;j<M2;j++){const x=x0+(x1-x0)*(i+.5)/N,z=z0+(z1-z0)*(j+.5)/M2;addWalk(x0+(x1-x0)*i/N,x0+(x1-x0)*(i+1)/N,z0+(z1-z0)*j/M2,z0+(z1-z0)*(j+1)/M2,terrainH(x,z,true));WALKS[WALKS.length-1].lawn=true;}}
   }PH=null;
-  // with the addition: bare earth over the dig-out (seen when its level is hidden), on the terrain's own grid lines so it follows the pit's
+  // with the addition: lawn over the dig-out under the suite (open to the patio), on the terrain's own grid lines so it follows the pit's
   // floor and steep sides; texture laid flat on the floor and upright on the sides
   PH='a';{const xs=[-21.5,0],zs=[12.9,32.5],P=[],U=[];for(let x=-21;x<0;x+=2)xs.push(x);for(let z=13;z<32.5;z+=2)zs.push(z);xs.sort((a,b)=>a-b);zs.sort((a,b)=>a-b);
     const v=(x,z)=>[x,terrainH(x,z)+.02,z],tri=(a,b,c)=>{const n=new THREE.Vector3(...b).sub(new THREE.Vector3(...a)).cross(new THREE.Vector3(...c).sub(new THREE.Vector3(...a))).normalize(),flat=Math.abs(n.y)>.5;
       for(const p of [a,b,c]){P.push(...p);U.push(...(flat?[p[0],p[2]]:[p[0]+p[2],p[1]]));}};
     for(let j=0;j<zs.length-1;j++)for(let i=0;i<xs.length-1;i++){const a=v(xs[i],zs[j]),b=v(xs[i+1],zs[j]),c=v(xs[i],zs[j+1]),d=v(xs[i+1],zs[j+1]);tri(a,c,b);tri(b,c,d);}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.computeVertexNormals();
-    addGeo('site','soilTop',g);g.dispose();}PH=null;
+    addGeo('site','grass',g);g.dispose();}PH=null;
   // garage apron & thresholds
   addWalk(35.6,54.1,28.6,29.2,-0.45);box('3','concrete',35.9,53.8,-0.9,-0.45,28.5,29.2);
 }

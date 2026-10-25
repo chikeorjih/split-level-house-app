@@ -23,7 +23,7 @@ const PRESETS={
 };
 // bloomScale: overall strength of the glow round bright lights (1 = each preset's own bloom)
 const LOOK={bloomScale:.5,dof:0,skyI:1.4,ao2:.5,preset:'afternoon',quality:'high',sunDir:new THREE.Vector3(),lights:[],hemi:null,amb:null};
-const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
+const EXT_MATS=new Set(['shutter','brick','siding','sidingNew','sidingWhite','roof','slateRoof','metalRoof','grass','deckOld','deckNew','deckRailOld','pierWood','paver','drive','driveway','asphalt','concrete','stone','frameDark','dormerClad',
   'garageDoor','garageDoorPanel','doorWood','bark','chain','flagstone','mulch','roofBrown','soldier','underside','leafCards','shrubCards','grassBlades','treeline','edgeStone','soil','soilTop','wicker']);
 // aerial perspective: exponential fog, a touch bluer than the horizon; thinned as the 3/4 camera pulls back so the house doesn't wash out
 const FOG_D=.0014;
