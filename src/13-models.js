@@ -58,6 +58,8 @@ function corduroy(mt,pitchUnits,M){const o=mt.onBeforeCompile,k0=mt.customProgra
 function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   root.rotation.set((o.x||0)*D,(o.y||0)*D,(o.z||0)*D);root.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(root),raw={w:bb.max.x-bb.min.x,d:bb.max.z-bb.min.z,h:bb.max.y-bb.min.y},sc=modelScale(m,raw);
+  // "stretch": factors on top of the scale per axis ({"y":1.2} makes it 20% taller), for an owner's change to a model with no product size
+  if(m.stretch){const b=sc.v||{x:sc.s,y:sc.s,z:sc.s},t=m.stretch;sc.v={x:b.x*(t.x||1),y:b.y*(t.y||1),z:b.z*(t.z||1)};sc.how+=', stretched x'+(t.x||1)+' / y'+(t.y||1)+' / z'+(t.z||1);}
   const inner=new THREE.Group();inner.add(root);const sv=sc.v||{x:sc.s,y:sc.s,z:sc.s};inner.scale.set(sv.x,sv.y,sv.z);inner.position.set(-(bb.min.x+bb.max.x)/2*sv.x,-bb.min.y*sv.y,-(bb.min.z+bb.max.z)/2*sv.z);
   // the T() piece it replaces: the nearest piece with that name; it also supplies any position, level or turn the manifest leaves out
   // (replaces may also be a list, for one model standing in for several pieces: the first supplies its place, every one is hidden)

@@ -86,6 +86,13 @@ const LAMPV=[],_lf=new THREE.Vector3();let LAMP_SIG='';
 // by day the lamps are off, except in the 3/4 cutaway, where the rooms are shown as if their ceilings were on (see SHADOW_PROXY in
 // 12-app.js) and the lamps glow at LAMP_DAY of their evening strength alongside the window light
 const LAMP_DAY=.3,LAMP_EVE=.8,lampsDim=()=>!PRESETS[LOOK.preset].lamps&&ST.view==='three'&&!ST.pending&&!!ST.cutL;
+// Walk view at midday: the rooms are lit the way a lived-in house is at noon, not by a gain: the overhead fixtures (ceiling lights,
+// pendants, chandeliers) are on at WALK_DAY of their evening strength, the kitchen's cans and drum WALK_DAY_K brighter, and the light
+// through the windows (the high-quality sky lights) WALK_WIN stronger. Lamps and the room fills stay off.
+const WALK_DAY=.8,WALK_DAY_K=1.35,WALK_WIN=1.25,walkDay=()=>ST.view==='walk'&&!ST.pending&&LOOK.preset==='midday',OVERHEAD=/^(ceiling|pendant|chandelier)$/;
+function kitchenLights(){const P=PRESETS[LOOK.preset],w=walkDay()?WALK_DAY_K:1,ul=isUltra();
+  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:k==='lampSpot'?1.3:.7)*(P.lamps?1.05*LAMP_EVE:1)*(ul?ULTRA.overhead:1)*(k==='lampSpot'?1:w);
+    if(k!=='lampSpot')l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}}
 function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6,2.3,25],[22,7,6],[8,-6.6,20],[25,-6.6,6],[37.6,7,5.4]];
   const pr={chandelier:0,pendant:1,ceiling:2,lamp:3,outdoor:4};const L=LAMPS.slice().sort((a,b)=>pr[a.k]-pr[b.k]);let pend=null;const out=[];
   for(const l of L){if(l.k==='pendant'){if(!pend){pend=l.v.clone();out.push({v:pend,k:'pendant'});}else pend.lerp(l.v,.5);continue;}out.push(l);}
@@ -94,10 +101,10 @@ function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6
     LAMPV.push(v);if(l.inst)l.inst.lights.push({light:v,v0:l.v.clone()});}
   for(let i=0;i<(COARSE?5:10);i++){const p=new THREE.PointLight(0xffb36b,0,16,1.6);scene.add(p);LOOK.lights.push(p);}}
 // point the pool at the lamps nearest the view (the walker, or the 3/4 view's target); only touches the lights when that set changes
-function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lamps||dim,k=P.lamps?LAMP_EVE:LAMP_DAY,f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
-  const pick=on?LAMPV.filter(v=>phOn(v.ph)).sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
-  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':'on'):'off')+og+HOUSE.ph;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
-  if(sig===LAMP_SIG)return;LAMP_SIG=sig;
+function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),wd=!P.lamps&&walkDay(),on=P.lamps||dim||wd,k=P.lamps?LAMP_EVE:(wd?WALK_DAY:LAMP_DAY),f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
+  const pick=on?LAMPV.filter(v=>phOn(v.ph)&&(!wd||OVERHEAD.test(v.k))).sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
+  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':wd?'walkday':'on'):'off')+og+HOUSE.ph;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
+  if(sig===LAMP_SIG)return;LAMP_SIG=sig;kitchenLights();
   LOOK.lights.forEach((p,i)=>{const v=pick[i];if(v){p.position.copy(v.position);p.color.setHex(v.color);p.intensity=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1);p.distance=v.d;}else p.intensity=0;});
   MAT.shade.emissiveIntensity=P.lamps?1.4:(dim?.8:.35);if(typeof syncDerived==='function')syncDerived();
   if(isUltra())updateInteriorShadows();shadowDirty=true;dirty=true;}
@@ -122,7 +129,7 @@ function skyColorAt(d,out){const P=PRESETS[LOOK.preset],y=Math.max(d.y,0);out.se
   return out.add(new THREE.Color(P.hor).multiplyScalar(.22*Math.exp(-y*16)));}
 // high quality swaps most of the unshadowed sky light for the shadowed sky lights; fast mode keeps the original balance
 function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ(),uf=ultraFill(),ul=isUltra();
-  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:k==='lampSpot'?1.3:.7)*(P.lamps?1.05*LAMP_EVE:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
+  kitchenLights();if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
   // (WebGPU: the set of lights is built into every node material, so hiding these recompiled everything on each change of quality; there
   // they stay in the scene and are switched off by strength)
   for(const L of SKYL){L.visible=hq||!!window.GPU;if(!hq)L.intensity=0;}LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);
@@ -152,9 +159,9 @@ function applyPreset(name){if(typeof giAbort==='function')giAbort();const P=PRES
   makeEnvs(P,name);
   // (outdoor materials take the sky map explicitly: since r163 a material using scene.environment ignores its envMapIntensity)
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;const ext=EXT_MATS.has(k);const had=!!m.envMap;m.envMap=ext?SKY_ENV:ROOM_ENV;m.envMapIntensity=ext?P.envE:P.envI;if(had!==!!m.envMap)m.needsUpdate=true;}
-  applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;if(MAT.ledStrip)MAT.ledStrip.emissiveIntensity=P.lamps?2.2:.1;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
+  applyGrade();applyLightBalance();MAT.shade.emissiveIntensity=P.lamps?1.4:.35;if(MAT.ledStrip)MAT.ledStrip.emissiveIntensity=P.lamps?2.2:.1;MAT.light.emissiveIntensity=P.lamps?1.8:1.2;if(MAT.lightHang)MAT.lightHang.emissiveIntensity=MAT.light.emissiveIntensity;MAT.flame.emissiveIntensity=P.lamps?3.5:1.5;
   LAMP_SIG='';updateLampPool();
-  for(const {l,k} of LOOK.kitchen||[]){l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05*LAMP_EVE:1)*(isUltra()?ULTRA.overhead:1);l.color.setHex(P.lamps?0xffcf96:(k==='can'?0xfff0d8:0xfff3e2));}
+  kitchenLights();
   if(scene.fog)scene.fog.color.copy(fogColor(P));
   syncDerived();
   fitShadow(true);dirty=true;shadowDirty=true;if(typeof PIPE!=='undefined')PIPE.n=0;if(LOOK.studio)planStudio();}
@@ -445,7 +452,7 @@ function renderHigh(cam){const n=PIPE.n,[w,h]=PIPE.size,P=PRESETS[LOOK.preset],p
   if(SKYL.length&&SKYL[0].visible&&isHQ()&&!preview){const c=sun.target.position,sc=sun.shadow.camera,d=new THREE.Vector3();
     for(let j=0;j<SKYL.length;j++){const L=SKYL[j],i=n*SKYL.length+j+1,y=SKY_E0+(1-SKY_E0)*halton(i,17),ph=6.2832*halton(i,19),r=Math.sqrt(1-y*y);
       d.set(r*Math.cos(ph),y,r*Math.sin(ph));L.position.copy(c).addScaledVector(d,230);L.target.position.copy(c);L.target.updateMatrixWorld();
-      skyColorAt(d,L.color);L.intensity=LOOK.skyI*(PRESETS[LOOK.preset].sky??1)/SKYL.length;
+      skyColorAt(d,L.color);L.intensity=LOOK.skyI*(PRESETS[LOOK.preset].sky??1)*(walkDay()?WALK_WIN:1)/SKYL.length;
       const s=L.shadow.camera;s.left=sc.left;s.right=sc.right;s.top=sc.top;s.bottom=sc.bottom;s.near=sc.near;s.far=sc.far;s.updateProjectionMatrix();}
     renderer.shadowMap.needsUpdate=true;}
   const ultra=isUltra()&&PIPE.enc,lres=ultraLights(n,!!ultra,n>0&&!preview);
@@ -578,7 +585,7 @@ function giSlice(ms){const J=GI.job,N=GI.N,t0=performance.now(),P=PRESETS[LOOK.p
   LOOK.hemi.intensity=0;for(const L of SKYL)L.intensity=0;
   // glowing fixtures (cans, shades, LED strips, flames) captured dark: their light is already in the scene as real lights, and counting
   // their glow too made the rooms blow out once the room light came on, most of all in the evening
-  sv.glow=['light','shade','ledStrip','flame'].filter(k=>MAT[k]).map(k=>[MAT[k],MAT[k].emissiveIntensity]);
+  sv.glow=['light','lightHang','shade','ledStrip','flame'].filter(k=>MAT[k]).map(k=>[MAT[k],MAT[k].emissiveIntensity]);
   for(const k in MAT){const m=MAT[k];if(!m||!m.isMeshStandardMaterial)continue;sv.env.push([m,m.envMapIntensity]);if(EXT_MATS.has(k))m.envMapIntensity=P.envE;else if(m.envMap)m.envMapIntensity=GI_OFF;}
   for(const [m] of sv.glow)m.emissiveIntensity=GI_OFF;GI_U.uGI.value=J.pass>0?1:0;GI_U.tGIa.value=J.prev?J.prev.texture:null;GI_U.giGain.value=1;renderer.toneMapping=THREE.NoToneMapping;
   try{while(J.i<GI.probes.length&&performance.now()-t0<ms){const pr=GI.probes[J.i++];updateLampPool(pr.p);SKY.position.copy(pr.p);GI.cube.position.copy(pr.p);GI.cube.update(renderer,scene);

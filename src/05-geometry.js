@@ -109,10 +109,10 @@ function wallBuild(w){
         if(y1-y0>.01)B(e.mat,dir<0?end-.02:end,dir<0?end:end+.02,cA,cB,y0,y1);}}}
   // paint: a thin coat of pt.mat (default the dining room's charcoal) over one side of the wall
   if(w.paint)for(const pt of w.paint){const pm=pt.mat||'charcoal';skin(pt,pm,0.02,0.003,true);if(pm!=='charcoal')continue;
-    // chair rail + baseboard in the dining room
+    // chair rail in the dining room, painted the walls' charcoal (in satin)
     const f=c+pt.side*(t/2+.02);
     for(const p of pieces){const pa0=Math.max(p[0],pt.a0),pa1=Math.min(p[1],pt.a1);if(pa1-pa0<.05)continue;
-      if(p[2]<=2.6&&p[3]>=2.8)B('trim',pa0,pa1,f,f+pt.side*.06,2.6,2.8);}}
+      if(p[2]<=2.6&&p[3]>=2.8)B('charcoalTrim',pa0,pa1,f,f+pt.side*.06,2.6,2.8);}}
   // baseboards
   if(w.bb)for(const [y,side] of w.bb){for(const sd of (side?[side]:[-1,1])){const f=c+sd*t/2;
       for(const p of pieces){if(p[2]<=y+.05&&p[3]>=y+.4)B('trim',p[0],p[1],f,f+sd*.05,y,y+.36);}}}

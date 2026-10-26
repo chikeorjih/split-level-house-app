@@ -42,9 +42,13 @@ function addLivingMaterials(){
   MAT.rugShag=std({map:shagTex(),roughness:1});
   // the family room's geometric shag rug: the owner's product photo (assets/textures/manifest.json) over the shag's pile relief (addRelief);
   // the shag's own colours stand in until the photo loads, and in the single-file build
-  MAT.rugGeo=std({map:MAT.rugShag.map,roughness:1});MAT.rugFringe=std({map:fringeTex(),alphaTest:.45,side:THREE.DoubleSide,roughness:1});
+  MAT.rugGeo=std({map:MAT.rugShag.map,roughness:1});
+  // the living room's abstract rug: the owner's photo (manifest), over the shag's pile relief; a dusty pink until it loads
+  MAT.rugAbstract=std({color:0xc9a596,roughness:1});MAT.rugFringe=std({map:fringeTex(),alphaTest:.45,side:THREE.DoubleSide,roughness:1});
   MAT.linen2=std({map:weaveTex('#eee8dc',1),roughness:.95,side:THREE.DoubleSide});
-  MAT.wicker=std({map:weaveTex('#8b8275',1),roughness:.9});   // the patio set (current state)
+  MAT.wicker=std({map:weaveTex('#8b8275',1),roughness:.9});MAT.rattan=std({color:0xd3ad74,roughness:.72});   // (the dining pendant's strips)
+  // the dining pendant's parts, shown whole in the 3/4 cutaway of its level (not cut by CLIP_TOP)
+  for(const [k,src] of [['rattanHang','rattan'],['blackHang','black'],['lightHang','light']]){MAT[k]=npClonePatches(MAT[src],MAT[src].clone());MAT[k].clippingPlanes=CLIPS_NOTOP;}   // the patio set (current state)
   // the lower-level sitting room (listing photos): dark grey walls; its rugs (and the next room's) are Poly Haven's Curly Teddy Natural
   // (assets/textures/manifest.json; this weave until it loads, and in the single-file build)
   // the home theatre: the projected picture (a sunset over the sea, painted here; it glows as a running projector's image
@@ -63,6 +67,18 @@ function addLivingMaterials(){
   MAT.slatePaint=std({color:0x45474a,roughness:.92});MAT.rugTeddy=std({map:weaveTex('#dcd3c3',1.1),roughness:1});
   MAT.artArcs=std({map:arcArtTex(),roughness:.85});
   // the family room's print (the owner's image, assets/textures/manifest.json); a muted olive stands in until it loads and in the single-file build
-  MAT.artJungle=std({color:0x6b6448,roughness:.85});MAT.artTV=std({map:tvArtTex(),roughness:.3,emissive:0xffffff,emissiveIntensity:.06,emissiveMap:null});
+  MAT.artJungle=std({color:0x6b6448,roughness:.85});
+  // the living room's ibex print (the owner's image, assets/textures/manifest.json); a dark teal stands in until it loads and in the single-file build
+  MAT.artIbex=std({color:0x2f6f74,roughness:.85});
+  // the living room's abstract (after the owner's reference): four rounded colour fields on cream linen, burnt orange top left over teal
+  // bottom left with a navy circle, deep teal-navy top right, warm orange bottom right (warmer than the reference's reds, at the owner's request); a faint weave and noise so it reads as painted canvas
+  {const seed0=RNG_SEED,S=TX(1024),[c,g]=cv(S,S),u=v=>v*S,rr=(x,y,w,h,r,col)=>{g.fillStyle=col;g.beginPath();g.roundRect(u(x),u(y),u(w),u(h),r.map(u));g.fill();};
+    g.fillStyle='#ead9b8';g.fillRect(0,0,S,S);
+    rr(-.05,.4,.53,.7,[.1,.3,.04,.04],'#56aba2');
+    {const gr=g.createLinearGradient(0,0,u(.45),u(.6));gr.addColorStop(0,'#ef8a3a');gr.addColorStop(1,'#d9632a');rr(-.05,-.05,.53,.66,[.12,.28,.22,.1],gr);}
+    g.fillStyle='#1d2742';g.beginPath();g.arc(u(.27),u(.87),u(.12),0,Math.PI*2);g.fill();
+    rr(.63,.05,.42,.44,[.21,.08,.06,.2],'#1c4552');rr(.58,.48,.47,.6,[.22,.06,.06,.18],'#ec7a45');
+    g.globalAlpha=.06;g.fillStyle='#000';for(let i=0;i<S;i+=3){g.fillRect(i,0,1,S);g.fillRect(0,i,S,1);}g.globalAlpha=1;noise(g,S,S,14);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;MAT.artBlobs=std({map:t,roughness:.9});RNG_SEED=seed0;}MAT.artTV=std({map:tvArtTex(),roughness:.3,emissive:0xffffff,emissiveIntensity:.06,emissiveMap:null});
   MAT.ceramicBlack=std({color:0x1c1c1e,roughness:.55});MAT.book1=std({color:0x6f8173,roughness:.8});MAT.book2=std({color:0xd8cbb4,roughness:.8});MAT.pages=std({color:0xf1ece0,roughness:.9});
 }

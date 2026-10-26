@@ -36,12 +36,12 @@ function buildSpec(){
   // (the upper-floor primary bedroom is a nursery: all four walls painted olive, MAT.sage)
   // the wing's back (back photo): white lap siding from the top of the lower level's brick up to the roof, over two storeys, with the
   // family room's 5-pane window and a small 3-pane bedroom window near the top (no mansard or dormer on this side)
-  W({lv:2,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:-5.5,y1:3.5,ops:[win(7.85,8.1,E2,1.2,7.3,5)],ext:{side:-1,mat:'sidingWhite'},bb:[[E2,1]]});
+  W({lv:2,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:-5.5,y1:3.5,ops:[win(7.85,8.1,E2,1.2,7.3,5)],ext:{side:-1,mat:'sidingWhite'},bb:[[E2,1]],paint:[{side:1,a0:0.3,a1:14.2,y0:E2,y1:CEIL[2],mat:'wallCream'}]});
   W({lv:4,x0:0,z0:0,x1:14.2,z1:0,t:TE,y0:3.5,y1:12.65,ops:[win(6.9,5.0,E4,4.0,7.2,3)],ext:{side:-1,mat:'sidingWhite'},bb:[[E4,1]]});
   W({lv:1,x0:0,z0:0,x1:0,z1:31.6,t:TE,y0:-14.5,y1:-5.5,ops:[op('gdoor',4.5,2.7,E1,6.8,{sw:[1,1]}),win(20.95,4.4,E1,3,6.8,2),win(28.25,4.2,E1,3,6.8,2)],ext:{side:-1,mat:'brick'},bb:[[E1,1]]});
   // L2 west wall: now an interior wall shared with the addition. Existing door stays (1); window beside fireplace becomes a door (2); bedroom window covered (3).
   // As it stands (cur): an outside brick wall; the door (1) opens onto the balcony, with the window (2) and the bedroom window (3) in it.
-  W({lv:2,x0:0,z0:0,x1:0,z1:31.6,t:0.6,y0:-5.5,y1:3.5,ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),op('door',15.8,2.9,E2,6.9,{sw:[1,-1],isNew:true})],bb:[[E2,1],[E2,-1]],
+  W({lv:2,x0:0,z0:0,x1:0,z1:31.6,t:0.6,y0:-5.5,y1:3.5,ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),op('door',15.8,2.9,E2,6.9,{sw:[1,-1],isNew:true})],bb:[[E2,1],[E2,-1]],paint:[{side:1,a0:0.3,a1:19.6,y0:E2,y1:CEIL[2],mat:'wallCream'}],
     cur:{ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),win(15.8,2.8,E2,1.2,7.3,2),win(22.4,2.8,E2,2.6,7.0,2)],ext:{side:-1,mat:'brick'},bb:[[E2,1]]}});
   W({lv:4,x0:0,z0:0,x1:0,z1:31.6,t:TE,y0:3.5,y1:12.5,ops:[op('open0',18.75,3.1,E4+2.9,3.85,{noReveal:true})],ext:{side:-1,mat:'brick',y1:8.35},bb:[[E4,1]],paint:[{side:1,a0:16.4,a1:31.3,y0:E4,y1:CEIL[4],mat:'sage'}]});   // brick up to the mansard (as on the front)
   W({lv:1,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:-14.5,y1:-5.5,ext:{side:1,mat:'stone'},bb:[[E1,-1]]});
@@ -49,7 +49,7 @@ function buildSpec(){
   W({lv:2,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:-5.5,y1:3.5,ops:[win(8.0,4.6,E2,2.6,7.2,3)],ext:{side:1,mat:'brick'},bb:[[E2,-1]]});
   W({lv:4,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:3.5,y1:12.5,ops:[op('open0',8.0,5.3,E4+2.9,3.85,{noReveal:true})],ext:{side:1,mat:'brick',y1:8.35},bb:[[E4,-1]],paint:[{side:-1,a0:0.3,a1:12.2,y0:E4,y1:CEIL[4],mat:'sage'}]});
   // wing east wall beside the living room, shared by levels 2/3/4
-  W({lv:'S',x0:14.2,z0:0,x1:14.2,z1:12.2,t:0.5,y0:-5.5,y1:12.5,bb:[[E2,-1],[E3,1],[E4,-1]]});
+  W({lv:'S',x0:14.2,z0:0,x1:14.2,z1:12.2,t:0.5,y0:-5.5,y1:12.5,bb:[[E2,-1],[E3,1],[E4,-1]],paint:[{side:-1,a0:0.3,a1:12.2,y0:E2,y1:CEIL[2],mat:'wallCream'}]});
   W({lv:4,x0:14.2,z0:12.2,x1:14.2,z1:15.7,t:TI,y0:3.5,y1:12.5,bb:[[E4,-1]]});
   // stair core
   W({lv:'S',x0:14.2,z0:12.2,x1:19.2,z1:12.2,t:TI,y0:-5.5,y1:8,bb:[[E3,-1]]});
@@ -67,7 +67,7 @@ function buildSpec(){
   W({lv:1,x0:0.3,z0:14.6,x1:7.5,z1:14.6,y0:-13.5,y1:-5.5,bb:[[E1,-1],[E1,1]]});
   W({lv:1,x0:14.2,z0:15.7,x1:14.2,z1:19.6,y0:-13.5,y1:-5.5,ops:[door(17.65,2.4,E1,[-1,-1])],bb:[[E1,-1]]});
   W({lv:1,x0:18.6,z0:15.7,x1:18.6,z1:19.6,y0:-13.5,y1:-8.7});
-  W({lv:2,x0:0.3,z0:19.6,x1:11.2,z1:19.6,y0:-4.5,y1:3.5,bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:0.3,z0:19.6,x1:11.2,z1:19.6,y0:-4.5,y1:3.5,bb:[[E2,-1],[E2,1]],paint:[{side:-1,a0:0.3,a1:11.2,y0:E2,y1:CEIL[2],mat:'wallCream'}]});
   W({lv:2,x0:11.2,z0:19.6,x1:11.2,z1:31.6,y0:-4.5,y1:3.5,ops:[door(21.3,2.6,E2,[-1,-1]),op('closet',27.4,7.4,E2,6.9)],bb:[[E2,-1],[E2,1]]});
   W({lv:2,x0:13.6,z0:23.1,x1:13.6,z1:31.6,y0:-4.5,y1:3.5,bb:[[E2,1]]});
   W({lv:2,x0:11.2,z0:23.1,x1:18.5,z1:23.1,y0:-4.5,y1:3.5,ops:[door(15.4,2.4,E2,[-1,1])],bb:[[E2,-1],[E2,1]]});

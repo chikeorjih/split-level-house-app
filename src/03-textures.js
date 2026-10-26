@@ -180,6 +180,8 @@ const CLIP_X0=new THREE.Plane(new THREE.Vector3(1,0,0),1e5),CLIP_X1=new THREE.Pl
 // the house's wipe when it switches state (12-app.js): it cuts the house, not the ground (the site's materials leave it out: CLIPS_SITE)
 const CLIP_PH=new THREE.Plane(new THREE.Vector3(0,-1,0),1e5);
 const CLIPS=[CLIP_TOP,CLIP_BOT,CLIP_X0,CLIP_X1,CLIP_Z0,CLIP_Z1,CLIP_PH],CLIPS_SITE=CLIPS.slice(0,6),CLIPS_V=[CLIP_TOP,CLIP_BOT];
+// (light fixtures hung from a ceiling that the cutaway should still show whole: every plane but the cut, CLIP_TOP)
+const CLIPS_NOTOP=CLIPS.slice(1);
 function std(o,clip){const m=new THREE.MeshStandardMaterial(Object.assign({roughness:.8,metalness:0},o));if(clip!==false)m.clippingPlanes=CLIPS;return m;}
 function physify(k,cc,ccr){const m=MAT[k];if(!m||!m.isMeshStandardMaterial||m.isMeshPhysicalMaterial)return;const p=new THREE.MeshPhysicalMaterial();
   THREE.MeshStandardMaterial.prototype.copy.call(p,m);p.clippingPlanes=m.clippingPlanes;   // (copy clones the planes: the copy would clip against frozen ones and never cut away)if(!window.GPU)p.defines={STANDARD:'',PHYSICAL:''};p.onBeforeCompile=m.onBeforeCompile;p.customProgramCacheKey=m.customProgramCacheKey;npClonePatches(m,p);
@@ -188,7 +190,9 @@ function makeMaterials(){
   const T=n=>n;
   MAT.oak=std({map:oakTex(),roughness:.55});MAT.laminate=std({map:oakTex(),color:0xf0f2b4,roughness:.5});   // the lower level's floors (Poly Haven Laminate Floor, tinted yellower by the colour)
   MAT.wall=std({color:0xd9d8d3,roughness:.92});            // light warm grey, as in living/family/kitchen photos
+  MAT.wallCream=std({color:0xf0e7d3,roughness:.92});       // light cream paint: the family room's walls (paint layers in 02-spec.js)
   MAT.charcoal=std({color:0x4a4e53,roughness:.9});          // dining room walls
+  MAT.charcoalTrim=std({color:0x4a4e53,roughness:.5});      // their chair rail, the same paint in satin
   MAT.ceiling=std({color:0xf5f4f0,roughness:.95});
   MAT.trim=std({color:0xf6f6f2,roughness:.5});
   MAT.brick=std({map:brickTex(false),roughness:.9});
@@ -211,6 +215,7 @@ function makeMaterials(){
   MAT.deckNew=std({map:deckTex(30,14,46),roughness:.75});
   MAT.deckRailOld=std({color:0x6e3a28,roughness:.7});
   MAT.pierWood=std({color:0x8a6646,roughness:.75});   // the wood posts under the four-seasons room (photo: assets/textures/manifest.json)
+  MAT.beamWood=std({color:0x8a6646,roughness:.75});   // the family room's ceiling beams: the same photo, indoors (so not in EXT_MATS)
   MAT.grass=std({map:grassTex(),vertexColors:true,roughness:1});
   MAT.soilTop=std({map:soilTex(true),roughness:1});
   // glass: almost clear head-on, turning to a mirror toward grazing angles (Fresnel). The colour it adds is its reflection only (a barely
@@ -234,6 +239,10 @@ function makeMaterials(){
   MAT.black=std({color:0x1e1f21,roughness:.5});
   MAT.blackMetal=std({color:0x222325,metalness:.6,roughness:.4});
   MAT.brass=std({color:0xb48b4c,metalness:.8,roughness:.32});
+  // tableware glass (the dining shelves): clearer than the window glass so tumblers and stemware read; bottle glass in green and amber
+  MAT.glassware=std({color:0xe4ecea,transparent:true,opacity:.24,roughness:.04,metalness:0,depthWrite:false});
+  MAT.bottleGreen=std({color:0x1d4a2c,transparent:true,opacity:.78,roughness:.06,metalness:0,depthWrite:false});
+  MAT.bottleAmber=std({color:0x8a4c12,transparent:true,opacity:.72,roughness:.06,metalness:0,depthWrite:false});
   MAT.beam=std({map:beamTex(),roughness:.8});
   MAT.tread=std({color:0x252526,roughness:.45});
   MAT.doorWhite=std({color:0xf2f2ee,roughness:.45});
@@ -246,18 +255,25 @@ function makeMaterials(){
   MAT.pillowOchre=std({color:0xc79a4c,roughness:.95});
   MAT.leather=std({color:0x8b4a25,roughness:.5});
   MAT.walnutDark=std({color:0x26231f,roughness:.45});
-  // walnut boards for the dining table (UVs in feet): a 4 x 2 ft tile of four 6" boards, each its own tone, with long wavering grain
-  // lines (whole waves across the tile, so it wraps) and dark pores; satin oil finish. walnutGrain runs the grain along u (tops, aprons),
-  // walnutGrainV along v (legs). The seed is put back after, so the textures made later stay as they were.
-  {const seed0=RNG_SEED,W=TX(1024),H=TX(512),[c,g]=cv(W,H),bh=H/4;
-    for(let b=0;b<4;b++){g.fillStyle=hsl(22+rnd()*6,34+rnd()*10,24+rnd()*7);g.fillRect(0,b*bh,W,bh);
-      for(let k=0;k<70;k++){const y0=b*bh+rnd()*bh,a=2+rnd()*6,f=(1+Math.floor(rnd()*3))*2*Math.PI/W,ph=rnd()*7,dk=rnd()<.6;
-        g.strokeStyle=dk?`rgba(25,14,8,${.15+rnd()*.3})`:`rgba(150,105,70,${.08+rnd()*.15})`;g.lineWidth=.6+rnd()*2.2;g.beginPath();
+  // wood boards for furniture with UVs in feet (boxFt): a 4 x 2 ft tile of four 6" boards, each its own tone, with long wavering grain
+  // lines (whole waves across the tile, so it wraps) and pores; satin oil finish. Each pair runs the grain along u (tops, aprons) and along
+  // v (legs, door fronts: the V one). walnutGrain: the dining table; walnutWarm: the lighter, warmer walnut of the dining sideboard;
+  // oakShelf: the white oak of the hanging shelves. The seed is put back after, so the textures made later stay as they were.
+  {const seed0=RNG_SEED,boards=(h,s,l,lite,dk,pore)=>{const W=TX(1024),H=TX(512),[c,g]=cv(W,H),bh=H/4;
+    for(let b=0;b<4;b++){g.fillStyle=hsl(h+rnd()*6,s+rnd()*10,l+rnd()*7);g.fillRect(0,b*bh,W,bh);
+      for(let k=0;k<70;k++){const y0=b*bh+rnd()*bh,a=2+rnd()*6,f=(1+Math.floor(rnd()*3))*2*Math.PI/W,ph=rnd()*7,isDk=rnd()<.6;
+        g.strokeStyle=isDk?`rgba(25,14,8,${(.15+rnd()*.3)*dk})`:`rgba(${lite},${.08+rnd()*.15})`;g.lineWidth=.6+rnd()*2.2;g.beginPath();
         for(let x=0;x<=W;x+=8){const y=y0+a*Math.sin(x*f+ph)+a*.4*Math.sin(x*f*3+ph*2);if(x)g.lineTo(x,y);else g.moveTo(x,y);}g.stroke();}
-      for(let k=0;k<500;k++){g.fillStyle='rgba(20,10,5,.45)';g.fillRect(rnd()*W,b*bh+rnd()*bh,3+rnd()*6,1);}
-      g.fillStyle='rgba(20,12,6,.35)';g.fillRect(0,b*bh,W,1);}
-    noise(g,W,H,10);const mk=rot=>{const t=rot?tex(c,2,4,{rot:Math.PI/2}):tex(c,4,2);return std({map:t,normalMap:normalFrom(t,.8),roughness:.48});};
-    MAT.walnutGrain=mk(false);MAT.walnutGrainV=mk(true);RNG_SEED=seed0;}
+      for(let k=0;k<500;k++){g.fillStyle=`rgba(20,10,5,${pore})`;g.fillRect(rnd()*W,b*bh+rnd()*bh,3+rnd()*6,1);}
+      g.fillStyle=`rgba(20,12,6,${.35*dk})`;g.fillRect(0,b*bh,W,1);}
+    noise(g,W,H,10);const mk=rot=>{const t=rot?tex(c,2,4,{rot:Math.PI/2}):tex(c,4,2);return std({map:t,normalMap:normalFrom(t,.8),roughness:.48});};return [mk(false),mk(true)];};
+    [MAT.walnutGrain,MAT.walnutGrainV]=boards(22,34,24,'150,105,70',1,.45);[MAT.walnutWarm,MAT.walnutWarmV]=boards(22,44,34,'190,130,85',.85,.4);
+    [MAT.oakShelf,MAT.oakShelfV]=boards(32,36,60,'240,215,175',.45,.2);
+    // hammered black steel (the shelves' straps): overlapping soft dents as the height for a normal map; a 6" tile in feet
+    const S=TX(256),[c,g]=cv(S,S);g.fillStyle='#808080';g.fillRect(0,0,S,S);
+    for(let k=0;k<420;k++){const x=rnd()*S,y=rnd()*S,r=4+rnd()*9;for(const [ox,oy] of [[0,0],[-S,0],[0,-S],[-S,-S],[S,0],[0,S]]){const gr=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);
+      gr.addColorStop(0,'rgba(40,40,40,.5)');gr.addColorStop(.7,'rgba(128,128,128,.15)');gr.addColorStop(1,'rgba(190,190,190,0)');g.fillStyle=gr;g.fillRect(x+ox-r,y+oy-r,2*r,2*r);}}
+    const t=tex(c,.5,.5);t.colorSpace=THREE.NoColorSpace;MAT.ironHammered=std({color:0x222326,metalness:.6,roughness:.45,normalMap:normalFrom(t,1.6)});RNG_SEED=seed0;}
   MAT.oakFurn=std({color:0xb8874f,roughness:.55});
   MAT.oakLight=std({color:0xc9a06d,roughness:.6});
   MAT.porcelain=std({color:0xf8f8f6,roughness:.15});

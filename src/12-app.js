@@ -96,7 +96,7 @@ function fadeTarget(tag){const p=tagPh(tag);if(p){if(!phShown(p))return 0;tag=ta
   if(L){if(tag==='roof'||tag[0]==='C')return 0;const lv=TAG_LV[tag];if(lv>L)return 0;if(lv!==undefined&&!shownLv().includes(lv))return FADE_OPACITY;}
   return 1;}
 function fadeMat(tag,b){const k=tag+'|'+b.uuid;let c=FADE.get(k);
-  if(!c){c=b.clone();c.userData.base=b;c.transparent=true;c.depthWrite=false;c.clippingPlanes=b.clippingPlanes===CLIPS_SITE?CLIPS_SITE:CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;npClonePatches(b,c);if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
+  if(!c){c=b.clone();c.userData.base=b;c.transparent=true;c.depthWrite=false;c.clippingPlanes=b.clippingPlanes===CLIPS_SITE?CLIPS_SITE:b.clippingPlanes===CLIPS_NOTOP?CLIPS_NOTOP:CLIPS;c.clipShadows=true;c.onBeforeCompile=b.onBeforeCompile;npClonePatches(b,c);if(b.alphaTest)c.alphaTest=b.alphaTest*.25;
     if(b.customProgramCacheKey!==THREE.Material.prototype.customProgramCacheKey)c.customProgramCacheKey=b.customProgramCacheKey;FADE.set(k,c);}
   return c;}
 // ---------- prewarm: compile, ahead of time, every shader a transition can switch to (faded copies, pale massing, cut caps, section

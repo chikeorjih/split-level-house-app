@@ -90,10 +90,10 @@
       "name": "Swivel chair 1",
       "file": "swivel.min.glb",
       "place": {
-        "x": 21.43,
+        "x": 20.51,
         "z": 2.35,
         "lv": 3,
-        "ry": 10
+        "ry": 28
       },
       "note": "Fitted to the product size given by the owner (38.6\" W x 35.4\" D x 28.7\" H); along wall W46.",
       "spec": {
@@ -108,8 +108,8 @@
       "name": "Swivel chair 2",
       "file": "swivel.min.glb",
       "place": {
-        "x": 27.43,
-        "z": 2.85,
+        "x": 28.01,
+        "z": 2.27,
         "lv": 3,
         "ry": 330
       },
@@ -200,7 +200,10 @@
         "lv": 1,
         "ry": 270
       },
-      "note": "Owner-supplied model. No product size was given: scaled to a typical low, deep sofa, 96\" wide (about 64\" deep, 27\" tall). In the lower-level sitting room, centred on the 100\" projector screen on the west wall and facing it, about 11 ft back."
+      "note": "Owner-supplied model. No product size was given: scaled to a typical low, deep sofa, 96\" wide (about 64\" deep, 27\" tall). In the lower-level sitting room, centred on the 100\" projector screen on the west wall and facing it, about 11 ft back. Stretched 20% taller (\"stretch\": y 1.2) at the owner's request.",
+      "stretch": {
+        "y": 1.2
+      }
     },
     {
       "id": "family-sectional",
@@ -212,8 +215,8 @@
       ],
       "scale": 5.505,
       "place": {
-        "x": 9.8,
-        "z": 5.49,
+        "x": 9.97,
+        "z": 5.99,
         "lv": 2,
         "ry": 270
       },
@@ -279,8 +282,8 @@
       "file": "plant2.min.glb",
       "scale": 3.148,
       "place": {
-        "x": 15.7,
-        "z": 10.85,
+        "x": 16.03,
+        "z": 1.6,
         "lv": 3,
         "ry": 52
       },
@@ -305,8 +308,8 @@
       "file": "plant3.min.glb",
       "scale": 3.323,
       "place": {
-        "x": 13.33,
-        "z": 11.25,
+        "x": 13.41,
+        "z": 11.67,
         "lv": 2,
         "ry": 198
       },
@@ -318,10 +321,10 @@
       "file": "plant1.min.glb",
       "scale": 4.197,
       "place": {
-        "x": 42.38,
-        "z": 9.18,
+        "x": 30.46,
+        "z": 1.35,
         "lv": 3,
-        "ry": 0
+        "ry": 316
       },
       "note": "Dining area, north-east corner, clear of the new sliding door (z 2.3-8.3). Owner-supplied model (plant1.glb), not to scale: the size is an estimate (48\" tall)."
     },
@@ -414,8 +417,8 @@
       "file": "dining-chair.min.glb",
       "scale": 2.711,
       "place": {
-        "x": 36.57,
-        "z": 3.12,
+        "x": 37.07,
+        "z": 3.29,
         "lv": 3,
         "ry": 0
       },
@@ -427,7 +430,7 @@
       "file": "dining-chair.min.glb",
       "scale": 2.711,
       "place": {
-        "x": 38.88,
+        "x": 39.46,
         "z": 3.12,
         "lv": 3,
         "ry": 0
@@ -440,8 +443,8 @@
       "file": "dining-chair.min.glb",
       "scale": 2.711,
       "place": {
-        "x": 36.57,
-        "z": 6.77,
+        "x": 36.98,
+        "z": 6.6,
         "lv": 3,
         "ry": 180
       },
@@ -453,8 +456,8 @@
       "file": "dining-chair.min.glb",
       "scale": 2.711,
       "place": {
-        "x": 38.8,
-        "z": 6.68,
+        "x": 39.13,
+        "z": 6.43,
         "lv": 3,
         "ry": 180
       },
@@ -466,7 +469,7 @@
       "file": "dining-chair.min.glb",
       "scale": 2.711,
       "place": {
-        "x": 34.48,
+        "x": 34.9,
         "z": 4.73,
         "lv": 3,
         "ry": 67
@@ -479,12 +482,27 @@
       "file": "dining-chair.min.glb",
       "scale": 2.711,
       "place": {
-        "x": 40.8,
-        "z": 5.07,
+        "x": 41.38,
+        "z": 4.82,
         "lv": 3,
         "ry": 268
       },
       "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
+    },
+    {
+      "id": "plant-dining-shelf",
+      "name": "Plant: dracaena in a black pot on a wood stand",
+      "file": "plant2.min.glb",
+      "scale": 0.962,
+      "place": {
+        "x": 37.3,
+        "z": 9.86,
+        "lv": 3,
+        "y": 6.873,
+        "ry": 180
+      },
+      "collide": false,
+      "note": "On the top hanging shelf over the dining sideboard, right of centre (the shelves face south: local x +1.14). Owner-supplied model (plant2.glb), not to scale: the size is an estimate (11\" tall, so it clears the ceiling)."
     }
   ]
 }

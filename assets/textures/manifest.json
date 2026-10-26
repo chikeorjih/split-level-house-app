@@ -95,6 +95,18 @@
       "note": "the wood posts under the four-seasons room; box sides map v to height, so the grain runs up each post"
     },
     {
+      "material": "beamWood",
+      "map": "fine_grained_wood_col_2k.jpg",
+      "normal": "fine_grained_wood_nor_gl_2k.jpg",
+      "roughness": "fine_grained_wood_rough_2k.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1.97,
+      "color": "#ffffff",
+      "brightness": 1.6,
+      "note": "the family room ceiling beams: the same photo and brightness as the patio posts, turned 90 degrees so the grain runs along the beams (UVs in feet)",
+      "rotateDeg": 90
+    },
+    {
       "material": "driveway",
       "map": "gravel_concrete_diff_2k.jpg",
       "normal": "gravel_concrete_nor_gl_2k.jpg",
@@ -160,13 +172,31 @@
       "note": "the family room rug, long side along z; the rug's faces have 0-1 UVs, so the photo covers its top once (the shag's pile normal map stays on)"
     },
     {
+      "material": "rugAbstract",
+      "map": "rug_abstract_9x13.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1,
+      "color": "#ffffff",
+      "source": "Owner-supplied product photo of a 9'6\" x 13'6\" abstract rug (blue, terracotta, olive, blush), trimmed 3% top and bottom to its size ratio and turned so its long side runs along x",
+      "note": "the living room rug; the rug top has 0-1 UVs, so the photo covers it once"
+    },
+    {
       "material": "artJungle",
-      "map": "art_jungle_waterfalls_48x24.jpg",
+      "map": "art_jungle_waterfalls_84x40.jpg",
       "roughnessValue": 0.85,
       "repeatFt": 1,
       "color": "#ffffff",
-      "source": "Owner-supplied image of an Art Deco jungle print with two waterfalls and a sun (signed Mike Willcox), cropped to the artwork",
-      "note": "the 48\" x 24\" print over the family-room sectional; the box face has 0-1 UVs, so the image covers it once"
+      "source": "Owner-supplied image of an Art Deco jungle print with two waterfalls and a sun (signed Mike Willcox), cropped to the artwork and trimmed 2% top and bottom to 84:40",
+      "note": "the 84\" x 40\" print over the family-room sectional; the box face has 0-1 UVs, so the image covers it once"
+    },
+    {
+      "material": "artIbex",
+      "map": "art_ibex_grassland.jpg",
+      "roughnessValue": 0.85,
+      "repeatFt": 1,
+      "color": "#ffffff",
+      "source": "Owner-supplied image of an ibex herd in pink grass under clouds (signed Mike Willcox), cropped to the artwork (951 x 686, 1.386:1)",
+      "note": "the 66.5\" x 48\" print over the living-room sofa; the box face has 0-1 UVs, so the image covers it once"
     },
     {
       "material": "laminate",
