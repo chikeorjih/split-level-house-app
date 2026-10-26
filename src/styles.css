@@ -92,6 +92,7 @@ body.nodims .rl small{display:none}
 #arr{right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100vw - 24px));padding:10px 12px;z-index:9}
 #arr .arr-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}#arrName{font-size:14px;font-weight:650}#arrCount{font-size:12px;color:var(--ink-2)}
 #arrInfo{margin:3px 0 8px;font-size:12px;color:var(--ink-2)}#arr .row{gap:6px}#arr .arr-all{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+#arr .arr-var{margin-top:8px;align-items:center}#arr .arr-var[hidden]{display:none}.arr-var-lab{font-size:12px;color:var(--ink-2);margin-right:2px}
 @media (max-width:640px){#arr{left:12px;right:12px;width:auto;transform:none}}
 #joy{position:fixed;left:24px;bottom:calc(96px + env(safe-area-inset-bottom,0px));width:116px;height:116px;border-radius:50%;
   border:1.5px solid rgba(255,255,255,.7);background:rgba(20,26,32,.25);z-index:6;display:none;touch-action:none}

@@ -1,7 +1,7 @@
 // 07-furniture.js: furniture, fixtures, appliances and decor (each T() call is a movable piece)
 "use strict";
 // ================= FURNITURE, FIXTURES, APPLIANCES =================
-const KITCHEN_LIGHTS={cans:[[25,20],[25,25],[32,25],[25,30],[28.5,30],[32,30]],drum:null};const DOORS=phStamp([]);const CAPS=phStamp([]);const cap=(tag,x0,x1,z0,z1,y0,y1)=>CAPS.push({tag,x0,x1,z0,z1,y0,y1});
+const KITCHEN_LIGHTS={cans:[[25,20],[25,25],[32,25],[25,30],[28.5,30],[32,30]],drum:null},SPOT_LAMPS=[];const DOORS=phStamp([]);const CAPS=phStamp([]);const cap=(tag,x0,x1,z0,z1,y0,y1)=>CAPS.push({tag,x0,x1,z0,z1,y0,y1});
 function roundedGeo(w,h,d,r){r=Math.max(.01,Math.min(r,w/2-.02,h/2-.02,d/2-.02));
   const iw=w-2*r,ih=h-2*r,cr=Math.min(r*.6,iw/2-.001,ih/2-.001),s=new THREE.Shape();
   const x=-iw/2,y=-ih/2;s.moveTo(x+cr,y);s.lineTo(x+iw-cr,y);s.quadraticCurveTo(x+iw,y,x+iw,y+cr);s.lineTo(x+iw,y+ih-cr);
@@ -58,6 +58,29 @@ function barStool(p){const k='black';p.r('linen',0,2.42,0,1.25,.22,1.25,.08);
 function coffeeTable(p,w,d){p.r('oakFurn',0,1.25,0,w,.18,d,.08);p.b('oakLight',0,1.05,0,w-.3,.2,d-.3);
   for(const [x,z] of [[-w/2+.2,-d/2+.2],[w/2-.2,-d/2+.2],[-w/2+.2,d/2-.2],[w/2-.2,d/2-.2]])p.b('oakFurn',x,0,z,.16,1.25,.16);
   p.b('oakLight',0,.3,0,w-.4,.06,d-.4);p.col(0,0,w,d,0,1.45);}
+// a box with UVs in feet (u along x on the top and long faces, along z on the ends, v up the sides), for wood whose grain keeps its real
+// scale on every part; o shifts the UVs so neighbouring parts don't show the same boards
+function boxFt(w,h,d,o){const g=new THREE.BoxGeometry(w,h,d),P=g.attributes.position,N=g.attributes.normal,U=g.attributes.uv;o=o||0;
+  for(let i=0;i<P.count;i++){const x=P.getX(i),y=P.getY(i),z=P.getZ(i),ax=Math.abs(N.getX(i))>.5,ay=Math.abs(N.getY(i))>.5;U.setXY(i,(ax?z:x)+o,(ay?z:y)+o*.37);}return g;}
+// the curved cove where a leg sweeps into an apron's underside: radius r, depth along z, running from the leg toward +x (s 1) or -x (s -1)
+function coveGeo(r,dep,s){const pts=[[0,0],[s*r,0]];for(let i=1;i<=10;i++){const a=Math.PI/2+i/10*Math.PI/2;pts.push([s*(r+r*Math.cos(a)),-r+r*Math.sin(a)]);}
+  return new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(q=>new THREE.Vector2(q[0],q[1]))),{depth:dep,bevelEnabled:false}).translate(0,0,-dep/2);}
+// extendable walnut dining table, after the owner's photo: a top in two halves (the leaf seam across the middle) over a dark backer, with
+// an eased underside edge; aprons flush with the legs' outer faces, the long ones split at the seam; legs 2.5" square with rounded edges
+// that sweep into the aprons through curved coves; black levelling glides. w along x, d along z (feet); 30" high.
+function walnutTable(p,w,d){const G='walnutGrain',H=2.5,tt=1/12,lg=2.5/12,ins=1/12,ah=3.5/12,at=.9/12,cr=2.5/12,gl=.02,yA=H-tt,
+    lx=w/2-ins-lg/2,lz=d/2-ins-lg/2,ox=w/2-ins,oz=d/2-ins;
+  // the top: two halves with a hairline seam over a dark backer, on a slightly smaller board that eases its underside edge
+  for(const s of [-1,1])p.g(G,boxFt(w/2-.004,tt*.75,d),s*(w/4+.002),H-tt*.375,0);   // (no UV offset: the boards run on across the seam)
+  p.b('cabGap',0,H-tt*.75-.002,0,.03,tt*.75,d-.02);p.g(G,boxFt(w-.04,tt*.25,d-.04,.6),0,yA+tt*.125,0);
+  // aprons: the long ones in two halves at the seam (a dark reveal between), the short ones whole
+  for(const s of [-1,1]){for(const h of [-1,1])p.g(G,boxFt(lx-.003,ah,at,h*.9+s),h*(lx/2+.0015),yA-ah/2,s*(oz-at/2));p.b('cabGap',0,yA-ah+.005,s*(oz-at/2),.02,ah-.01,at*.6);
+    p.g(G,boxFt(at,ah,2*lz,s*.7),s*(ox-at/2),yA-ah/2,0);}
+  // legs (rounded edges, grain running up them) on glides, and the coves into both aprons at each
+  for(const sx of [-1,1])for(const sz of [-1,1]){const x=sx*lx,z=sz*lz;
+    p.g('walnutGrainV',roundedGeo(lg,lg,yA-gl,.025).rotateX(-Math.PI/2),x,gl+(yA-gl)/2,z);p.c('black',x,0,z,.035,.035,gl+.005,12);
+    p.g(G,coveGeo(cr,at,-sx),sx*(lx-lg/2),yA-ah,sz*(oz-at/2));p.g(G,coveGeo(cr,at,-sz),sx*(ox-at/2),yA-ah,sz*(lz-lg/2),0,-Math.PI/2,0);}
+  p.col(0,0,w,d,0,H);}
 function diningTable(p,w,d){p.r('oakFurn',0,2.35,0,w,.15,d,.06);p.b('oakFurn',0,2.05,0,w-.6,.3,d-.5);
   for(let x=-w/2+.6;x<=w/2-.55;x+=.12)for(const s of [-1,1])p.b('oakLight',x,2.08,s*(d/2-.24),.05,.22,.04);
   for(const [x,z] of [[-w/2+.35,-d/2+.35],[w/2-.35,-d/2+.35],[-w/2+.35,d/2-.35],[w/2-.35,d/2-.35]]){p.g('oakFurn',lathe([[0,0],[.1,0],[.13,.3],[.09,.6],[.11,1.6],[.13,1.9],[.15,2.05],[0,2.05]],12),x,0,z);}
@@ -84,6 +107,52 @@ function tableLamp(p,x,y,z,kind){if(p.wp)LAMPS.push({v:p.wp(x,y+(kind==='black'?
   else if(kind==='stacked'){for(const [yy,r] of [[.2,.35],[.6,.28],[.95,.3],[1.3,.2]])p.s('ceramicWhite',x,y+yy,z,r,1,.7,1);
     p.c('gold',x,y+1.4,z,.02,.02,.5,6);p.g('shade',new THREE.CylinderGeometry(.45,.75,.85,24,1,true),x,y+2.15,z);}
   else{p.c('blackMetal',x,y,z,.35,.4,.1,16);p.c('blackMetal',x,y,z,.04,.04,1.2,6);p.g('shade',new THREE.CylinderGeometry(.5,.7,.8,24,1,true),x,y+1.55,z);}}
+// a straight tube between two local points (arrays or vectors): tripod legs, braces, studs, wires
+function rodGeo(a,b,r,seg){const v=q=>q.isVector3?q.clone():new THREE.Vector3(...q),A=v(a),d=v(b).sub(A),g=new THREE.CylinderGeometry(r,r,d.length(),seg||12);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize()));return g.translate(A.x+d.x/2,A.y+d.y/2,A.z+d.z/2);}
+const rodTo=(p,mat,a,b,r,seg)=>p.g(mat,rodGeo(a,b,r,seg),0,0,0);
+// a knurled knob (axis y): a cylinder whose radius ripples twelve times round
+function knurlGeo(r,h){const g=new THREE.CylinderGeometry(r,r,h,48,1),P=g.attributes.position;for(let i=0;i<P.count;i++){const x=P.getX(i),z=P.getZ(i);if(Math.hypot(x,z)<1e-4)continue;
+  const k=1+.07*Math.cos(12*Math.atan2(z,x));P.setX(i,x*k);P.setZ(i,z*k);}g.computeVertexNormals();return g;}
+// tripod "satellite" studio floor lamp, after the owner's photo (63" tall, an 18.5" dish): a black tubular tripod (two legs in front, one
+// behind) with a hub collar, telescoping sleeves, a centre column and three spreader braces; a flat strap yoke on the hub holding the dish
+// on tilt studs with knurled knobs; the dish black outside and silver leaf inside, with a rolled rim, a rear housing, and a black dome cap on
+// three wires in front of the bulb; the cord drops behind. The dish faces local +z, tilted up by `tilt`.
+function satelliteLamp(p,tilt){const B='lampBlack',hubY=3.3,R=1.15,sy=1.12,yo=.935,cy=hubY+.24+yo,legTop=hubY-.06,V=(x,y,z)=>new THREE.Vector3(x,y,z);
+  // hub collar (the legs hinge on it) with its lock knob at the back; the centre column down to the spreader hub
+  p.g(B,lathe([[0,-.14],[.085,-.14],[.095,-.12],[.095,.1],[.085,.12],[.05,.13],[0,.13]],24),0,hubY,0);
+  rodTo(p,B,[0,hubY-.02,-.09],[0,hubY-.02,-.2],.014,8);p.g('black',knurlGeo(.04,.05),0,hubY-.02,-.22,Math.PI/2,0,0);
+  rodTo(p,B,[0,sy,0],[0,hubY-.14,0],.045,16);p.c(B,0,sy-.06,0,.06,.06,.12,20);p.c(B,0,sy-.13,0,.03,.045,.07,12);
+  for(const az of [Math.PI/3,-Math.PI/3,Math.PI]){const sx=Math.sin(az),sz=Math.cos(az),top=V(sx*.1,legTop,sz*.1),ft=V(sx*R,.07,sz*R),at=t=>top.clone().lerp(ft,t);
+    // the leg, its hinge lug, the telescoping sleeve with a lock knob, the rubber foot
+    rodTo(p,B,top,ft,.042,14);p.b(B,sx*.11,legTop-.07,sz*.11,.05,.14,.08,az);rodTo(p,'black',at(.975),at(1.02),.05,14);
+    rodTo(p,B,at(.36),at(.42),.05,14);{const m=at(.39);rodTo(p,B,m,[m.x+sx*.08,m.y,m.z+sz*.08],.01,6);p.g('black',knurlGeo(.026,.03),m.x+sx*.095,m.y,m.z+sz*.095,0,az+Math.PI/2,Math.PI/2);}
+    // the spreader brace from the centre hub to a clamp on the leg
+    const t=(legTop-sy)/(legTop-.07),L=at(t);rodTo(p,B,[sx*.06,sy,sz*.06],[L.x-sx*.04,sy,L.z-sz*.04],.022,10);rodTo(p,B,at(t-.017),at(t+.017),.056,14);}
+  // the yoke: a flat strap bent into a half circle, on a stem and mount block over the hub; pivot bosses, studs, washers and knobs at its ends
+  const ys=hubY+.13,yb=cy-yo;p.c(B,0,ys,0,.04,.05,yb-ys-.03,16);p.r(B,0,yb-.06,0,.18,.09,.12,.02);
+  {const s=new THREE.Shape();s.absarc(0,0,yo,Math.PI,2*Math.PI,false);s.absarc(0,0,yo-.035,2*Math.PI,Math.PI,true);
+    const g=new THREE.ExtrudeGeometry(s,{depth:.07,bevelEnabled:true,bevelThickness:.008,bevelSize:.008,bevelSegments:2,curveSegments:40});g.translate(0,0,-.035);p.g(B,g,0,cy,0);}
+  for(const s of [-1,1]){p.g(B,new THREE.CylinderGeometry(.055,.055,.045,20),s*(yo-.0175),cy,0,0,0,Math.PI/2);rodTo(p,B,[s*.65,cy,0],[s*(yo+.05),cy,0],.018,10);
+    p.g(B,new THREE.CylinderGeometry(.045,.045,.012,20),s*(yo-.05),cy,0,0,0,Math.PI/2);p.r(B,s*.675,cy-.07,0,.03,.14,.16,.012);
+    p.g(B,new THREE.CylinderGeometry(.03,.03,.03,16),s*(yo+.015),cy,0,0,0,Math.PI/2);p.g('black',knurlGeo(.06,.07),s*(yo+.065),cy,0,0,0,Math.PI/2);p.s('black',s*(yo+.1),cy,0,.05,.35,1,1);}
+  // the dish, built along +y from its back pole, then turned to face +z tilted up and hung on the studs (.3 ft in from the pole)
+  const M=new THREE.Matrix4().makeTranslation(0,cy,0).multiply(new THREE.Matrix4().makeRotationX(Math.PI/2-tilt)).multiply(new THREE.Matrix4().makeTranslation(0,-.3,0)),S=(mat,g)=>p.g(mat,g.applyMatrix4(M),0,0,0);
+  const D=[[0,0],[.12,.008],[.24,.03],[.36,.07],[.47,.125],[.56,.19],[.64,.27],[.7,.35],[.74,.43],[.765,.5],[.775,.55]],ring=(r,tb,y,mat)=>S(mat||B,new THREE.TorusGeometry(r,tb,8,64).rotateX(Math.PI/2).translate(0,y,0));
+  S(B,lathe(D,64));S('silverLeaf',lathe(D.map(([r,y])=>[r*.985,y+.012]).reverse(),64));ring(.775,.016,.55);
+  // rear housing with a vent ring and cord gland; socket, bulb, and the dome cap on three wires
+  S(B,lathe([[0,-.3],[.08,-.3],[.11,-.28],[.12,-.24],[.13,-.02],[.15,.01],[0,.01]],32));ring(.128,.01,-.12);S('black',new THREE.CylinderGeometry(.022,.03,.08,12).translate(0,-.34,0));
+  S('brass',new THREE.CylinderGeometry(.05,.055,.13,20).translate(0,.075,0));ring(.056,.008,.13);S('light',new THREE.SphereGeometry(.1,20,14).translate(0,.24,0));
+  S(B,new THREE.SphereGeometry(.3,40,10,0,Math.PI*2,0,1).translate(0,.36-.3*Math.cos(1),0));S(B,new THREE.CircleGeometry(.252,40).rotateX(Math.PI/2).translate(0,.36,0));ring(.252,.008,.36);
+  for(let k=0;k<3;k++){const a=k*2*Math.PI/3;S(B,rodGeo([.05*Math.cos(a),.13,.05*Math.sin(a)],[.2*Math.cos(a),.36,.2*Math.sin(a)],.006,5));}
+  // the light: always on, a warm spot from the bulb out along the dish's axis (the silver throwing it forward; SPOT_LAMPS, made in
+  // buildKitchenLights), and in the evening the lamp pool's point light too
+  const bulb=V(0,.24,0).applyMatrix4(M),aim=V(0,6,0).applyMatrix4(M);
+  if(p.wp){LAMPS.push({v:p.wp(bulb.x,bulb.y,bulb.z),k:'lamp',inst:p._inst});SPOT_LAMPS.push({v:p.wp(bulb.x,bulb.y,bulb.z),t:p.wp(aim.x,aim.y,aim.z),inst:p._inst});}
+  // the cord: out of the gland, down behind the back leg to the floor, with an inline switch
+  {const g0=V(0,-.38,0).applyMatrix4(M),c=new THREE.CatmullRomCurve3([g0,V(.04,g0.y-.35,g0.z-.12),V(.12,hubY-.2,-.4),V(.14,1.6,-.85),V(.14,.4,-1.2),V(.15,.02,-1.45),V(.3,.02,-2.1)]);
+    p.g('black',new THREE.TubeGeometry(c,90,.012,6),0,0,0);const q=c.getPoint(.93);p.r('black',q.x,.02,q.z,.07,.04,.13,.015);}
+  p.col(0,-.29,2.0,1.75,0,5.3);}
 function pendantCone(tag,x,z,yc,ylow){LAMPS.push({v:new THREE.Vector3(x,ylow+.3,z),k:'pendant'});const p=P(tag,x,0,z,0);p.c('blackMetal',0,yc-.08,0,.2,.2,.08,12);p.c('blackMetal',0,ylow+.95,0,.015,.015,yc-ylow-1,6);
   p.c('blackMetal',0,ylow+.85,0,.1,.12,.12,12);p.g('glass',new THREE.CylinderGeometry(.12,.55,.85,20,1,true),0,ylow+.42,0);p.s('light',0,ylow+.2,0,.1);}
 function chandelier(tag,x,z,yc){LAMPS.push({v:new THREE.Vector3(x,yc-2.3,z),k:'chandelier'});const p=P(tag,x,0,z,0),yb=yc-2.6;p.c('brass',0,yc-.06,0,.25,.25,.06,16);p.c('brass',0,yb,0,.035,.035,yc-yb,8);
@@ -190,7 +259,7 @@ function buildFurniture(){
   const SB=(p,mat,x,y,z,w,h,d,e,ez,o)=>{o=o||{};const [rx,ry,rz]=o.rot||[o.rx||0,0,0];p.g(mat,superBox(w,h,d,e,ez,o.pinch||0,o.seg||26,o.unit?false:true),x,y,z,rx,ry,rz);};
   const pillowAt=(p,mat,x,y,z,ry,s,lean,roll)=>SB(p,mat,x,y,z,s,s,.5,.38,.85,{pinch:.6,seg:30,unit:/Stripe|Chevron/.test(mat),rot:rotE(ry,lean,roll)});
   // rug: ivory shag with broken black stripes and fringed ends
-  {const p=T('2',8.0,e2,8.5,0,'shag rug');p.b('rugShag',0,0,0,8.8,.06,11.8);for(const s of [-1,1])p.g('rugFringe',new THREE.PlaneGeometry(8.6,.42),0,.04,s*6.1,-Math.PI/2,0,0);}
+  {const p=T('2',8.0,e2,8.5,0,'geometric shag rug');p.b('rugGeo',0,0,0,79/12,.06,9);}   // 6'7" x 9', the owner's photo (rugGeo)
   // sage sectional, return section along the windows (with the corner seat)
   {const p=T('2',0,e2,0,0,'sectional, window side');
     for(const [x,z] of [[4.8,1.2],[4.8,3.9],[9.2,1.2],[9.2,3.9],[13.75,1.2],[13.75,3.9]])p.c('walnutDark',x,0,z,.075,.05,.3,12);
@@ -231,7 +300,8 @@ function buildFurniture(){
   // frame TV in art mode
   {const p=P('2',1.735,e2+6.425,9.8,Math.PI/2);p.b('artTV',0,-.9,0,3.35,1.8,.015);}
   // large concentric-arc print above the sofa
-  {const p=P('2',13.93,e2+5.75,7.6,-Math.PI/2);p.b('oakLight',0,-1.85,.04,3.0,3.7,.12);p.b('mat',0,-1.75,.1,2.82,3.52,.02);p.b('artArcs',0,-1.6,.115,2.55,3.2,.01);}
+  // over the sectional: the owner's jungle-and-waterfalls print, 48" x 24", in a thin oak frame
+  {const p=P('2',13.93,e2+5.3,7.6,-Math.PI/2);p.b('oakLight',0,-1.06,.04,4.12,2.12,.12);p.b('artJungle',0,-1,.105,4,2,.01);}
   // cream linen curtains hung just under the perimeter beam
   {const p=P('2',0,e2,0,0),ht=CEIL[2]-.72-e2;for(const cx of [3.45,12.15])p.g('linen2',curtainGeo(1.7,ht),cx,.04,.6);}
   box('2','blackMetal',2.4,13.4,CEIL[2]-.74,CEIL[2]-.68,.56,.64);for(const x of [2.4,13.4])addGeo('2','blackMetal',new THREE.SphereGeometry(.07,10,8),M(x,CEIL[2]-.71,.6));
@@ -252,11 +322,12 @@ function buildFurniture(){
   showerHead('2',16,e2+6.6,31.05,0,-1);
   // ================= MAIN LEVEL: living room =================
   rug('3','rugLiving',22.4,e3,6.4,11.8,8.6);
-  {const p=T('3',15.9,e3,11.4,0);p.c('walnutDark',0,1.95,0,.75,.75,.08,24);p.c('walnutDark',0,0,0,.08,.08,1.95,10);p.c('walnutDark',0,0,0,.45,.5,.08,18);tableLamp(p,0,2.03,0,'black');}
+  {const p=T('3',15.9,e3,11.4,2.23,'satellite floor lamp');satelliteLamp(p,20*Math.PI/180);}
   art('3',29.6,e3+5.6,0.32,0,1.3,1.6,'artLandscape','gold');
   rod('3',16.3,27.8,'x',0.62,7.65);drape('3',16.4,17.9,'x',0.62,0.05,7.6);drape('3',26.2,27.7,'x',0.62,0.05,7.6);
   // ================= dining =================
   rug('3','rugDining',37.6,e3,5.4,10.2,7.6);
+  {const p=T('3',37.6,e3,5.4,0,'walnut dining table');walnutTable(p,5,3);}   // 60" x 36", the owner's photo
   chandelier('C3',37.6,5.4,CEIL[3]);
   rod('3',33.4,40.7,'x',0.62,7.65);drape('3',33.5,35.0,'x',0.62,0.05,7.6);drape('3',39.1,40.6,'x',0.62,0.05,7.6);
   // ================= kitchen =================
@@ -362,7 +433,7 @@ function buildFurniture(){
   box('3','wall',23.97,24.0,e3+.3,e3+3.36,12.45,12.75);box('3','trim',23.95,24.0,e3,e3+.3,12.42,12.75);box('3','quartz',23.85,31.6,e3+3.36,e3+3.48,11.75,12.95);addCol(23.85,31.6,11.75,14.65,e3,e3+3.6);
   for(const x of [25.2,27.6,30.0])pendantCone('C3',x,13.3,CEIL[3],e3+5.15);
   flushDrum('C3',29.7,22.5,CEIL[3],.9);KITCHEN_LIGHTS.drum=new THREE.Vector3(29.7,CEIL[3]-.55,22.5);
-  {const p=T('3',26.9,ct,30.85,0);plant(p,0,0,0,'small');}
+  // (the house's plants are imported models now: assets/models/manifest.json, plant-*)
   {const p=T('3',27.7,ct,30.95,0);p.c('ceramicWhite',0,0,0,.22,.18,.35,12);for(let i=0;i<7;i++)p.s('pillowOchre',.12*Math.cos(i),.45+.06*(i%3),.12*Math.sin(i),.08);}
   // ================= foyer & hall =================
   {const p=T('3',22.65,e3,27.6,-Math.PI/2);dresser(p,2.9,1.45,2.8,'doorGrey',{rows:3,cols:1,pull:'brass'});tableLamp(p,.6,2.8,0,'stacked');}
@@ -375,10 +446,7 @@ function buildFurniture(){
   rug('2','rugLiving',-11.4,e2,5.9,11,8.2);
   {const p=T('2',-11.4,e2,9.7,Math.PI,'four-seasons sofa');sofa(p,8.2,3.0,{mat:'fabricGrey',pillows:['pillowBlue','pillowOchre','pillowCream']});}
   {const p=T('2',-14.3,e2,2.6,.25);loungeChair(p,'fabricCream');} {const p=T('2',-8.5,e2,2.6,-.25);loungeChair(p,'fabricCream');}
-  coffeeTable(T('2',-11.4,e2,6.1,0),4.2,2.2);
-  {const p=T('2',-20.1,e2,-.4,0);plant(p,0,0,0,'tall');} {const p=T('2',-2.8,e2,-.3,0);plant(p,0,0,0,'tall');}
-  {const p=T('2',-20.4,e2,10.4,0);plant(p,0,0,0,'tall');}
-  art('2',-2.45,e2+6.3,18.18,Math.PI,2.2,1.6,'artLandscape','gold');
+  coffeeTable(T('2',-11.4,e2,6.1,0),4.2,2.2);  art('2',-2.45,e2+6.3,18.18,Math.PI,2.2,1.6,'artLandscape','gold');
   // closet rods & shelves
   for(const z of [13.15,18.15]){const s=z<15?1:-1;box('2','doorWhite',-21.2,-10.9,e2+5.6,e2+5.7,z,z+s*1.3);addGeo('2','steel',new THREE.CylinderGeometry(.04,.04,10.2,8),new THREE.Matrix4().makeRotationZ(Math.PI/2).setPosition(-16.05,e2+5.4,z+s*.8));
     for(let x=-20.8;x<-11.4;x+=.55)box('2',['linen','doorGrey','pillowBlue','fabricCream'][Math.floor(Math.abs(x*7))%4],x,x+.3,e2+2.4,e2+5.3,z+s*.45,z+s*1.25);}
@@ -387,7 +455,7 @@ function buildFurniture(){
   {const p=T('2',-3.85,e2,25.3,-Math.PI/2);bed(p,6.4,7.0,{head:'fabricGrey',throw:'linen'});}
   for(const z of [21.1,29.5]){const p=T('2',-0.95,e2,z,-Math.PI/2);nightstand(p,'walnutDark');tableLamp(p,0,2.1,-.1,'ribbed');}
   {const p=T('2',-8.4,e2,25.3,-Math.PI/2);p.r('linen',0,1.3,0,4.8,.35,1.4,.12);for(const s of [-1,1])p.b('walnutDark',s*2.2,0,0,.12,1.3,1.2);}
-  {const p=T('2',-12.6,e2,29.6,Math.PI/2);dresser(p,4.6,1.7,2.9,'walnutDark',{rows:3,cols:2});plant(p,1.4,2.9,0,'orchid');}
+  {const p=T('2',-12.6,e2,29.6,Math.PI/2);dresser(p,4.6,1.7,2.9,'walnutDark',{rows:3,cols:2});}
   art('2',-0.35,e2+7.5,25.3,-Math.PI/2,3.2,2.2,'artBotanical','gold');
   rug('2','rugFamily',-5.6,e2,25.3,8,10);
   // primary bath: double vanity, toilet by the frosted window, walk-in shower

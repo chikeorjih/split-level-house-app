@@ -116,6 +116,7 @@ A straight port won't look noticeably better. It makes Ultra faster: room-light 
 - **Shader cache keys (r186):** a built node graph is shared only when the whole key matches. The key covers the material's settings and `customProgramCacheKey` (here that includes the material id for unkeyed patches), the geometry's attribute layout, `receiveShadow`, the lights, fog and environment, and the render context (the target). For instanced meshes it also holds the object's own id.
 - **`compileAsync` and two-pass transparency:** a see-through double-sided material is drawn back-then-front by switching `material.side`. `compileAsync` reads `side` only after it is switched back, so it warms a shader that is never drawn.
 - **Precompile skips shadow maps:** `compileAsync` can't warm a shadow shader. Each see-through shadow caster needs a shadow shader of its own.
+- **Swapping a mesh's geometry for one with another vertex layout:** the mesh keeps drawing with the pipeline built for its first layout, so a gltfpack model's packed 16-bit positions swapped for float ones drew as huge black triangles (WebGL was fine). Give a mesh its final layout before it is first drawn (the sectional's configurations in `13-models.js` rebuild it as float triangles at placement).
 
 ## Run log
 

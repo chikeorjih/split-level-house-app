@@ -39,7 +39,10 @@ function addLivingMaterials(){
   MAT.pillowMustard=std({map:weaveTex('#c4902e',1),roughness:.8});MAT.pillowTaupe=std({map:weaveTex('#8e877b',.8),roughness:.95});MAT.pillowRust=std({map:weaveTex('#9e4f30',1),roughness:.9});
   MAT.pillowStripe=std({map:pillowTex('stripe'),roughness:.95});MAT.pillowStripe2=std({map:pillowTex('stripe2'),roughness:.95});MAT.pillowChevron=std({map:pillowTex('chevron'),roughness:.95});
   MAT.knitIvory=std({map:knitTex('#ebe3d2'),roughness:1,side:THREE.DoubleSide});MAT.knitMustard=std({map:knitTex('#c3892b'),roughness:1,side:THREE.DoubleSide});
-  MAT.rugShag=std({map:shagTex(),roughness:1});MAT.rugFringe=std({map:fringeTex(),alphaTest:.45,side:THREE.DoubleSide,roughness:1});
+  MAT.rugShag=std({map:shagTex(),roughness:1});
+  // the family room's geometric shag rug: the owner's product photo (assets/textures/manifest.json) over the shag's pile relief (addRelief);
+  // the shag's own colours stand in until the photo loads, and in the single-file build
+  MAT.rugGeo=std({map:MAT.rugShag.map,roughness:1});MAT.rugFringe=std({map:fringeTex(),alphaTest:.45,side:THREE.DoubleSide,roughness:1});
   MAT.linen2=std({map:weaveTex('#eee8dc',1),roughness:.95,side:THREE.DoubleSide});
   MAT.wicker=std({map:weaveTex('#8b8275',1),roughness:.9});   // the patio set (current state)
   // the lower-level sitting room (listing photos): dark grey walls; its rugs (and the next room's) are Poly Haven's Curly Teddy Natural
@@ -58,6 +61,8 @@ function addLivingMaterials(){
   MAT.projGrille=std({map:weaveTex('#7d6b52',1),roughness:.85});MAT.projBody=std({map:brushedTex(),color:0xb3aa9c,metalness:.8,roughness:.32});
   MAT.consoleWalnut=std({map:woodGrainTex('#2e2722'),roughness:.5});
   MAT.slatePaint=std({color:0x45474a,roughness:.92});MAT.rugTeddy=std({map:weaveTex('#dcd3c3',1.1),roughness:1});
-  MAT.artArcs=std({map:arcArtTex(),roughness:.85});MAT.artTV=std({map:tvArtTex(),roughness:.3,emissive:0xffffff,emissiveIntensity:.06,emissiveMap:null});
+  MAT.artArcs=std({map:arcArtTex(),roughness:.85});
+  // the family room's print (the owner's image, assets/textures/manifest.json); a muted olive stands in until it loads and in the single-file build
+  MAT.artJungle=std({color:0x6b6448,roughness:.85});MAT.artTV=std({map:tvArtTex(),roughness:.3,emissive:0xffffff,emissiveIntensity:.06,emissiveMap:null});
   MAT.ceramicBlack=std({color:0x1c1c1e,roughness:.55});MAT.book1=std({color:0x6f8173,roughness:.8});MAT.book2=std({color:0xd8cbb4,roughness:.8});MAT.pages=std({color:0xf1ece0,roughness:.9});
 }

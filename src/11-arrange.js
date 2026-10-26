@@ -42,7 +42,7 @@ function arrSave(){try{const o={};for(const i of INSTS)if(i.dx||i.dz||i.ry)o[i.k
 function arrLoad(){let o=null;try{o=JSON.parse(localStorage.getItem(ARR_KEY)||'null');}catch(e){}if(!o)return;
   for(const i of INSTS){const v=o[i.key];if(v&&i.group){i.dx=v.dx||0;i.dz=v.dz||0;i.ry=v.ry||0;applyInst(i,false);}}}
 function moveText(i){if(i.isModel){const M=i.model.m,f=v=>Math.round(v*100)/100,deg=Math.round((((i.rybase+i.ry)*180/Math.PI)%360+360)%360);
-    return `Imported model "${M.id}" (${M.name||M.file}) in assets/models/manifest.json: set its place to x ${f(i.pivot0.x+i.dx)}, z ${f(i.pivot0.z+i.dz)}, lv ${i.model.lv}, ry ${deg} (degrees, counterclockwise in plan), then run npm run model:check -- ${M.id}.`;}
+    return `Imported model "${M.id}" (${M.name||M.file}) in assets/models/manifest.json: set its place to x ${f(i.pivot0.x+i.dx)}, z ${f(i.pivot0.z+i.dz)}, lv ${i.model.lv}, ry ${deg} (degrees, counterclockwise in plan)${M.variants&&i.variant!==M.variants[0].name?`, and its "variant" to "${i.variant}"`:''}, then run npm run model:check -- ${M.id}.`;}
   const e=REG.get(i.okey),f=v=>(Math.round(v*100)/100).toString(),deg=Math.round(((i.ry*180/Math.PI)%360+540)%360-180);
   const parts=[];if(Math.abs(i.dx)>.004)parts.push(`${f(i.dx)} ft along x (+ is east)`);if(Math.abs(i.dz)>.004)parts.push(`${f(i.dz)} ft along z (+ is toward the street)`);
   const mv=parts.length?'move '+parts.join(' and '):'',rt=deg?`rotate ${deg}° counterclockwise in plan around its centre (${f(i.pivot0.x)}, ${f(i.pivot0.z)})`:'';
@@ -55,7 +55,12 @@ function arrCopy(all){const list=all?INSTS.filter(i=>i.dx||i.dz||i.ry):(ARR.sel?
 function arrPanel(){const p=$('arr');p.style.display=ARR.on?'block':'none';if(!ARR.on)return;const i=ARR.sel;
   $('arrName').textContent=i?instLabel(i):'Nothing selected';$('arrSel').style.display=i?'flex':'none';
   const moved=INSTS.filter(x=>x.dx||x.dz||x.ry).length;$('arrCount').textContent=moved?moved+' moved':'';
-  $('arrInfo').textContent=i?`Moved ${(Math.round(i.dx*12)/12).toFixed(2)} ft east, ${(Math.round(i.dz*12)/12).toFixed(2)} ft toward the street, turned ${Math.round(((i.ry*180/Math.PI)%360+540)%360-180)}°`:'Tap a piece of furniture to select it.';}
+  $('arrInfo').textContent=i?`Moved ${(Math.round(i.dx*12)/12).toFixed(2)} ft east, ${(Math.round(i.dz*12)/12).toFixed(2)} ft toward the street, turned ${Math.round(((i.ry*180/Math.PI)%360+540)%360-180)}°`:'Tap a piece of furniture to select it.';
+  // a model with configurations (manifest "variants", e.g. the sectional's 4 and 5 pieces): one chip each, the current one lit
+  const vr=$('arrVar'),V=i&&i.isModel&&i.model.m.variants;vr.hidden=!V;if(V&&vr.dataset.for!==i.key+'|'+i.variant){vr.dataset.for=i.key+'|'+i.variant;vr.textContent='';
+    const lab=document.createElement('span');lab.className='arr-var-lab';lab.textContent='Configuration';vr.appendChild(lab);
+    for(const v of V){const b=document.createElement('button');b.className='chip'+(v.name===i.variant?' on':'');b.textContent=v.label||v.name;b.title=v.note||'';b.setAttribute('aria-pressed',String(v.name===i.variant));
+      b.addEventListener('click',()=>modelVariant(i,v.name,true));vr.appendChild(b);}}}
 function arrToggle(){ARR.on=!ARR.on;$('tArrange').setAttribute('aria-pressed',String(ARR.on));if(!ARR.on){ARR.drag=null;arrSelect(null);}arrPanel();updateUI();dirty=true;}
 // ---------- Save to code: write every moved piece's new position into the source (through the dev server), then reload ----------
 // A T(...) piece's call gets its new origin and turn: the move turns the call's origin about the piece's footprint centre and shifts it.

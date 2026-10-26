@@ -23,11 +23,13 @@ const port = 5179, server = spawn(process.execPath, [path.join(root, 'scripts/se
 let browser;
 try {
   for (let i = 0; ; i++) { try { if ((await fetch(`http://localhost:${port}/`)).ok) break; } catch (e) {} if (i > 50) throw new Error('dev server did not start'); await new Promise(r => setTimeout(r, 200)); }
-  browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  // --gpu: the installed Chrome on the real GPU (much faster where SwiftShader takes minutes to start the app), still on WebGL
+  browser = has('gpu') ? await chromium.launch({ channel: 'chrome', args: ['--ignore-gpu-blocklist', '--enable-gpu'] })
+    : await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = []; page.on('pageerror', e => errors.push(String(e)));
   await page.addInitScript(() => { try { localStorage.removeItem('house-arrange-v1'); localStorage.removeItem('panelMin'); } catch (e) {} });
-  await page.goto(`http://localhost:${port}/`);
+  await page.goto(`http://localhost:${port}/` + (has('gpu') ? '?renderer=webgl' : ''));
   await page.waitForFunction(() => document.getElementById('ldEnter')?.disabled === false && MODELS_READY, null, { timeout: 180000 });
   await page.evaluate(() => document.getElementById('ldEnter').click());
 

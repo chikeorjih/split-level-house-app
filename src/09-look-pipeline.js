@@ -104,7 +104,10 @@ function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),on=P.lam
 // ---------- kitchen lights: the recessed cans as downlights and the black drum's diffuser, on in every preset (as in the listing photo) ----------
 function buildKitchenLights(){LOOK.kitchen=[];const C=CEIL[3],warm=0xfff0d8;
   for(const [x,z] of KITCHEN_LIGHTS.cans){const l=new THREE.SpotLight(warm,1,16,Math.PI*.3,.75,1.6);l.position.set(x,C-.1,z);l.target.position.set(x,E[3],z);scene.add(l,l.target);l.target.updateMatrixWorld();LOOK.kitchen.push({l,k:'can'});}
-  if(KITCHEN_LIGHTS.drum){const l=new THREE.PointLight(0xfff3e2,1,18,1.6);l.position.copy(KITCHEN_LIGHTS.drum);scene.add(l);LOOK.kitchen.push({l,k:'drum'});}}
+  if(KITCHEN_LIGHTS.drum){const l=new THREE.PointLight(0xfff3e2,1,18,1.6);l.position.copy(KITCHEN_LIGHTS.drum);scene.add(l);LOOK.kitchen.push({l,k:'drum'});}
+  // floor lamps that are always on (the satellite lamp's dish): a wide warm spot from the bulb; it and its target follow Arrange moves
+  for(const s of SPOT_LAMPS){const l=new THREE.SpotLight(0xffd9a8,1,20,Math.PI*.3,.7,1.6);l.position.copy(s.v);l.target.position.copy(s.t);scene.add(l,l.target);l.target.updateMatrixWorld();
+    LOOK.kitchen.push({l,k:'lampSpot'});if(s.inst)s.inst.lights.push({light:l,v0:s.v.clone()},{light:l.target,v0:s.t.clone()});}}
 // ---------- sky light with shadows (high quality) ----------
 // The sky lights the scene through the environment map and a hemisphere light, and neither casts shadows, so soffits, porches and the
 // ground under trees stay as bright as open lawn. In high quality, SKYL lights stand in for most of that: each refinement frame puts
@@ -119,7 +122,7 @@ function skyColorAt(d,out){const P=PRESETS[LOOK.preset],y=Math.max(d.y,0);out.se
   return out.add(new THREE.Color(P.hor).multiplyScalar(.22*Math.exp(-y*16)));}
 // high quality swaps most of the unshadowed sky light for the shadowed sky lights; fast mode keeps the original balance
 function applyLightBalance(){const P=PRESETS[LOOK.preset],hq=isHQ(),uf=ultraFill(),ul=isUltra();
-  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:.7)*(P.lamps?1.05*LAMP_EVE:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
+  for(const {l,k} of LOOK.kitchen||[])l.intensity=(k==='can'?.85:k==='lampSpot'?1.3:.7)*(P.lamps?1.05*LAMP_EVE:1)*(ul?ULTRA.overhead:1);if(typeof LAMP_SIG!=='undefined')LAMP_SIG='';
   // (WebGPU: the set of lights is built into every node material, so hiding these recompiled everything on each change of quality; there
   // they stay in the scene and are switched off by strength)
   for(const L of SKYL){L.visible=hq||!!window.GPU;if(!hq)L.intensity=0;}LOOK.hemi.intensity=P.hemi*(hq?LIGHT_HQ.hemi*uf.hemi:1);sun.intensity=P.si*(hq?LIGHT_HQ.sun:1);

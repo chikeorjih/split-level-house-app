@@ -323,7 +323,7 @@ function setDiorama(on){DIO.on=on;const k=on?1:-1e5;
 // their own shadows. A level's merged mesh is used only while all its pieces are shown in full (not faded or hidden), is set aside
 // while a piece is dragged, and is rebuilt after a move or once the imported models are in.
 const FURN_SH={tags:new Map(),sig:'',mat:null};
-const furnShadowSig=()=>INSTS.length+'|'+(MODELS_READY?1:0)+'|'+INSTS.map(i=>(i.dx||0).toFixed(3)+','+(i.dz||0).toFixed(3)+','+(i.ry||0).toFixed(4)).join(';');
+const furnShadowSig=()=>INSTS.length+'|'+(MODELS_READY?1:0)+'|'+INSTS.map(i=>(i.dx||0).toFixed(3)+','+(i.dz||0).toFixed(3)+','+(i.ry||0).toFixed(4)+(i.variant?','+i.variant:'')+(i.hiddenByVariant?',h':'')).join(';');
 function furnShadowBuild(){for(const e of FURN_SH.tags.values()){scene.remove(e.mesh);e.mesh.geometry.dispose();for(const o of e.src)o.castShadow=true;}FURN_SH.tags.clear();
   scene.updateMatrixWorld();const by=new Map();
   for(const i of INSTS){if(!i.group||!i.group.traverse)continue;i.group.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||!(o.castShadow||o.userData.furnCast))return;const m=o.material;

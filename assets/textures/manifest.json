@@ -152,6 +152,23 @@
       "note": "the second bedroom rug, long side along the room; the photo covers its top once"
     },
     {
+      "material": "rugGeo",
+      "map": "rug_geometric_6x9.jpg",
+      "roughnessValue": 1,
+      "repeatFt": 1,
+      "source": "Owner-supplied product photo of a 6'7\" x 9' geometric shag rug (charcoal, ochre, terracotta, sage, cream), cropped to the rug",
+      "note": "the family room rug, long side along z; the rug's faces have 0-1 UVs, so the photo covers its top once (the shag's pile normal map stays on)"
+    },
+    {
+      "material": "artJungle",
+      "map": "art_jungle_waterfalls_48x24.jpg",
+      "roughnessValue": 0.85,
+      "repeatFt": 1,
+      "color": "#ffffff",
+      "source": "Owner-supplied image of an Art Deco jungle print with two waterfalls and a sun (signed Mike Willcox), cropped to the artwork",
+      "note": "the 48\" x 24\" print over the family-room sectional; the box face has 0-1 UVs, so the image covers it once"
+    },
+    {
       "material": "laminate",
       "map": "laminate_floor_diff_2k.jpg",
       "normal": "laminate_floor_nor_gl_2k.jpg",

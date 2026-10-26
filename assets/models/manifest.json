@@ -6,8 +6,8 @@
       "file": "arhaus-rowland-two.min.glb",
       "scale": "m",
       "place": {
-        "x": 17.57,
-        "z": 6.42,
+        "x": 17.07,
+        "z": 6.58,
         "lv": 3,
         "ry": 90
       },
@@ -72,8 +72,8 @@
       "name": "Bar stool 4",
       "file": "bar-stools.min.glb",
       "place": {
-        "x": 30.69,
-        "z": 11.28,
+        "x": 30.52,
+        "z": 11.11,
         "lv": 3,
         "ry": 0
       },
@@ -90,10 +90,10 @@
       "name": "Swivel chair 1",
       "file": "swivel.min.glb",
       "place": {
-        "x": 22.43,
-        "z": 2.43,
+        "x": 21.43,
+        "z": 2.35,
         "lv": 3,
-        "ry": 32
+        "ry": 10
       },
       "note": "Fitted to the product size given by the owner (38.6\" W x 35.4\" D x 28.7\" H); along wall W46.",
       "spec": {
@@ -108,8 +108,8 @@
       "name": "Swivel chair 2",
       "file": "swivel.min.glb",
       "place": {
-        "x": 28.35,
-        "z": 2.93,
+        "x": 27.43,
+        "z": 2.85,
         "lv": 3,
         "ry": 330
       },
@@ -130,7 +130,7 @@
         "x": 2.78,
         "z": 22.45,
         "lv": 4,
-        "ry": 73
+        "ry": 105
       },
       "note": "Owner-supplied model, slimmed from recliner-lazboy.glb (746k to 80k triangles, normals recomputed on load). No product size was given: scaled to a typical recliner, about 41\" tall (37\" W x 41\" D). Against the west wall facing into the room, per the owner's layout. Upholstered in cream corduroy (wide wale, about 3 per inch), drawn procedurally in 13-models.js.",
       "color": "#e8dcc4",
@@ -169,10 +169,10 @@
       "file": "recliner-thomasville.min.glb",
       "scale": 5.935,
       "place": {
-        "x": 3.3,
-        "z": 8.65,
+        "x": 3.63,
+        "z": 3.23,
         "lv": 4,
-        "ry": 90
+        "ry": 57
       },
       "note": "Owner-supplied model, shown reclined with its footrest out. No product size was given: scaled to a typical recliner, 36\" wide (about 40.5\" tall, 68\" deep reclined). Back to the west wall, right beside the crib (on the north wall), facing into the room."
     },
@@ -195,8 +195,8 @@
       "file": "couch-compton.min.glb",
       "scale": 8.376,
       "place": {
-        "x": 26.5,
-        "z": 6.15,
+        "x": 26.92,
+        "z": 4.9,
         "lv": 1,
         "ry": 270
       },
@@ -212,13 +212,279 @@
       ],
       "scale": 5.505,
       "place": {
-        "x": 10.05,
-        "z": 5.57,
+        "x": 9.8,
+        "z": 5.49,
         "lv": 2,
         "ry": 270
       },
       "note": "Owner-supplied model (drift-moss.glb, 374k triangles, 11.1 MB), slimmed with gltfpack -si 0.22 to drift-moss.opt.glb (82k triangles, 2.3 MB, textures kept). Not to scale: scaled to the Crate & Barrel Drift pieces' 29.5\" height, which gives 125\" x 92\", about a three-piece L of Drift pieces (wedge, armless and arm chairs, 129\" x 95\"). Stands in for both halves of the old sectional: corner in the north-east, long side along the east wall, short side under the rear windows.",
-      "specSource": "https://www.crateandbarrel.com/drift-stationary-wedge-chair-sectional-piece/s446889"
+      "specSource": "https://www.crateandbarrel.com/drift-stationary-wedge-chair-sectional-piece/s446889",
+      "variants": [
+        {
+          "name": "4-piece",
+          "label": "4 pieces",
+          "note": "End, middle, wedge, end: the sectional as built"
+        },
+        {
+          "name": "5-piece",
+          "label": "5 pieces",
+          "note": "End, middle, wedge, middle, end: a second middle piece in the short (window) leg, 32.5 inches longer",
+          "ops": [
+            {
+              "move": {
+                "x": [
+                  -5.4,
+                  -1.4
+                ],
+                "z": [
+                  0.3,
+                  4
+                ],
+                "by": [
+                  0,
+                  0,
+                  2.71
+                ]
+              }
+            },
+            {
+              "copy": {
+                "x": [
+                  -1,
+                  1.71
+                ],
+                "z": [
+                  -4,
+                  -0.2
+                ],
+                "turn": 90,
+                "by": [
+                  -1.37,
+                  0,
+                  2.01
+                ]
+              }
+            }
+          ],
+          "hide": [
+            "plant-family-sectional"
+          ]
+        }
+      ],
+      "variantNote": "Seams measured from the mesh (model frame, ft): wedge|middle at x -1.00 and middle|end at x 1.71 on the long leg (z -3.85..-0.31), wedge|end at z 0.30 on the short leg (x -5.22..-1.66). The 5-piece copies the long leg middle (2.71 ft) into the short leg and slides its end out; it would swallow the plant at the window end (plant-family-sectional, as the owner arranged it), so it hides it."
+    },
+    {
+      "id": "plant-living-sofa",
+      "name": "Plant: dracaena in a black pot on a wood stand",
+      "file": "plant2.min.glb",
+      "scale": 3.148,
+      "place": {
+        "x": 15.7,
+        "z": 10.85,
+        "lv": 3,
+        "ry": 52
+      },
+      "note": "Living room, at the south end of the sofa (the satellite lamp is at the north end). Owner-supplied model (plant2.glb), not to scale: the size is an estimate (36\" tall)."
+    },
+    {
+      "id": "plant-family-sectional",
+      "name": "Plant: broad-leaf plant (alocasia type) in a white pot on a wood stand",
+      "file": "plant1.min.glb",
+      "scale": 4.197,
+      "place": {
+        "x": 5.02,
+        "z": 1.2,
+        "lv": 2,
+        "ry": 0
+      },
+      "note": "Family room, at the open end of the sectional, against the east wall. Owner-supplied model (plant1.glb), not to scale: the size is an estimate (48\" tall)."
+    },
+    {
+      "id": "plant-family-window",
+      "name": "Plant: snake plant in a white pot on a wood stand",
+      "file": "plant3.min.glb",
+      "scale": 3.323,
+      "place": {
+        "x": 13.33,
+        "z": 11.25,
+        "lv": 2,
+        "ry": 198
+      },
+      "note": "Family room, at the window end of the sectional. Owner-supplied model (plant3.glb), not to scale: the size is an estimate (38\" tall)."
+    },
+    {
+      "id": "plant-dining",
+      "name": "Plant: broad-leaf plant (alocasia type) in a white pot on a wood stand",
+      "file": "plant1.min.glb",
+      "scale": 4.197,
+      "place": {
+        "x": 42.38,
+        "z": 9.18,
+        "lv": 3,
+        "ry": 0
+      },
+      "note": "Dining area, north-east corner, clear of the new sliding door (z 2.3-8.3). Owner-supplied model (plant1.glb), not to scale: the size is an estimate (48\" tall)."
+    },
+    {
+      "id": "plant-kitchen-counter",
+      "name": "Plant: snake plant in a white pot on a wood stand",
+      "file": "plant3.min.glb",
+      "scale": 1.399,
+      "place": {
+        "x": 26.9,
+        "z": 30.85,
+        "lv": 3,
+        "y": 3,
+        "ry": 0
+      },
+      "note": "On the kitchen counter, replacing the small potted plant. Owner-supplied model (plant3.glb), not to scale: the size is an estimate (16\" tall)."
+    },
+    {
+      "id": "plant-mantel",
+      "name": "Plant: snake plant in a white pot on a wood stand",
+      "file": "plant3.min.glb",
+      "scale": 1.574,
+      "place": {
+        "lv": 2,
+        "y": 0.35
+      },
+      "replaces": "trailing pothos",
+      "note": "On the family-room mantel, replacing the trailing pothos. Owner-supplied model (plant3.glb), not to scale: the size is an estimate (18\" tall)."
+    },
+    {
+      "id": "plant-four-seasons-1",
+      "name": "Plant: broad-leaf plant (alocasia type) in a white pot on a wood stand",
+      "file": "plant1.min.glb",
+      "scale": 4.197,
+      "place": {
+        "x": -19.9,
+        "z": -0.2,
+        "lv": 2,
+        "ry": 0
+      },
+      "tag": "2+",
+      "note": "Four-seasons room (addition), south-west corner, replacing a tall plant. Owner-supplied model (plant1.glb), not to scale: the size is an estimate (48\" tall)."
+    },
+    {
+      "id": "plant-four-seasons-2",
+      "name": "Plant: dracaena in a black pot on a wood stand",
+      "file": "plant2.min.glb",
+      "scale": 3.148,
+      "place": {
+        "x": -3.1,
+        "z": -0.3,
+        "lv": 2,
+        "ry": 0
+      },
+      "tag": "2+",
+      "note": "Four-seasons room (addition), south-east corner, replacing a tall plant. Owner-supplied model (plant2.glb), not to scale: the size is an estimate (36\" tall)."
+    },
+    {
+      "id": "plant-four-seasons-3",
+      "name": "Plant: snake plant in a white pot on a wood stand",
+      "file": "plant3.min.glb",
+      "scale": 3.323,
+      "place": {
+        "x": -20.4,
+        "z": 10.4,
+        "lv": 2,
+        "ry": 0
+      },
+      "tag": "2+",
+      "note": "Four-seasons room (addition), north-west corner, replacing a tall plant. Owner-supplied model (plant3.glb), not to scale: the size is an estimate (38\" tall)."
+    },
+    {
+      "id": "plant-suite-dresser",
+      "name": "Plant: dracaena in a black pot on a wood stand",
+      "file": "plant2.min.glb",
+      "scale": 1.574,
+      "place": {
+        "x": -12.6,
+        "z": 28.2,
+        "lv": 2,
+        "y": -1.6,
+        "ry": 90
+      },
+      "tag": "2+",
+      "note": "On the primary suite dresser (addition), replacing the orchid. Owner-supplied model (plant2.glb), not to scale: the size is an estimate (18\" tall)."
+    },
+    {
+      "id": "dining-chair-1",
+      "name": "Dining chair 1",
+      "file": "dining-chair.min.glb",
+      "scale": 2.711,
+      "place": {
+        "x": 36.57,
+        "z": 3.12,
+        "lv": 3,
+        "ry": 0
+      },
+      "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
+    },
+    {
+      "id": "dining-chair-2",
+      "name": "Dining chair 2",
+      "file": "dining-chair.min.glb",
+      "scale": 2.711,
+      "place": {
+        "x": 38.88,
+        "z": 3.12,
+        "lv": 3,
+        "ry": 0
+      },
+      "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
+    },
+    {
+      "id": "dining-chair-3",
+      "name": "Dining chair 3",
+      "file": "dining-chair.min.glb",
+      "scale": 2.711,
+      "place": {
+        "x": 36.57,
+        "z": 6.77,
+        "lv": 3,
+        "ry": 180
+      },
+      "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
+    },
+    {
+      "id": "dining-chair-4",
+      "name": "Dining chair 4",
+      "file": "dining-chair.min.glb",
+      "scale": 2.711,
+      "place": {
+        "x": 38.8,
+        "z": 6.68,
+        "lv": 3,
+        "ry": 180
+      },
+      "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
+    },
+    {
+      "id": "dining-chair-5",
+      "name": "Dining chair 5",
+      "file": "dining-chair.min.glb",
+      "scale": 2.711,
+      "place": {
+        "x": 34.48,
+        "z": 4.73,
+        "lv": 3,
+        "ry": 67
+      },
+      "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
+    },
+    {
+      "id": "dining-chair-6",
+      "name": "Dining chair 6",
+      "file": "dining-chair.min.glb",
+      "scale": 2.711,
+      "place": {
+        "x": 40.8,
+        "z": 5.07,
+        "lv": 3,
+        "ry": 268
+      },
+      "note": "Owner-supplied model (dining chairs.glb), not to scale: the size is an estimate (31\" tall, about 21.7\" W x 20.7\" D). Six round the walnut table: two on each long side, one at each end, seats tucked under the top."
     }
   ]
 }

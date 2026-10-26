@@ -171,7 +171,7 @@ function normalFrom(map,strength,invert){if(!map||!map.image)return null;const s
     let nx=-dx*strength,ny=dy*strength,nz=1;const L=Math.hypot(nx,ny,nz);const k=(y*W+x)*4;q[k]=(nx/L*.5+.5)*255;q[k+1]=(ny/L*.5+.5)*255;q[k+2]=(nz/L*.5+.5)*255;q[k+3]=255;}
   g.putImageData(o,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.copy(map.repeat);t.center.copy(map.center);t.rotation=map.rotation;t.anisotropy=MAXANISO;return t;}
 function addRelief(){const R=[['oak',1.6],['brick',3.5,1],['brickWhite',2.5],['siding',2.5],['sidingNew',2.5],['sidingWhite',2.5],['roof',3],['slateRoof',3.5],['slate',3],['tileBath',2.5],['subway',2.5],['showerTile',2.5],
-    ['paver',3],['deckOld',3],['deckNew',3],['flagstone',3],['metalRoof',2],['soldier',3,1],['grass',1.4],['bark',3],['concrete',1.2],['drive',1.2],['asphalt',1.5],['stone',1.6],['beam',2],['roofBrown',3],['olive',1.6],['pillowTaupe',1.4],['pillowRust',1.2],['knitIvory',3.5],['knitMustard',3.5],['rugShag',2.6],['rugNursery',2.2],['rugNurseryBig',1.6],['playMat',1.2],['linen2',1]];
+    ['paver',3],['deckOld',3],['deckNew',3],['flagstone',3],['metalRoof',2],['soldier',3,1],['grass',1.4],['bark',3],['concrete',1.2],['drive',1.2],['asphalt',1.5],['stone',1.6],['beam',2],['roofBrown',3],['olive',1.6],['pillowTaupe',1.4],['pillowRust',1.2],['knitIvory',3.5],['knitMustard',3.5],['rugShag',2.6],['rugGeo',2.6],['rugNursery',2.2],['rugNurseryBig',1.6],['playMat',1.2],['linen2',1]];
   for(const [k,st,inv] of R){const m=MAT[k];if(m&&m.map){const n=normalFrom(m.map,st*.5,!!inv);if(n){m.normalMap=n;m.needsUpdate=true;}}}}
 const MAT={};
 const CLIP_TOP=new THREE.Plane(new THREE.Vector3(0,-1,0),1e5), CLIP_BOT=new THREE.Plane(new THREE.Vector3(0,1,0),1e5);
@@ -246,6 +246,18 @@ function makeMaterials(){
   MAT.pillowOchre=std({color:0xc79a4c,roughness:.95});
   MAT.leather=std({color:0x8b4a25,roughness:.5});
   MAT.walnutDark=std({color:0x26231f,roughness:.45});
+  // walnut boards for the dining table (UVs in feet): a 4 x 2 ft tile of four 6" boards, each its own tone, with long wavering grain
+  // lines (whole waves across the tile, so it wraps) and dark pores; satin oil finish. walnutGrain runs the grain along u (tops, aprons),
+  // walnutGrainV along v (legs). The seed is put back after, so the textures made later stay as they were.
+  {const seed0=RNG_SEED,W=TX(1024),H=TX(512),[c,g]=cv(W,H),bh=H/4;
+    for(let b=0;b<4;b++){g.fillStyle=hsl(22+rnd()*6,34+rnd()*10,24+rnd()*7);g.fillRect(0,b*bh,W,bh);
+      for(let k=0;k<70;k++){const y0=b*bh+rnd()*bh,a=2+rnd()*6,f=(1+Math.floor(rnd()*3))*2*Math.PI/W,ph=rnd()*7,dk=rnd()<.6;
+        g.strokeStyle=dk?`rgba(25,14,8,${.15+rnd()*.3})`:`rgba(150,105,70,${.08+rnd()*.15})`;g.lineWidth=.6+rnd()*2.2;g.beginPath();
+        for(let x=0;x<=W;x+=8){const y=y0+a*Math.sin(x*f+ph)+a*.4*Math.sin(x*f*3+ph*2);if(x)g.lineTo(x,y);else g.moveTo(x,y);}g.stroke();}
+      for(let k=0;k<500;k++){g.fillStyle='rgba(20,10,5,.45)';g.fillRect(rnd()*W,b*bh+rnd()*bh,3+rnd()*6,1);}
+      g.fillStyle='rgba(20,12,6,.35)';g.fillRect(0,b*bh,W,1);}
+    noise(g,W,H,10);const mk=rot=>{const t=rot?tex(c,2,4,{rot:Math.PI/2}):tex(c,4,2);return std({map:t,normalMap:normalFrom(t,.8),roughness:.48});};
+    MAT.walnutGrain=mk(false);MAT.walnutGrainV=mk(true);RNG_SEED=seed0;}
   MAT.oakFurn=std({color:0xb8874f,roughness:.55});
   MAT.oakLight=std({color:0xc9a06d,roughness:.6});
   MAT.porcelain=std({color:0xf8f8f6,roughness:.15});
@@ -282,6 +294,21 @@ function makeMaterials(){
   MAT.artLine=std({map:artTex('line',256,320),roughness:.8});
   MAT.mat=std({color:0xf7f5ef,roughness:.9});
   MAT.gold=std({color:0xc49a52,metalness:.85,roughness:.3});
+  // the satellite floor lamp: silver leaf inside its dish (overlapping leaves, each a slightly different silver, crinkled, with darker seams;
+  // the colour map doubles as the height for its normal map) and black powder coat (a fine orange peel) for the rest
+  // (the seed is put back after, so the textures made later stay as they were)
+  const seed0=RNG_SEED;{const S=TX(512),[c,g]=cv(S,S);g.fillStyle='#8f9296';g.fillRect(0,0,S,S);const n=6,L=S/n;
+    for(let j=0;j<=n;j++)for(let i=0;i<=n;i++){const x=i*L+(rnd()-.5)*L*.25-L*.1,y=j*L+(rnd()-.5)*L*.25-L*.1;
+      g.fillStyle=hsl(210+rnd()*20,2+rnd()*4,67+rnd()*7);for(const [ox,oy] of [[0,0],[-S,0],[0,-S],[-S,-S]])g.fillRect(x+ox,y+oy,L*1.12,L*1.12);
+      g.strokeStyle='rgba(40,42,46,.5)';g.lineWidth=1.5;for(const [ox,oy] of [[0,0],[-S,0],[0,-S],[-S,-S]])g.strokeRect(x+ox,y+oy,L*1.12,L*1.12);}
+    for(let k=0;k<900;k++){const x=rnd()*S,y=rnd()*S,a=rnd()*Math.PI,l=4+rnd()*22;g.strokeStyle=rnd()<.5?'rgba(255,255,255,.35)':'rgba(35,37,40,.4)';g.lineWidth=.6+rnd();
+      g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a+.6)*l*.5,y+Math.sin(a+.6)*l*.5,x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
+    noise(g,S,S,18);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,1);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=MAXANISO;
+    // (the lamp is always on: the leaf glows warm with the bulb's light, through its own map so the leaves and crinkles still show)
+    MAT.silverLeaf=std({map:t,normalMap:normalFrom(t,1.3),color:0xffffff,metalness:.92,roughness:.3,emissive:0xffdcae,emissiveMap:t,emissiveIntensity:.6});}
+  {const S=TX(256),[c,g]=cv(S,S);g.fillStyle='#808080';g.fillRect(0,0,S,S);for(let k=0;k<2500;k++){const v=100+rnd()*56|0;g.fillStyle=`rgba(${v},${v},${v},.5)`;g.beginPath();g.arc(rnd()*S,rnd()*S,1+rnd()*3,0,7);g.fill();}
+    const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,3);
+    MAT.lampBlack=std({color:0x1d1e20,metalness:.5,roughness:.55,normalMap:normalFrom(t,.6)});}RNG_SEED=seed0;
   MAT.bronze=std({color:0x3a2c23,metalness:.55,roughness:.42});     // oil-rubbed bronze (ceiling fans)
   MAT.fanBlade=std({color:0x3d2b21,roughness:.6});
   MAT.shutter=std({color:0x2a2c2f,roughness:.85});          // dark grey painted shutters (front)

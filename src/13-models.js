@@ -29,7 +29,7 @@ async function loadModels(){
     for(const m of on){if(typeof LD!=='undefined')LD.stage('models',(++mi)+' of '+on.length,(mi-1)/on.length);
       const url=(window.__MODEL_FILES&&window.__MODEL_FILES[m.file])||('assets/models/'+m.file);
       try{const g=await new Promise((res,rej)=>L.load(url,res,undefined,rej));placeModel(m,g.scene);}catch(e){console.warn('model '+m.id+' failed to load',e);}}
-    if(MODELS.length){retarget(true);updateSectionDisplay();arrLoad();shadowDirty=true;dirty=true;schedulePrewarm();}}
+    if(MODELS.length){retarget(true);updateSectionDisplay();variantsLoad();arrLoad();shadowDirty=true;dirty=true;schedulePrewarm();}}
   finally{MODELS_READY=true;}}
 // ---------- corduroy (manifest "fabric": "corduroy") ----------
 // Procedural wales, drawn in the model's own space so a model without texture coordinates can have them. The wales follow the way the
@@ -89,8 +89,12 @@ function placeModel(m,root){const o=m.orient||{},D=Math.PI/180,pl=m.place||{};
   const R={m,outer,raw,sc,box,rep,repBox:rb,lv,tag,ry};MODELS.push(R);
   // an Arrange piece: the model's group already pivots on its footprint centre at floor level; its base turn stays in rybase
   const inst={key:'model:'+m.id,okey:'model:'+m.id,n:1,tag,group:outer,pivot0:outer.position.clone(),grp:box.clone(),dx:0,dz:0,ry:0,rybase:ry,cols:[],lights:[],isModel:true,model:R};
-  if(m.collide!==false){const c=phase(rep?rep.ph:null,()=>addCol(box.min.x,box.max.x,box.min.z,box.max.z,box.min.y,box.max.y));inst.cols.push({c,r:[box.min.x,box.max.x,box.min.z,box.max.z]});}
-  outer.traverse(o=>{if(o.isMesh)o.userData.inst=inst;});outer.userData.inst=inst;INSTS.push(inst);R.inst=inst;}
+  // (its collision belongs to the replaced piece's house state, or to its own tag's: "tag":"2+" for an addition-only model)
+  if(m.collide!==false){const c=phase(rep?rep.ph:tagPh(tag),()=>addCol(box.min.x,box.max.x,box.min.z,box.max.z,box.min.y,box.max.y));inst.cols.push({c,r:[box.min.x,box.max.x,box.min.z,box.max.z]});}
+  outer.traverse(o=>{if(o.isMesh)o.userData.inst=inst;});outer.userData.inst=inst;INSTS.push(inst);R.inst=inst;
+  // a model with configurations is rebuilt as plain float triangles before it is first drawn, so switching never changes its vertex layout
+  // (WebGPU keeps the pipeline built for the first one, and read the rebuilt buffers as the file's packed 16-bit ones)
+  if(m.variants)modelVariant(inst,m.variants[0].name,false);}
 // ---------- dimension and fit check ----------
 function modelReport(){const r2=v=>Math.round(v*100)/100,ro=o=>{const q={};for(const k in o)q[k]=r2(o[k]);return q;};
   const ok=(spec,got)=>Math.abs(got-spec)<=Math.max(MODEL_TOL.in,spec*MODEL_TOL.pct);
@@ -138,3 +142,35 @@ function modelReport(){const r2=v=>Math.round(v*100)/100,ro=o=>{const q={};for(c
       for(const [k,lab] of [['w','x (east-west)'],['d','z (toward the street)'],['h','tall']]){const d=n[k]-o[k];if(Math.abs(d)>3)notes.push(`${Math.abs(d).toFixed(1)}" ${d>0?'bigger':'smaller'} ${k==='h'?'in height':'along '+lab} than the ${[].concat(m.replaces).join(' + ')} it replaces`);}}
     else if(m.replaces)issues.push('no furniture piece named "'+[].concat(m.replaces)[0]+'" to replace');
     r.ok=!issues.length;return r;});}
+// ---------- configurations (manifest "variants"): other layouts of a model, rebuilt from its own mesh ----------
+// A modular piece scanned as one mesh (the Drift sectional) can still be rearranged: each variant lists ops in the model's own frame
+// (feet, centred on its footprint, floor at 0), applied to whole triangles by their centres: {move:{x:[x0,x1],z:[z0,z1],by:[dx,dy,dz]}}
+// shifts a part, {copy:{x,z,turn:deg,by}} adds a copy turned about the origin then shifted; seams between modules hide the cuts.
+// "hide": other models' ids to hide in that layout (something it would run into). The first variant is the model as built; "variant" in
+// the manifest picks the default, and Arrange mode's chips switch it (kept in this browser's localStorage).
+const VAR_KEY='house-model-variants-v1';
+function modelVariant(inst,name,save){const R=inst.model,V=R.m.variants;if(!V)return;const v=V.find(q=>q.name===name)||V[0];inst.variant=v.name;
+  const inv=R.outer.matrixWorld.clone().invert(),lb=new THREE.Box3(),a=new THREE.Vector3(),nv=new THREE.Vector3(),c3=new THREE.Vector3();
+  const inBox=(b,p)=>(!b.x||(p.x>=b.x[0]&&p.x<=b.x[1]))&&(!b.z||(p.z>=b.z[0]&&p.z<=b.z[1]));
+  R.outer.traverse(c=>{if(!c.isMesh)return;const g0=c.userData.varSrc||(c.userData.varSrc=c.geometry),ops=v.ops||[];
+    const M=inv.clone().multiply(c.matrixWorld),Mi=M.clone().invert(),Nf=new THREE.Matrix3().getNormalMatrix(M),Nb=new THREE.Matrix3().getNormalMatrix(Mi);
+    const s=g0.index?g0.toNonIndexed():g0,P=s.attributes.position,N=s.attributes.normal,U=s.attributes.uv,n=P.count,lp=new Float32Array(n*3);
+    for(let i=0;i<n;i++){a.fromBufferAttribute(P,i).applyMatrix4(M);lp[i*3]=a.x;lp[i*3+1]=a.y;lp[i*3+2]=a.z;}
+    const op=[],on=[],ou=[],emit=(i,rot,by)=>{const cs=Math.cos(rot),sn=Math.sin(rot),x=lp[i*3],y=lp[i*3+1],z=lp[i*3+2];
+      a.set(x*cs+z*sn+by[0],y+by[1],-x*sn+z*cs+by[2]);lb.expandByPoint(a);a.applyMatrix4(Mi);op.push(a.x,a.y,a.z);
+      if(N){nv.fromBufferAttribute(N,i).applyMatrix3(Nf);const nx=nv.x,nz=nv.z;nv.x=nx*cs+nz*sn;nv.z=-nx*sn+nz*cs;nv.applyMatrix3(Nb).normalize();on.push(nv.x,nv.y,nv.z);}if(U)ou.push(U.getX(i),U.getY(i));};
+    for(let t=0;t<n;t+=3){c3.set((lp[t*3]+lp[t*3+3]+lp[t*3+6])/3,0,(lp[t*3+2]+lp[t*3+5]+lp[t*3+8])/3);
+      const mv=ops.find(o=>o.move&&inBox(o.move,c3)),by=mv?mv.move.by:[0,0,0];for(let k=0;k<3;k++)emit(t+k,0,by);
+      for(const o of ops)if(o.copy&&inBox(o.copy,c3))for(let k=0;k<3;k++)emit(t+k,(o.copy.turn||0)*Math.PI/180,o.copy.by);}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(op,3));if(on.length)g.setAttribute('normal',new THREE.Float32BufferAttribute(on,3));
+    if(ou.length)g.setAttribute('uv',new THREE.Float32BufferAttribute(ou,2));g.computeBoundingBox();g.computeBoundingSphere();if(c.geometry!==g0)c.geometry.dispose();c.geometry=g;});   // (the source stays in varSrc, never drawn: see placeModel)
+  // the footprint as the model stands unmoved (its base place and turn): the collision box and the selection ring follow it
+  const P0=inst.pivot0,cs=Math.cos(inst.rybase||0),sn=Math.sin(inst.rybase||0),q=[[lb.min.x,lb.min.z],[lb.max.x,lb.min.z],[lb.max.x,lb.max.z],[lb.min.x,lb.max.z]].map(([x,z])=>[P0.x+x*cs+z*sn,P0.z-x*sn+z*cs]);
+  const r=[Math.min(...q.map(p=>p[0])),Math.max(...q.map(p=>p[0])),Math.min(...q.map(p=>p[1])),Math.max(...q.map(p=>p[1]))];for(const k of inst.cols)k.r=r;
+  inst.grp.set(new THREE.Vector3(r[0],P0.y,r[2]),new THREE.Vector3(r[1],P0.y+lb.max.y,r[3]));
+  const hid=new Set([].concat(...V.map(q=>q.hide||[])));for(const id of hid){const H=MODELS.find(q=>q.m.id===id);if(!H)continue;const off=(v.hide||[]).includes(id);H.outer.visible=!off;H.inst.hiddenByVariant=off;
+    for(const k of H.inst.cols){const i=COLS.indexOf(k.c);if(off&&i>=0)COLS.splice(i,1);else if(!off&&i<0)COLS.push(k.c);}}
+  if(typeof ARR!=='undefined'&&ARR.ring&&ARR.sel===inst){scene.remove(ARR.ring);ARR.ring=null;}
+  applyInst(inst,false);if(save)try{const o=JSON.parse(localStorage.getItem(VAR_KEY)||'{}');o[R.m.id]=v.name;localStorage.setItem(VAR_KEY,JSON.stringify(o));}catch(e){}}
+function variantsLoad(){let o={};try{o=JSON.parse(localStorage.getItem(VAR_KEY)||'{}')||{};}catch(e){}
+  for(const R of MODELS){const V=R.m.variants;if(!V)continue;const name=o[R.m.id]||R.m.variant||V[0].name;if(name!==V[0].name)modelVariant(R.inst,name,false);else R.inst.variant=V[0].name;}}
