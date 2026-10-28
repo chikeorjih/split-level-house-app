@@ -170,7 +170,7 @@ function normalFrom(map,strength,invert){if(!map||!map.image)return null;const s
     const dy=(at(x-1,y+1)+2*at(x,y+1)+at(x+1,y+1))-(at(x-1,y-1)+2*at(x,y-1)+at(x+1,y-1));
     let nx=-dx*strength,ny=dy*strength,nz=1;const L=Math.hypot(nx,ny,nz);const k=(y*W+x)*4;q[k]=(nx/L*.5+.5)*255;q[k+1]=(ny/L*.5+.5)*255;q[k+2]=(nz/L*.5+.5)*255;q[k+3]=255;}
   g.putImageData(o,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.copy(map.repeat);t.center.copy(map.center);t.rotation=map.rotation;t.anisotropy=MAXANISO;return t;}
-function addRelief(){const R=[['oak',1.6],['brick',3.5,1],['brickWhite',2.5],['siding',2.5],['sidingNew',2.5],['sidingWhite',2.5],['roof',3],['slateRoof',3.5],['slate',3],['tileBath',2.5],['subway',2.5],['showerTile',2.5],
+function addRelief(){const R=[['oak',1.6],['brick',3.5,1],['brickWhite',2.5],['siding',2.5],['sidingNew',2.5],['sidingWhite',2.5],['roof',3],['slateRoof',3.5],['slate',3],['tileBath',2.5],['subway',2.5],['showerTile',2.5],['showerTileDark',2.5],
     ['paver',3],['deckOld',3],['deckNew',3],['flagstone',3],['metalRoof',2],['soldier',3,1],['grass',1.4],['bark',3],['concrete',1.2],['drive',1.2],['asphalt',1.5],['stone',1.6],['beam',2],['roofBrown',3],['olive',1.6],['pillowTaupe',1.4],['pillowRust',1.2],['knitIvory',3.5],['knitMustard',3.5],['rugShag',2.6],['rugGeo',2.6],['rugNursery',2.2],['rugNurseryBig',1.6],['playMat',1.2],['linen2',1]];
   for(const [k,st,inv] of R){const m=MAT[k];if(m&&m.map){const n=normalFrom(m.map,st*.5,!!inv);if(n){m.normalMap=n;m.needsUpdate=true;}}}}
 const MAT={};
@@ -205,6 +205,7 @@ function makeMaterials(){
   MAT.tileBath=std({map:gridTileTex(1,2,()=>hsl(40,4,rr(82,88)),'#a9a8a3',4,true),roughness:.35});
   MAT.subway=std({map:gridTileTex(.5,.25,()=>hsl(40,6,rr(93,97)),'#cfcdc6',2,true),roughness:.2});
   MAT.showerTile=std({map:gridTileTex(.33,.66,()=>hsl(200,4,rr(88,93)),'#b9bcbc',2,false),roughness:.25});
+  MAT.showerTileDark=std({map:gridTileTex(.33,.66,()=>hsl(210,4,rr(30,36)),'#55585a',2,false),roughness:.3});   // (dark grey: the suite plan's wet room)
   MAT.barTile=std({map:barTileTex(),roughness:.35});
   MAT.concrete=std({map:plainNoise('#a7a59f',6,20),roughness:.95});
   MAT.drive=std({map:plainNoise('#b2afa7',8,18),roughness:.95});
@@ -333,7 +334,7 @@ function makeMaterials(){
   // clear coats (Ultra only): floors, cabinets, counters, tile and lacquered or leather furniture become physical materials with a coat of
   // [strength, roughness]; applyLightBalance turns the coat on in Ultra (at 0 the physical shader looks the same as the standard one)
   for(const [k,cc,ccr] of [['oak',.11,.12],['cab',.2,.15],['cabDark',.2,.15],['quartz',.6,.04],['walnutDark',.6,.07],['oakFurn',.5,.1],['oakLight',.4,.12],['leather',.3,.25],
-    ['tileBath',.6,.04],['subway',.7,.03],['showerTile',.6,.04],['barTile',.6,.05],['porcelain',.8,.03],['ceramicWhite',.6,.05],['washer',.5,.06],['doorWhite',.25,.15],['tread',.4,.1],['slate',.35,.15]])physify(k,cc,ccr);
+    ['tileBath',.6,.04],['subway',.7,.03],['showerTile',.6,.04],['showerTileDark',.6,.04],['barTile',.6,.05],['porcelain',.8,.03],['ceramicWhite',.6,.05],['washer',.5,.06],['doorWhite',.25,.15],['tread',.4,.1],['slate',.35,.15]])physify(k,cc,ccr);
   antiTile(MAT.grass,true,.16);for(const k of ['drive','driveway','concrete','asphalt'])antiTile(MAT[k],false,.16);for(const k of ['brick','roof','slateRoof'])antiTile(MAT[k],false,.1);
 }
 // break up visible texture repeats: optionally blend in a second, rotated and rescaled sample of the same texture through a noise mask,

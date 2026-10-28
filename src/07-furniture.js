@@ -256,7 +256,7 @@ function bathMirror(tag,x,y,z,ry,w,h){const p=P(tag,x,y,z,ry);p.r('blackMetal',0
 function tub(tag,x0,x1,z0,z1,y){box(tag,'porcelain',x0,x1,y,y+1.7,z0,z0+.3);box(tag,'porcelain',x0,x1,y,y+1.7,z1-.3,z1);
   box(tag,'porcelain',x0,x0+.35,y,y+1.7,z0,z1);box(tag,'porcelain',x1-.35,x1,y,y+1.7,z0,z1);box(tag,'porcelain',x0,x1,y,y+.5,z0,z1);
   box(tag,'porcelain',x0+.33,x1-.33,y+.5,y+.6,z0+.28,z1-.28);addCol(x0,x1,z0,z1,y,y+1.7);}
-function showerTileWalls(tag,segs,y0,y1){for(const [x0,x1,z0,z1] of segs)box(tag,'showerTile',x0,x1,y0,y1,z0,z1);}
+function showerTileWalls(tag,segs,y0,y1,m){for(const [x0,x1,z0,z1] of segs)box(tag,m||'showerTile',x0,x1,y0,y1,z0,z1);}
 function showerHead(tag,x,y,z,dx,dz){const p=P(tag,x,y,z,0);p.c('steel',0,0,0,.03,.03,.6,8,Math.PI/2*Math.abs(dz),Math.PI/2*Math.abs(dx));
   addGeo(tag,'steel',new THREE.CylinderGeometry(.35,.25,.08,20),M(x+dx*.55,y-.15,z+dz*.55));addGeo(tag,'steel',new THREE.CylinderGeometry(.15,.15,.1,14),M(x,y-3.0,z));}
 function glassPanel(tag,ax,c,a0,a1,y0,y1){PIECES.push({tag,ax,a0,a1,c,t:.1,y0,y1,glass:true});if(ax==='x'){box(tag,'glass',a0,a1,y0,y1,c-.03,c+.03);box(tag,'steel',a0,a1,y1-.05,y1,c-.05,c+.05);addCol(a0,a1,c-.1,c+.1,y0,y1);}
@@ -507,22 +507,26 @@ function buildFurniture(){
   PH='1';
   art('2',-2.45,e2+6.3,18.18,Math.PI,2.2,1.6,'artLandscape','gold');
   // closet rods & shelves
-  for(const z of [13.15,18.15]){const s=z<15?1:-1;box('2','doorWhite',-21.2,-10.9,e2+5.6,e2+5.7,z,z+s*1.3);addGeo('2','steel',new THREE.CylinderGeometry(.04,.04,10.2,8),new THREE.Matrix4().makeRotationZ(Math.PI/2).setPosition(-16.05,e2+5.4,z+s*.8));
-    for(let x=-20.8;x<-11.4;x+=.55)box('2',['linen','doorGrey','pillowBlue','fabricCream'][Math.floor(Math.abs(x*7))%4],x,x+.3,e2+2.4,e2+5.3,z+s*.45,z+s*1.25);}
+  for(const z of [13.15,18.15]){const s=z<15?1:-1;box('2','doorWhite',-21.2,-12.9,e2+5.6,e2+5.7,z,z+s*1.3);addGeo('2','steel',new THREE.CylinderGeometry(.04,.04,8.2,8),new THREE.Matrix4().makeRotationZ(Math.PI/2).setPosition(-17.05,e2+5.4,z+s*.8));
+    for(let x=-20.8;x<-13.4;x+=.55)box('2',['linen','doorGrey','pillowBlue','fabricCream'][Math.floor(Math.abs(x*7))%4],x,x+.3,e2+2.4,e2+5.3,z+s*.45,z+s*1.25);}
   {const p=T('2',-7.75,e2,13.4,0);p.r('oakFurn',0,1.4,0,3.2,.2,1.1,.04);for(const s of [-1,1])p.b('oakFurn',s*1.4,0,0,.15,1.4,1.0);}
-  // primary bedroom
-  {const p=T('2',-3.85,e2,25.3,-Math.PI/2);bed(p,6.4,7.0,{head:'fabricGrey',throw:'linen'});}
-  for(const z of [21.1,29.5]){const p=T('2',-0.95,e2,z,-Math.PI/2);nightstand(p,'walnutDark');tableLamp(p,0,2.1,-.1,'ribbed');}
-  {const p=T('2',-8.4,e2,25.3,-Math.PI/2);p.r('linen',0,1.3,0,4.8,.35,1.4,.12);for(const s of [-1,1])p.b('walnutDark',s*2.2,0,0,.12,1.3,1.2);}
-  {const p=T('2',-12.6,e2,29.6,Math.PI/2);dresser(p,4.6,1.7,2.9,'walnutDark',{rows:3,cols:2});}
-  art('2',-0.35,e2+7.5,25.3,-Math.PI/2,3.2,2.2,'artBotanical','gold');
-  {const p=T('2',-5.6,e2,25.3,0,'primary suite rug');p.b('rugFamily',0,0,0,8,.04,10);}
-  // primary bath: double vanity, toilet by the frosted window, walk-in shower
-  {const p=T('2',-20.4,e2,21.6,Math.PI/2);p._tag='2';vanity(p,5.6,1.9,{mat:'cab',sinks:2});}
-  for(const z of [20.2,23.0])bathMirror('2',-21.15,e2+7.2,z,Math.PI/2,1.9,2.6);
-  {const p=T('2',-20.3,e2,26.15,Math.PI/2);toilet(p);}
-  showerTileWalls('2',[[-21.2,-19.65,32.1,32.2],[-15.15,-14.0,32.1,32.2],[-21.2,-21.1,28.9,32.2],[-14.1,-14.0,28.9,32.2]],e2,e2+7.6);showerTileWalls('2',[[-19.65,-15.15,32.1,32.2]],e2,e2+1.7);showerTileWalls('2',[[-19.65,-15.15,32.1,32.2]],e2+7.05,e2+7.6);
-  box('2','showerTile',-21.15,-14.05,e2,e2+.12,28.95,32.15);glassPanel('2','x',28.9,-19.0,-14.05,e2+.15,e2+7.0);showerHead('2',-17.6,e2+6.8,32.0,0,-1);
+  // primary bedroom (on the outside walls): the bed against the bath wall facing the west window, a dresser under that window
+  {const p=T('2',-11.25,e2,26.2,-Math.PI/2,'primary bed');bed(p,6.4,7.0,{head:'fabricGrey',throw:'linen'});}
+  for(const z of [22.0,30.4]){const p=T('2',-8.35,e2,z,-Math.PI/2,'primary nightstand');nightstand(p,'walnutDark');tableLamp(p,0,2.1,-.1,'ribbed');}
+  {const p=T('2',-15.8,e2,26.2,-Math.PI/2,'bed bench');p.r('linen',0,1.3,0,4.8,.35,1.4,.12);for(const s of [-1,1])p.b('walnutDark',s*2.2,0,0,.12,1.3,1.2);}
+  {const p=T('2',-20.35,e2,26.15,Math.PI/2,'primary dresser');dresser(p,4.6,1.7,2.9,'walnutDark',{rows:3,cols:2});}
+  art('2',-7.75,e2+7.5,26.2,-Math.PI/2,3.2,2.2,'artBotanical','gold');
+  {const p=T('2',-13.0,e2,26.2,0,'primary suite rug');p.b('rugFamily',0,0,0,8,.04,10);}
+  // primary bath (beside the existing bedroom): a 61" double vanity and the toilet on the east wall, and a curbless glassed wet room in dark
+  // grey tile under the frosted window, with a 60" x 30" freestanding tub along the south wall; the shower head and the way in are on the
+  // bedroom-wall side
+  {const p=T('2',-1.25,e2,21.25,-Math.PI/2,'double vanity');p._tag='2';vanity(p,5.1,1.9,{mat:'cab',sinks:2});}
+  for(const z of [19.97,22.53])bathMirror('2',-0.35,e2+7.2,z,-Math.PI/2,1.8,2.6);
+  {const p=T('2',-1.37,e2,24.95,-Math.PI/2,'toilet');toilet(p);}
+  {const dk='showerTileDark';showerTileWalls('2',[[-7.3,-4.75,32.1,32.2],[-1.75,-0.3,32.1,32.2],[-7.3,-7.2,26.4,32.2],[-0.4,-0.3,26.4,32.2]],e2,e2+7.6,dk);showerTileWalls('2',[[-4.75,-1.75,32.1,32.2]],e2,e2+2.0,dk);showerTileWalls('2',[[-4.75,-1.75,32.1,32.2]],e2+6.8,e2+7.6,dk);
+    box('2',dk,-7.25,-0.35,e2,e2+.04,26.45,32.15);}glassPanel('2','x',26.4,-4.8,-0.35,e2+.05,e2+7.0);showerHead('2',-7.2,e2+6.8,28.0,1,0);
+  {const p=T('2',-4.65,e2,30.6,0,'freestanding tub');p.g('porcelain',ovalGeo(2.5,1.25,1.85,.16),0,0,0,-Math.PI/2);p.g('porcelain',ovalGeo(2.4,1.15,.5),0,0,0,-Math.PI/2);
+    p.c('steel',2.85,0,0,.06,.07,3.1,12);p.c('steel',2.52,2.7,0,.04,.04,.7,10,0,Math.PI/2);p.c('steel',2.2,2.8,0,.05,.05,.25,10);p.col(0,0,5.3,2.6,0,1.85);}
   // ---------- plan 2 (the owner's office plan): office and primary bedroom in the addition, the old bedroom made the primary bath ----------
   PH='2';
   // office: desk under the west window with a desk chair, a reading chair and side table in the corner, a long low credenza on the south wall

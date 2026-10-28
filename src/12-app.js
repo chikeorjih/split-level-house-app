@@ -256,7 +256,9 @@ function caps(L,tags,cutY,noSwings){const cut=cutY||CUT[L],grp=new THREE.Group()
     const L2=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:c}));L2.renderOrder=6;grp.add(L2);}
   grp.visible=false;scene.add(grp);return grp;}
 // ---------------- view state ----------------
-const ORB={t:new THREE.Vector3(14,-4,17),th:Math.atan2(.18,1),ph:1.08,d:135,fov:38};
+// the starting 3/4 view: from the street, east of the garage and up high, as in the loading screen's photo (pulled back on a portrait screen)
+const ORB_HOME=()=>({t:new THREE.Vector3(24,-3,18),th:.7,ph:1.02,d:125*(innerWidth<innerHeight?Math.min(1.6,Math.sqrt(innerHeight/innerWidth)):1),fov:38});
+const ORB=ORB_HOME();
 const PLN={x:16,z:15,span:78};
 const WLK={x:22.3,z:34.6,f:-.5,yaw:0,pitch:-.05,vy:0,ground:true,inited:false};
 // ---------- floor plan on a blueprint: the ground gives way to a sheet of blueprint paper under the cut-open level, and a fixed
@@ -389,7 +391,7 @@ function setView(v){
   if(prev==='three'&&v==='plan'){if(ST.level==='all')ST.level=2;fitPlan();ORB_SAVED=snapOrb();ST.pending='plan';setVis();
     startCam(planPose(),()=>{ST.pending=null;ST.view='plan';ORB.fov=38;resize();setVis();},.9);return;}
   if(prev==='plan'&&v==='three'){const pp=planPose();Object.assign(ORB,{th:pp.th,ph:pp.ph,d:pp.d,fov:pp.fov});ORB.t.copy(pp.t);ST.view='three';
-    const to=ORB_SAVED?{...ORB_SAVED,t:ORB_SAVED.t.clone()}:{th:Math.atan2(.18,1),ph:1.08,d:135,t:new THREE.Vector3(14,-4,17),fov:38};to.t.y=ST.level==='all'?-5:E[ST.level];to.fov=38;
+    const to=ORB_SAVED?{...ORB_SAVED,t:ORB_SAVED.t.clone()}:ORB_HOME();to.t.y=ST.level==='all'?-5:E[ST.level];to.fov=38;
     resize();setVis();startCam(to,null,.9);return;}
   ST.view=v;if(v==='walk'&&!WLK.inited){WLK.inited=true;teleport({x:22.3,z:34.6,lv:3,yaw:0,out:true});}
   if(v==='plan'&&ST.level==='all')ST.level=2;

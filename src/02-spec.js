@@ -144,20 +144,20 @@ function buildSpec(){
   PH='a';
   W({lv:2,x0:A.x0,z0:A.z0,x1:0,z1:A.z0,t:TE,y0:-5.5,y1:3.95,isNew:true,ops:[win(-17.3,5.6,E2,1.0,7.6,2),win(-10.25,5.5,E2,1.0,7.6,2),win(-3.1,5.6,E2,1.0,7.6,2)],ext:{side:-1,mat:'brick'},bb:[[E2,1]]});
   W({lv:2,x0:0,z0:A.z0,x1:0,z1:0,t:TE,y0:-5.5,y1:3.95,isNew:true,ext:{side:1,mat:'brick'}});
-  W({lv:2,x0:A.x0,z0:A.z0,x1:A.x0,z1:A.z1,t:TE,y0:-5.5,y1:3.9,isNew:true,ops:[win(1.55,3.7,E2,1.0,7.6,2),win(5.65,3.9,E2,1.0,7.6,2),win(9.6,3.7,E2,1.0,7.6,2),op('frost',26.15,4.3,E2+4.4,2.9)],ext:{side:-1,mat:'brick'},bb:[[E2,1]],
+  W({lv:2,x0:A.x0,z0:A.z0,x1:A.x0,z1:A.z1,t:TE,y0:-5.5,y1:3.9,isNew:true,ops:[win(1.55,3.7,E2,1.0,7.6,2),win(5.65,3.9,E2,1.0,7.6,2),win(9.6,3.7,E2,1.0,7.6,2),win(26.15,4.3,E2,3.0,7.0,2)],ext:{side:-1,mat:'brick'},bb:[[E2,1]],
     p2:{ops:[win(1.55,3.7,E2,1.0,7.6,2),win(5.65,3.9,E2,1.0,7.6,2),win(9.6,3.7,E2,1.0,7.6,2),win(17.0,3.6,E2,3.0,7.0,2),win(26.75,9.6,E2,2.0,6.8,4)]}});   // (plan 2: the office window over the desk, and a run of windows along the bedroom)
-  W({lv:2,x0:A.x0,z0:A.z1,x1:0,z1:A.z1,t:TE,y0:-5.5,y1:4.6,isNew:true,ops:[Object.assign(win(-17.4,4.2,E2,2.0,6.8,2),{k:'frost',dh:true}),Object.assign(win(-6.65,4.6,E2,2.0,6.8,2),{dh:true})],ext:{side:1,mat:'brick'},bb:[[E2,-1]],
+  W({lv:2,x0:A.x0,z0:A.z1,x1:0,z1:A.z1,t:TE,y0:-5.5,y1:4.6,isNew:true,ops:[Object.assign(win(-16.9,4.2,E2,2.0,6.8,2),{dh:true}),Object.assign(win(-10.9,4.2,E2,2.0,6.8,2),{dh:true}),Object.assign(win(-3.25,3.0,E2,2.0,6.8,2),{k:'frost',dh:true})],ext:{side:1,mat:'brick'},bb:[[E2,-1]],
     p2:{ops:[Object.assign(win(-13.9,4.0,E2,2.0,6.8,2),{dh:true}),Object.assign(win(-8.1,4.0,E2,2.0,6.8,2),{dh:true})]}});   // (plan 2: the bedroom's two windows)
   W({lv:2,x0:0,z0:31.6,x1:0,z1:A.z1,t:TE,y0:-5.5,y1:4.6,isNew:true,ext:{side:1,mat:'brick'}});
   W({lv:2,x0:A.x0,z0:12.9,x1:-4.9,z1:12.9,y0:-4.5,y1:4.0,isNew:true,bb:[[E2,-1],[E2,1]]});
-  // plan 1: entry, walk-in closet, primary bedroom and bath
+  // plan 1: entry, walk-in closet (9'), the primary bedroom on the outside walls and the bath beside the existing bedroom
   PH='1';
-  W({lv:2,x0:-10.6,z0:12.9,x1:-10.6,z1:18.4,y0:-4.5,y1:3.5,isNew:true,ops:[op('open0',15.5,2.9,E2,6.9)]});
+  W({lv:2,x0:-12.6,z0:12.9,x1:-12.6,z1:18.4,y0:-4.5,y1:3.5,isNew:true,ops:[op('open0',15.5,2.9,E2,6.9)]});
   W({lv:2,x0:-4.9,z0:12.9,x1:-4.9,z1:18.4,y0:-4.5,y1:3.5,isNew:true,ops:[op('open0',15.6,3.8,E2,7.0)]});
-  W({lv:2,x0:A.x0,z0:18.4,x1:-10.6,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:A.x0,z0:18.4,x1:-12.6,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
   // (the gallery door is hinged on the office side, so it opens flat against the office wall, clear of the way to the bath)
-  W({lv:2,x0:-4.9,z0:18.4,x1:0,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
-  W({lv:2,x0:-13.7,z0:18.4,x1:-13.7,z1:A.z1,y0:-4.5,y1:3.5,isNew:true,ops:[door(24.45,2.6,E2,[-1,-1])],bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:-7.5,z0:18.4,x1:0,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});   // (runs 2.6' past the entry's east wall: the bath's north wall)
+  W({lv:2,x0:-7.5,z0:18.4,x1:-7.5,z1:A.z1,y0:-4.5,y1:3.5,isNew:true,ops:[door(19.95,2.4,E2,[-1,1])],bb:[[E2,-1],[E2,1]]});
   // plan 2 (the owner's office plan): an office behind the four-seasons room, a door from the gallery into the bedroom's entry, windows along
   // the bedroom's west wall; the existing bedroom (x 0.3-11.2, with its old closet) becomes the primary bath (the owner's layout): a 44" closet on its addition side,
   // the toilet on the family-room wall, two vanities facing each other, and a glassed wet room (tub and shower) across the window wall
@@ -184,7 +184,7 @@ function buildSpec(){
   F(3,23.6,35.6,26.2,31.3,'oak'); F(3,18.5,23.6,26.2,31.3,'slate'); F(3,20.0,23.6,19.6,26.2,'oak'); F(3,18.5,20.0,19.6,26.2,'oak');
   F(4,0.3,14.2,0.3,13.1,'oak'); F(4,0.3,14.2,13.1,16.4,'oak'); F(4,12.2,14.2,16.4,19.6,'oak');
   F(4,0.3,12.2,16.4,31.3,'oak'); F(4,12.2,17.3,19.6,26.8,'tileBath'); F(4,12.2,18.5,26.8,31.3,'tileBath');
-  PH='a';F(2,A.x0+0.3,0,A.z0+0.3,18.4,'oak');PH='1';F(2,-13.7,0,18.4,A.z1-0.3,'oak'); F(2,A.x0+0.3,-13.7,18.4,A.z1-0.3,'tileBath');PH='2';F(2,A.x0+0.3,0,18.4,A.z1-0.3,'oak');PH=null;
+  PH='a';F(2,A.x0+0.3,0,A.z0+0.3,18.4,'oak');PH='1';F(2,A.x0+0.3,-7.5,18.4,A.z1-0.3,'oak'); F(2,-7.5,0,18.4,A.z1-0.3,'tileBath');PH='2';F(2,A.x0+0.3,0,18.4,A.z1-0.3,'oak');PH=null;
   // garage slab
   F(3,35.9,53.8,10.9,31.3,'concrete',-0.5);
   // ---------- CEILINGS ----------
@@ -200,8 +200,8 @@ function buildSpec(){
   R(2,'Family room',"13'11\" × 19'1\"",0.3,14.2,0.3,19.6); PH='c1';R(2,'Bedroom',"13'2\" × 13'6\"",0.3,11.2,19.6,31.3);PH='2';R(2,'Primary bath',"13'2\" × 13'6\", old bedroom",4.2,11.2,24.3,31.3,true);R(2,'Primary bath','',4.2,11.2,19.6,24.3,true);R(2,'Primary bath','',0.3,4.2,19.6,23.2,true);R(2,'Primary bath','',11.2,13.6,23.1,31.3,true);R(2,'Bath closet','',0.3,4.2,23.2,31.3,true);PH=null;
   R(2,'Bath',"4'11\" × 8'3\"",13.6,18.5,23.1,31.3); R(2,'Hall','',11.2,16.4,19.6,23.1);
   R(2,'Four-seasons room',"21'8\" × 14'6\"",A.x0,-1.8,A.z0,12.9,true); R(2,'Gallery','',-4.9,0,12.9,18.4,true);
-  PH='1';R(2,'Entry',"5'8\" × 5'6\"",-10.6,-4.9,12.9,18.4,true); R(2,'Closet',"11' × 5'6\"",A.x0,-10.6,12.9,18.4,true);
-  R(2,'Primary bedroom',"13'8\" × 14'3\"",-13.7,0,18.4,A.z1,true); R(2,'Primary bath',"8' × 14'4\"",A.x0,-13.7,18.4,A.z1,true);
+  PH='1';R(2,'Entry',"7'8\" × 5'6\"",-12.6,-4.9,12.9,18.4,true); R(2,'Closet',"9' × 5'6\"",A.x0,-12.6,12.9,18.4,true);
+  R(2,'Primary bedroom',"13'6\" × 13'6\"",A.x0,-7.5,18.4,A.z1,true); R(2,'Primary bath',"7' × 13'6\"",-7.5,0,18.4,A.z1,true);
   PH='2';R(2,'Office',"15'8\" × 7'8\"",A.x0,-4.9,12.9,21.0,true);R(2,'Primary bedroom',"20'11\" × 10'5\" plus entry",A.x0,0,21.0,A.z1,true);R(2,'Primary bedroom','',-4.9,0,18.4,21.0,true);PH=null;
   R(3,'Living room',"18'5\" × 10'7\"",14.2,31.8,0.3,12.2); R(3,'Dining area',"12'0\" × 10'3\"",31.8,43.8,0.3,10.6);R(3,'Dining area','',31.8,35.6,10.6,12.4);
   R(3,'Kitchen',"22'2\" × 22'4\"",23.6,35.6,12.2,31.3); R(3,'Foyer',"5'11\" × 11'11\"",18.5,23.6,19.6,31.3);
