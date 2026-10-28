@@ -509,7 +509,7 @@ function layoutVars(){const st=document.documentElement.style,sh=$('sheet'),hud=
   const hb=hud?hud.getBoundingClientRect():null;st.setProperty('--hudT',(hb&&hb.height>0?Math.max(0,innerHeight-hb.top):0)+'px');}
 function bindLayout(){for(const b of $('sheet').querySelectorAll('.sh-tabs button'))b.addEventListener('click',()=>sheetOpen(b.dataset.pane));
   for(const mq of [PHONE,TABLET])(mq.addEventListener?mq.addEventListener('change',phoneLayout):mq.addListener&&mq.addListener(phoneLayout));
-  if(window.ResizeObserver){const ro=new ResizeObserver(layoutVars);ro.observe($('sheet'));ro.observe($('hud'));}addEventListener('resize',layoutVars);phoneLayout();bindFullscreen();}
+  if(window.ResizeObserver){const ro=new ResizeObserver(layoutVars);ro.observe($('sheet'));ro.observe($('hud'));}addEventListener('resize',layoutVars);phoneLayout();bindFullscreen();if(typeof tourBind==='function')tourBind();}
 // ---------- full screen: the top bar's button puts the whole app (page and panels) in full screen with the Fullscreen API (desktop, Android,
 // iPad; Safari before 16.4 only has the webkit-prefixed one). iPhone Safari has no full screen for pages, so there the button explains
 // Add to Home Screen, which opens the app without browser bars (the apple-mobile-web-app-capable meta). Hidden once running that way.
@@ -606,10 +606,12 @@ function bindInput(){const c=renderer.domElement;c.tabIndex=0;c.setAttribute('ar
 // ---------------- loop ----------------
 let last=performance.now(),lastSig='';
 function camSig(c){c.updateMatrixWorld();return c.matrixWorld.elements.map(v=>v.toFixed(4)).join()+c.projectionMatrix.elements.map(v=>v.toFixed(5)).join();}
-function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+function frame(now){const rdt=(now-last)/1000,dt=Math.min(.05,rdt);last=now;
   if(typeof PHOTO!=='undefined'&&PHOTO.busy){requestAnimationFrame(frame);return;}   // the Photo for Gemini capture is using the renderer
   animate(dt);updatePaper();
-  if(ST.view==='walk'){stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
+  // (the tour drives the cameras, on real time so it keeps its length when Ultra drops frames; walking and its collisions are off meanwhile)
+  if(typeof TOUR!=='undefined'&&TOUR.on)tourStep(Math.min(.25,rdt));
+  if(ST.view==='walk'){if(!(typeof TOUR!=='undefined'&&TOUR.on))stepWalk(dt);updateWalkCam();fitShadow(false);}else if(ST.view==='three')updateOrbitCam();else updatePlanCam();
   updateFog();
   giFrame(now);updateLampPool();updateGlassEnv(false);furnShadowSync();
   const cam=activeCam(),sig=camSig(cam);if(sig!==lastSig){lastSig=sig;PIPE.n=0;LOOK.lastMove=now;}

@@ -100,6 +100,23 @@ test('the Current / Addition switch shows one state at a time', async ({ page })
   expect(seen).toMatchObject({ pressed: 'true', stored: 'current', suiteA: true, suiteC: false, balconyC: true });
 });
 
+test('the tour plays every part, cycles the light, ends on the addition and puts the view back', async ({ page }) => {
+  const errors = await openApp(page);
+  const before = await page.evaluate(() => ({ view: ST.view, preset: LOOK.preset, ph: HOUSE.ph }));
+  // (the tour is stepped here frame by frame, 50 ms at a time, without waiting for renders: software rendering takes seconds a frame)
+  const run = await page.evaluate(() => { document.getElementById('tTour').click(); const L = new Set(), S = new Set(); let n = 0;
+    while (TOUR.on && n < 5000) { tourStep(.05); L.add(LOOK.preset); S.add(HOUSE.ph); n++; }
+    return { lights: [...L], states: [...S], seconds: n * .05 }; });
+  const lights = new Set(run.lights), states = new Set(run.states);
+  expect(run.seconds).toBeGreaterThan(85); expect(run.seconds).toBeLessThan(110);
+  const after = await page.evaluate(() => ({ view: ST.view, preset: LOOK.preset, ph: HOUSE.ph, on: TOUR.on, seen: TOUR.seen, parts: TOUR_SEGS.length, touring: document.documentElement.classList.contains('touring') }));
+  expect(errors).toEqual([]);
+  expect(after.on).toBe(false); expect(after.touring).toBe(false);
+  expect(after.seen).toEqual([...Array(after.parts).keys()]);
+  expect(lights.size).toBeGreaterThanOrEqual(4); expect(states.has('a')).toBe(true);
+  expect({ view: after.view, preset: after.preset, ph: after.ph }).toEqual(before);
+});
+
 test('Debug IDs point at the code that builds each element', async ({ page }) => {
   await openApp(page);
   const refs = await page.evaluate(() => [...REG.values()].filter(e => e.loc && ['wall', 'floor', 'ceiling', 'furniture'].includes(e.kind))

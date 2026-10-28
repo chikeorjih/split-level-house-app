@@ -98,6 +98,10 @@
 <div id="todBusy" role="status" aria-label="Loading" hidden><div class="busyBox"><span class="busy"></span><p id="busyText"></p></div></div>
 <div id="err" class="panel"></div>
 <div id="status" role="status" aria-live="polite"><span class="sdot" aria-hidden="true"></span><span class="stext"><b id="statusText"></b> <small id="statusHint"></small></span><span id="statusPct"></span><i class="sbar" aria-hidden="true"><b></b></i></div>
+<div id="tour" hidden><div id="tourFade"></div>
+  <div id="tourCard" class="panel" role="region" aria-label="Tour" aria-live="polite"><div class="tour-text"><strong id="tourCap"></strong><span id="tourSub"></span></div>
+    <div class="tour-ctl"><button id="tourPrev" aria-label="Previous part">‹</button><button id="tourPlay" aria-label="Pause">❚❚</button><button id="tourNext" aria-label="Next part">›</button><button id="tourExit">Exit tour</button></div>
+    <i class="tour-bar" aria-hidden="true"><b id="tourBar"></b></i></div></div>
 <div id="notice" role="alert" hidden><p id="noticeText"></p><button id="noticeX" aria-label="Dismiss">&times;</button></div>
 
 <div id="bar" class="panel">
@@ -108,6 +112,7 @@
     <button data-view="plan" aria-pressed="false">Floor plan</button>
     <button data-view="three" aria-pressed="true">¾ view</button>
   </div>
+  <button id="tTour" class="tourbtn" title="A 90-second guided flythrough of the house: Space pauses, the arrow keys skip, Esc stops">▶ Tour</button>
   <div class="seg st" role="group" aria-label="House"><button data-state="c" aria-pressed="false" title="The house as it stands today: the balcony off the family room, no addition">Current</button><button data-state="a" aria-pressed="true" title="With the four-seasons room and primary suite, and the new deck off the dining room">Addition</button></div>
   <div class="barend">
     <label class="field">Light <select id="tod"></select></label>
@@ -206,5 +211,6 @@
 <script type="text/x-app" src="src/13-models.js"></script>
 <script type="text/x-app" src="src/14-photo.js"></script>
 <script type="text/x-app" src="src/15-pathtrace.js"></script>
+<script type="text/x-app" src="src/16-tour.js"></script>
 </body>
 </html>

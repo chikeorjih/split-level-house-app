@@ -321,3 +321,19 @@ html.phone #dbg,html.phone #arr{bottom:calc(var(--sheetT,72px) + 10px);left:8px;
 .sh-pane .barend .seg.q{display:flex;width:100%}.sh-pane .barend .seg.q button{flex:1;text-align:center}
 .sh-pane #tPhoto{align-self:flex-start}
 .ld-diag{display:inline-block;margin-top:6px;font-size:10.5px;color:#888;word-break:break-all}
+/* ---------- Tour mode (16-tour.js): the panels give way to a caption card with controls; a black layer fades between the tour's parts */
+.tourbtn{all:unset;box-sizing:border-box;cursor:pointer;padding:6px 13px;border-radius:7px;font-size:13px;font-weight:600;color:#fff;background:var(--blue);white-space:nowrap}
+.tourbtn:hover{filter:brightness(1.08)}.tourbtn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+html.touring #bar,html.touring #top,html.touring #levels,html.touring #hud,html.touring #labels,html.touring #status,html.touring #arr,html.touring #dbg,html.touring #sheet,html.touring #joy{display:none!important}
+html.touring canvas{pointer-events:none}
+#tour{position:fixed;inset:0;z-index:60;pointer-events:none}#tour[hidden]{display:none}
+#tourFade{position:absolute;inset:0;background:#000;opacity:0}
+#tourCard{pointer-events:auto;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(560px,calc(100vw - 32px));box-sizing:border-box;
+  padding:12px 14px 10px;border-radius:12px;display:flex;flex-direction:column;gap:9px}
+#tourCard.fresh .tour-text{animation:tourIn .6s ease-out}@keyframes tourIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.tour-text strong{display:block;font-size:17px;font-weight:650}.tour-text span{display:block;margin-top:2px;font-size:13px;color:var(--ink-2)}
+.tour-ctl{display:flex;gap:6px;align-items:center}
+.tour-ctl button{all:unset;box-sizing:border-box;cursor:pointer;min-width:34px;text-align:center;padding:5px 11px;border:1px solid var(--line);border-radius:7px;font-size:13px;color:var(--ink)}
+.tour-ctl button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}#tourExit{margin-left:auto}
+.tour-bar{display:block;height:3px;border-radius:2px;background:var(--line);overflow:hidden}.tour-bar b{display:block;height:100%;width:0;background:var(--blue)}
+@media (prefers-reduced-motion:reduce){#tourCard.fresh .tour-text{animation:none}}
