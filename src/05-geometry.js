@@ -74,8 +74,11 @@ function polyWall(tag,mat,axis,c,t,pts,flags){const sh=new THREE.Shape();pts.for
 // walk-through openings sit on the floor: the wall under them stops just short of it, so its top face does not flicker against the floor
 const DOORISH=new Set(['open','open0','door','door2','gdoor','dbl','slide','closet','garage']);
 function wallBuild(w){
-  // a wall that differs as it stands (cur: its openings, cladding...) is built twice, once per state; a wall of one state is built in it
-  if(w.cur){phase('a',()=>wallBuild(Object.assign({},w,{cur:null,ph:'a'})));phase('c',()=>wallBuild(Object.assign({},w,w.cur,{cur:null,ph:'c'})));return;}
+  // a wall that differs as it stands (cur: its openings, cladding...) is built twice, once per state; one that differs in the addition's
+  // plan 2 (p2) is built for plan 1 (with the current state too, when it doesn't differ there) and plan 2; a wall of one state is built in it
+  if(w.cur||w.p2){const b=Object.assign({},w,{cur:null,p2:null}),k=w.p2?(w.cur||w.ph==='a'?'1':'c1'):'a';
+    phase(k,()=>wallBuild(Object.assign({},b,{ph:k})));if(w.p2)phase('2',()=>wallBuild(Object.assign({},b,w.p2,{ph:'2'})));
+    if(w.cur)phase('c',()=>wallBuild(Object.assign({},b,w.cur,{ph:'c'})));return;}
   if(w.ph&&PH!==w.ph){phase(w.ph,()=>wallBuild(w));return;}
   const ax=(w.z0===w.z1)?'x':'z';const a0=Math.min(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1),a1=Math.max(ax==='x'?w.x0:w.z0,ax==='x'?w.x1:w.z1);
   const c=ax==='x'?w.z0:w.x0,t=w.t,tag=String(w.lv);

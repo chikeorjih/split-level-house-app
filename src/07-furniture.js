@@ -357,11 +357,13 @@ function buildFurniture(){
   // (in beamWood: the Fine Grained Wood photo of the addition's patio posts)
   for(const z of [0.55,4.6,8.9,13.2,17.5])box('C2','beamWood',0.3,14.2,CEIL[2]-.62,CEIL[2],z-.32,z+.32);
   box('C2','beamWood',0.4,1.05,CEIL[2]-.62,CEIL[2],0.3,19.6);box('C2','beamWood',13.5,14.15,CEIL[2]-.62,CEIL[2],0.3,19.6);
-  // ================= EXISTING BEDROOM (level 2) =================
+  // ================= EXISTING BEDROOM (level 2; the primary bath in the addition's plan 2) =================
+  PH='c1';
   {const p=T('2',3.95,e2,25.5,Math.PI/2);bed(p,5,6.8,{});}
   for(const z of [21.75,29.25]){const p=T('2',1.25,e2,z,Math.PI/2);nightstand(p);tableLamp(p,0,2.1,-.1,'black');}
   {const p=T('2',5.6,e2,20.55,0);dresser(p,4.4,1.6,2.9,'oakFurn',{rows:3,cols:2});}
   art('2',0.62,e2+7.3,25.5,Math.PI/2,2.6,2.0,'artLandscape','gold');
+  PH=null;
   // ================= BATH (level 2): vanity, toilet, shower =================
   {const p=T('2',17.55,e2,25.4,-Math.PI/2);p._tag='2';vanity(p,2.6,1.8,{mat:'doorWhite',tap:'steel'});}
   bathMirror('2',18.25,e2+7.0,25.4,-Math.PI/2,2.0,2.6);
@@ -500,7 +502,10 @@ function buildFurniture(){
   {const p=T('2',-11.4,e2,5.9,0,'four-seasons rug');p.b('rugLiving',0,0,0,11,.04,8.2);}
   {const p=T('2',-11.4,e2,9.7,Math.PI,'four-seasons sofa');sofa(p,8.2,3.0,{mat:'fabricGrey',pillows:['pillowBlue','pillowOchre','pillowCream']});}
   {const p=T('2',-14.3,e2,2.6,.25);loungeChair(p,'fabricCream');} {const p=T('2',-8.5,e2,2.6,-.25);loungeChair(p,'fabricCream');}
-  coffeeTable(T('2',-11.4,e2,6.1,0),4.2,2.2);  art('2',-2.45,e2+6.3,18.18,Math.PI,2.2,1.6,'artLandscape','gold');
+  coffeeTable(T('2',-9.4,e2,4.77,0),4.2,2.2);
+  // ---------- plan 1: the suite (entry, walk-in closet, primary bedroom and bath) ----------
+  PH='1';
+  art('2',-2.45,e2+6.3,18.18,Math.PI,2.2,1.6,'artLandscape','gold');
   // closet rods & shelves
   for(const z of [13.15,18.15]){const s=z<15?1:-1;box('2','doorWhite',-21.2,-10.9,e2+5.6,e2+5.7,z,z+s*1.3);addGeo('2','steel',new THREE.CylinderGeometry(.04,.04,10.2,8),new THREE.Matrix4().makeRotationZ(Math.PI/2).setPosition(-16.05,e2+5.4,z+s*.8));
     for(let x=-20.8;x<-11.4;x+=.55)box('2',['linen','doorGrey','pillowBlue','fabricCream'][Math.floor(Math.abs(x*7))%4],x,x+.3,e2+2.4,e2+5.3,z+s*.45,z+s*1.25);}
@@ -518,6 +523,40 @@ function buildFurniture(){
   {const p=T('2',-20.3,e2,26.15,Math.PI/2);toilet(p);}
   showerTileWalls('2',[[-21.2,-19.65,32.1,32.2],[-15.15,-14.0,32.1,32.2],[-21.2,-21.1,28.9,32.2],[-14.1,-14.0,28.9,32.2]],e2,e2+7.6);showerTileWalls('2',[[-19.65,-15.15,32.1,32.2]],e2,e2+1.7);showerTileWalls('2',[[-19.65,-15.15,32.1,32.2]],e2+7.05,e2+7.6);
   box('2','showerTile',-21.15,-14.05,e2,e2+.12,28.95,32.15);glassPanel('2','x',28.9,-19.0,-14.05,e2+.15,e2+7.0);showerHead('2',-17.6,e2+6.8,32.0,0,-1);
+  // ---------- plan 2 (the owner's office plan): office and primary bedroom in the addition, the old bedroom made the primary bath ----------
+  PH='2';
+  // office: desk under the west window with a desk chair, a reading chair and side table in the corner, a long low credenza on the south wall
+  {const p=T('2',-19.9,e2,17.6,Math.PI/2,'office desk');p.r('walnutWarm',0,2.35,0,4.6,.13,2.0,.03);p.b('walnutWarm',1.35,1.75,-.05,1.5,.6,1.8);
+    for(const [x,z] of [[-2.2,-.88],[-2.2,.88],[2.2,-.88],[2.2,.88]])p.b('blackMetal',x,0,z,.12,2.35,.12);p.b('blackMetal',-.45,1.95,-.88,3.4,.4,.06);
+    p.b('black',-.3,2.48,.15,1.15,.04,.8);p.b('black',-.3,2.52,-.25,1.15,.75,.04,-.25);tableLamp(p,1.55,2.48,-.55,'black');p.col(0,0,4.6,2.0,0,2.5);}
+  {const p=T('2',-17.9,e2,17.6,-Math.PI/2,'desk chair');p.c('blackMetal',0,.12,0,.05,.05,1.05,10);
+    for(let i=0;i<5;i++){const a=i*Math.PI*2/5;p.b('blackMetal',Math.sin(a)*.5,.08,Math.cos(a)*.5,.09,.07,1.0,a);p.c('black',Math.sin(a)*.95,0,Math.cos(a)*.95,.07,.07,.12,10);}
+    p.r('leather',0,1.2,.05,1.65,.3,1.6,.12);p.r('leather',0,1.55,-.78,1.55,1.6,.24,.12);p.b('blackMetal',0,1.15,-.7,.12,.5,.12);p.col(0,0,2.0,2.0,0,3.2);}
+  {const p=T('2',-19.4,e2,14.6,Math.PI/4,'office reading chair');loungeChair(p,'fabricCream');}
+  {const p=T('2',-17.1,e2,13.75,0,'office side table');p.c('blackMetal',0,0,0,.4,.42,.05,24);p.c('blackMetal',0,.05,0,.06,.06,1.7,10);p.c('walnutWarm',0,1.75,0,.72,.72,.08,32);p.col(0,0,1.45,1.45,0,1.85);}
+  {const p=T('2',-11.05,e2,20.15,Math.PI,'office credenza');dresser(p,10.0,1.3,2.3,'walnutWarm',{rows:2,cols:5,pull:'blackMetal'});}
+  art('2',-11.05,e2+5.4,20.75,Math.PI,4.4,2.4,'artLandscape','oakLight');
+  {const p=T('2',-11.6,e2,16.6,0,'office rug');p.b('rugLiving',0,0,0,8,.04,5);}
+  // primary bedroom: the bed against the office wall between nightstands, a dresser on the east wall, two chairs by the windows
+  {const p=T('2',-11.8,e2,25.0,0,'primary bed');bed(p,6.4,7.0,{head:'fabricGrey',throw:'linen'});}
+  for(const x of [-16.15,-7.45]){const p=T('2',x,e2,22.0,0,'primary nightstand');nightstand(p,'walnutDark');tableLamp(p,0,2.1,-.1,'ribbed');}
+  {const p=T('2',-1.15,e2,26.0,-Math.PI/2,'primary dresser');dresser(p,4.6,1.7,2.9,'walnutDark',{rows:3,cols:2});}
+  for(const [x,ry] of [[-5.7,Math.PI+.3],[-2.5,Math.PI-.3]]){const p=T('2',x,e2,30.0,ry,'primary bedroom armchair');loungeChair(p,'fabricCream');}
+  art('2',-11.8,e2+6.0,21.25,0,4.0,2.0,'artBotanical','gold');
+  {const p=T('2',-11.8,e2,26.4,0,'primary bedroom rug');p.b('rugFamily',0,0,0,10,.04,8);}
+  // primary bath (the old bedroom, the owner's layout): the toilet on the family-room wall, two 33.5" x 22" vanities facing
+  // each other (the hall-side one flush in the old closet's corner), and a curbless glassed wet room across the window wall with a
+  // 60" x 30" freestanding tub along the bath closet (its floor filler on the room side) and an open shower on the hall side
+  {const p=T('2',9.4,e2,20.9,0,'toilet');toilet(p);}
+  for(const [x,ry] of [[5.32,Math.PI/2],[12.48,-Math.PI/2]]){const p=T('2',x,e2,24.75,ry,'vanity');p._tag='2';vanity(p,2.8,1.83,{mat:'cab',sinks:1});}
+  bathMirror('2',4.45,e2+7.0,24.75,Math.PI/2,1.9,2.6);bathMirror('2',13.35,e2+7.0,24.75,-Math.PI/2,1.9,2.6);
+  showerTileWalls('2',[[4.4,4.5,26.2,31.3],[13.3,13.4,26.2,31.3],[4.4,5.7,31.2,31.3],[10.3,13.4,31.2,31.3]],e2,e2+7.2);showerTileWalls('2',[[5.7,10.3,31.2,31.3]],e2,e2+2.6);
+  box('2','showerTile',4.4,13.4,e2,e2+.04,26.2,31.3);glassPanel('2','x',26.2,4.5,8.0,e2+.05,e2+6.9);glassPanel('2','x',26.2,10.0,13.3,e2+.05,e2+6.9);showerHead('2',13.3,e2+6.8,28.75,-1,0);
+  {const p=T('2',5.8,e2,28.75,Math.PI/2,'freestanding tub');p.g('porcelain',ovalGeo(2.5,1.25,1.85,.16),0,0,0,-Math.PI/2);p.g('porcelain',ovalGeo(2.4,1.15,.5),0,0,0,-Math.PI/2);
+    p.c('steel',0,0,1.6,.06,.07,3.1,12);p.c('steel',0,2.7,1.27,.04,.04,.7,10,Math.PI/2);p.c('steel',0,2.8,.95,.05,.05,.25,10);p.col(0,0,5.3,2.6,0,1.85);}
+  // bath closet: shelf, rod and clothes along its west wall
+  box('2','doorWhite',0.3,2.3,e2+5.6,e2+5.7,23.4,31.3);addGeo('2','steel',new THREE.CylinderGeometry(.04,.04,7.9,8),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(1.3,e2+5.4,27.35));
+  for(let z=23.7;z<31.0;z+=.55)box('2',['linen','doorGrey','pillowBlue','fabricCream'][Math.floor(Math.abs(z*7))%4],0.9,1.7,e2+2.4,e2+5.3,z,z+.3);
   PH=null;
   // ================= THE PATIO AS IT STANDS (current state; under the four-seasons room once it is built) =================
   // grey-brown wicker sofa and two armchairs with white cushions round a wood coffee table on a blue and white rug (the listing photo)
@@ -595,5 +634,5 @@ function buildFurniture(){
   // washer and dryer side by side against the laundry's west wall (W18, x 18.5), facing into the room
   {const p=T('1',20.1,e1,29.9,Math.PI/2,'washer');washer(p,false);} {const p=T('1',20.1,e1,27.5,Math.PI/2,'dryer');washer(p,true);}
   for(const inst of INSTS){const b=inst.grp;if(b.isEmpty())continue;const h=b.max.y-b.min.y,a=(b.max.x-b.min.x)*(b.max.z-b.min.z);if(h<.35||a>140||a<.04)continue;
-    const r=[b.min.x+.08,b.max.x-.08,b.min.z+.08,b.max.z-.08];inst.cols.push({c:addCol(r[0],r[1],r[2],r[3],b.min.y,b.max.y),r});}
+    const r=[b.min.x+.08,b.max.x-.08,b.min.z+.08,b.max.z-.08];inst.cols.push({c:phase(inst.ph,()=>addCol(r[0],r[1],r[2],r[3],b.min.y,b.max.y)),r});}   // (in the piece's house state)
 }

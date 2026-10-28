@@ -76,12 +76,14 @@ function syncWashed(){WASHED.forEach((w,b)=>{for(const k of ['map','normalMap','
 function ghostOf(tag){let g=GHOST.get(tag);if(!g){g=new THREE.MeshStandardMaterial({color:0xf3f1ec,roughness:1,transparent:true,depthWrite:false,side:THREE.DoubleSide,clippingPlanes:CLIPS,clipShadows:true});GHOST.set(tag,g);}return g;}
 // ---------- the house's two states (Current / Addition, HOUSE.ph): switching wipes the house down and builds it back up in the other state,
 // as the cutaway's walls build up: a level plane (CLIP_PH, in every house material) sinks to the patio, the state's meshes swap while it is
-// down there, and it rises again (to the cut, when a level is cut open). The ground stays.
+// down there, and it rises again (to the cut, when a level is cut open). The ground stays. The addition's floor plan (HOUSE.plan) switches
+// the same way.
 const PH_TOP=32,PH_BOT=-16.3;let PHT=null;
-const phShown=p=>!p||p===(PHT&&!PHT.swapped?PHT.out:HOUSE.ph);
-function setHouseState(s){s=s==='c'||s==='current'?'c':'a';if(PHT){PHT.t=PHT.dur;animate(0);}if(s===HOUSE.ph)return;
-  const out=HOUSE.ph;HOUSE.ph=s;try{localStorage.setItem('houseState',s==='c'?'current':'addition');}catch(e){}
-  PHT={out,in:s,t:0,dur:2.2,swapped:false};phRefresh();updateUI();shadowDirty=true;dirty=true;}
+const phShown=p=>phIn(p,PHT&&!PHT.swapped?PHT.out:phKey());
+function phSwitch(set){if(PHT){PHT.t=PHT.dur;animate(0);}const out=phKey();set();updateUI();if(phKey()===out)return;
+  PHT={out,in:phKey(),t:0,dur:2.2,swapped:false};phRefresh();updateUI();shadowDirty=true;dirty=true;}
+function setHouseState(s){s=s==='c'||s==='current'?'c':'a';phSwitch(()=>{HOUSE.ph=s;try{localStorage.setItem('houseState',s==='c'?'current':'addition');}catch(e){}});}
+function setHousePlan(p){p=p==='2'||p==='office'?'2':'1';phSwitch(()=>{HOUSE.plan=p;try{localStorage.setItem('housePlan',p);}catch(e){}});}
 // (the top the wipe starts from and returns to: the cut, or above the roof)
 const phTop=()=>CLIP_TOP.constant<1e4?Math.min(PH_TOP,CLIP_TOP.constant):PH_TOP;
 // what follows the state at once: the plan's cut walls, the cutaway's shadow stand-in, the room list, the lamps, the room light
@@ -424,9 +426,9 @@ function updateWalkCam(){camW.position.set(WLK.x,WLK.f+5.25,WLK.z);camW.rotation
 function activeCam(){return ST.view==='walk'?camW:ST.view==='plan'?camP:camO;}
 // ---------------- walking ----------------
 const STEP=1.05,RAD=.75,HEAD=5.8;
-function groundAt(x,z,f){let best=-1e9;for(const w of WALKS)if((!w.ph||w.ph===HOUSE.ph)&&x>=w.x0&&x<=w.x1&&z>=w.z0&&z<=w.z1&&w.top<=f+STEP&&w.top>best)best=w.top;
+function groundAt(x,z,f){let best=-1e9;for(const w of WALKS)if(phOn(w.ph)&&x>=w.x0&&x<=w.x1&&z>=w.z0&&z<=w.z1&&w.top<=f+STEP&&w.top>best)best=w.top;
   if(!inFoot(x,z)){const t=terrainH(x,z,HOUSE.ph==='c');if(t<=f+STEP&&t>best)best=t;}if(best<-1e8)best=terrainH(x,z);return best;}
-function blocked(x,z,f){for(const c of COLS)if((!c.ph||c.ph===HOUSE.ph)&&c.y1>f+STEP&&c.y0<f+HEAD&&x+RAD>c.x0&&x-RAD<c.x1&&z+RAD>c.z0&&z-RAD<c.z1)return true;return false;}
+function blocked(x,z,f){for(const c of COLS)if(phOn(c.ph)&&c.y1>f+STEP&&c.y0<f+HEAD&&x+RAD>c.x0&&x-RAD<c.x1&&z+RAD>c.z0&&z-RAD<c.z1)return true;return false;}
 function teleport(o){let x=o.x,z=o.z;let f=o.f!==undefined?o.f:(o.out?groundAt(x,z,(o.lv?E[o.lv]:0)+.5):E[o.lv]);
   if(!o.out){f=groundAt(x,z,E[o.lv]+.5);}
   if(blocked(x,z,f)){outer:for(let r=.5;r<6;r+=.5)for(let a=0;a<6.28;a+=.4){const nx=x+Math.cos(a)*r,nz=z+Math.sin(a)*r,nf=groundAt(nx,nz,f+.5);if(Math.abs(nf-f)<1&&!blocked(nx,nz,nf)){x=nx;z=nz;f=nf;break outer;}}}
@@ -477,7 +479,7 @@ function whereText(){if(ST.view==='walk'){let best=null;for(const r of SPEC.room
   if(ST.levels.length>1)return ST.levels.slice().reverse().map(l=>LEVEL_NAMES[l].replace(/ level$/,'')).join(' + ')+' levels, cut open';
   return ST.cutL?LEVEL_NAMES[ST.cutL]+', cut open':'Whole house';}
 let lastWhere='';
-function updateUI(){document.querySelectorAll('.seg button[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===HOUSE.ph)));{const b=$('lvlAdd');if(b)b.style.display=HOUSE.ph==='c'?'none':'';}{const b=$('tPhoto');if(b)b.style.display=(ST.pending||ST.view)==='walk'?'':'none';}document.querySelectorAll('.seg button[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===(ST.pending||ST.view))));
+function updateUI(){document.querySelectorAll('.seg button[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===HOUSE.ph)));document.querySelectorAll('.seg button[data-plan]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.plan===HOUSE.plan)));{const g=$('planSeg');if(g)g.hidden=HOUSE.ph==='c';}{const b=$('lvlAdd');if(b)b.style.display=HOUSE.ph==='c'?'none':'';}{const b=$('tPhoto');if(b)b.style.display=(ST.pending||ST.view)==='walk'?'':'none';}document.querySelectorAll('.seg button[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===(ST.pending||ST.view))));
   const active=ST.view==='walk'?null:(ST.view==='plan'?ST.cutL:ST.level);
   document.querySelectorAll('#section .lvl').forEach(b=>b.setAttribute('aria-pressed',String(ST.view==='three'?ST.levels.includes(+b.dataset.lv):String(active)===b.dataset.lv)));
   $('allbtn').setAttribute('aria-pressed',String(ST.view==='three'&&ST.level==='all'));
@@ -565,7 +567,7 @@ function buildUI(){
   $('arrCopyAll').addEventListener('click',()=>arrCopy(true));$('arrBake').addEventListener('click',arrBake);$('arrResetAll').addEventListener('click',()=>{for(const i of INSTS)if(i.dx||i.dz||i.ry)arrReset(i);});$('dbgCopy').addEventListener('click',dbgCopy);$('dbgDel').addEventListener('click',dbgDelete);$('dbgClose').addEventListener('click',()=>dbgSelect(null));
   // the side panels sit just under the top bar, however many rows it wraps to
   {const bar=$('bar'),f=()=>document.documentElement.style.setProperty('--barB',(bar.getBoundingClientRect().bottom+12)+'px');if(window.ResizeObserver)new ResizeObserver(f).observe(bar);f();}
-  document.querySelectorAll('.seg button[data-state]').forEach(b=>b.addEventListener('click',()=>setHouseState(b.dataset.state)));
+  document.querySelectorAll('.seg button[data-state]').forEach(b=>b.addEventListener('click',()=>setHouseState(b.dataset.state)));document.querySelectorAll('.seg button[data-plan]').forEach(b=>b.addEventListener('click',()=>setHousePlan(b.dataset.plan)));
   buildGoto();$('goto').addEventListener('change',()=>{const sel=$('goto');if(sel.value==='')return;teleportRoom(SPEC.allRooms[+sel.value]);sel.value='';sel.blur();});
 }
 // the Jump to list: the shown state's rooms (values index SPEC.allRooms)

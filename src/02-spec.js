@@ -11,12 +11,22 @@ const LEVEL_NAMES = {1:'Lower level', 2:'Family room level', 3:'Main level', 4:'
 // family room's west windows, a plain dining-room wall, and the lower level's closets. Whatever is built while PH is set belongs to that
 // state only: its tag gets a suffix ('2+' addition only, '2-' current only), so it is a mesh of its own that the state shows or hides
 // (setHouseState in 12-app.js), and the collision boxes, walkable tops, plan pieces, doors and lamps recorded meanwhile carry .ph.
+// The addition has two floor plans (HOUSE.plan, setHousePlan): '1' the primary suite in the addition (bedroom, bath and walk-in closet);
+// '2' an office and the primary bedroom in the addition, with the family-room level's existing bedroom made the primary bath. So .ph is
+// 'c' (current), 'a' (the addition, either plan), '1' or '2' (that plan only) or 'c1' (current and plan 1: the existing bedroom); the
+// plan-only states' tags end in '@1', '@2', '@c1'.
 const HOUSE={ph:(()=>{const q=new URLSearchParams(location.search).get('state');let v=null;try{v=localStorage.getItem('houseState');}catch(e){}
-  v=q||v;return v==='current'||v==='c'?'c':'a';})()};
+  v=q||v;return v==='current'||v==='c'?'c':'a';})(),
+  plan:(()=>{const q=new URLSearchParams(location.search).get('plan');let v=null;try{v=localStorage.getItem('housePlan');}catch(e){}
+  v=q||v;return v==='2'||v==='office'?'2':'1';})()};
 let PH=null;
 const phase=(p,fn)=>{const q=PH;PH=p;try{return fn();}finally{PH=q;}};
-const phTag=t=>PH?t+(PH==='a'?'+':'-'):t,tagPh=t=>{const c=String(t).slice(-1);return c==='+'?'a':c==='-'?'c':null;},tagBase=t=>tagPh(t)?t.slice(0,-1):t;
-const phOn=p=>!p||p===HOUSE.ph;
+const phTag=t=>PH?t+(PH==='a'?'+':PH==='c'?'-':'@'+PH):t,tagPh=t=>{const s=String(t),m=/@(\w+)$/.exec(s);if(m)return m[1];const c=s.slice(-1);return c==='+'?'a':c==='-'?'c':null;},
+  tagBase=t=>{const s=String(t),m=/@\w+$/.exec(s);return m?s.slice(0,m.index):tagPh(s)?s.slice(0,-1):s;};
+// the state shown (phKey): 'c', or the addition's plan '1' / '2'; phIn: is a thing of state p shown in k ('a': in either addition plan)
+const phKey=()=>HOUSE.ph==='c'?'c':HOUSE.plan;
+const phIn=(p,k)=>!p||(k==='c'?p.includes('c'):k==='a'?p!=='c':p==='a'||p.includes(k));
+const phOn=p=>phIn(p,phKey());
 // lists whose entries are stamped with the state being built when they are added
 const phStamp=a=>{a.push=function(...x){for(const o of x)if(o&&typeof o==='object'&&o.ph===undefined)o.ph=PH;return Array.prototype.push.apply(this,x);};return a;};
 function buildSpec(){
@@ -42,6 +52,7 @@ function buildSpec(){
   // L2 west wall: now an interior wall shared with the addition. Existing door stays (1); window beside fireplace becomes a door (2); bedroom window covered (3).
   // As it stands (cur): an outside brick wall; the door (1) opens onto the balcony, with the window (2) and the bedroom window (3) in it.
   W({lv:2,x0:0,z0:0,x1:0,z1:31.6,t:0.6,y0:-5.5,y1:3.5,ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),op('door',15.8,2.9,E2,6.9,{sw:[1,-1],isNew:true})],bb:[[E2,1],[E2,-1]],paint:[{side:1,a0:0.3,a1:19.6,y0:E2,y1:CEIL[2],mat:'wallCream'}],
+    p2:{ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),op('door',15.8,2.9,E2,6.9,{sw:[1,-1],isNew:true}),op('door',21.6,2.8,E2,6.9,{sw:[-1,1],isNew:true})]},   // (plan 2: door 3, from the bedroom's entry into the primary bath, opening against the family-room wall)
     cur:{ops:[op('gdoor',4.4,2.7,E2,6.9,{sw:[-1,-1]}),win(15.8,2.8,E2,1.2,7.3,2),win(22.4,2.8,E2,2.6,7.0,2)],ext:{side:-1,mat:'brick'},bb:[[E2,1]]}});
   W({lv:4,x0:0,z0:0,x1:0,z1:31.6,t:TE,y0:3.5,y1:12.5,ops:[op('open0',18.75,3.1,E4+2.9,3.85,{noReveal:true})],ext:{side:-1,mat:'brick',y1:8.35},bb:[[E4,1]],paint:[{side:1,a0:16.4,a1:31.3,y0:E4,y1:CEIL[4],mat:'sage'}]});   // brick up to the mansard (as on the front)
   W({lv:1,x0:0,z0:31.6,x1:18.5,z1:31.6,t:TE,y0:-14.5,y1:-5.5,ext:{side:1,mat:'stone'},bb:[[E1,-1]]});
@@ -68,8 +79,8 @@ function buildSpec(){
   W({lv:1,x0:14.2,z0:15.7,x1:14.2,z1:19.6,y0:-13.5,y1:-5.5,ops:[door(17.65,2.4,E1,[-1,-1])],bb:[[E1,-1]]});
   W({lv:1,x0:18.6,z0:15.7,x1:18.6,z1:19.6,y0:-13.5,y1:-8.7});
   W({lv:2,x0:0.3,z0:19.6,x1:11.2,z1:19.6,y0:-4.5,y1:3.5,bb:[[E2,-1],[E2,1]],paint:[{side:-1,a0:0.3,a1:11.2,y0:E2,y1:CEIL[2],mat:'wallCream'}]});
-  W({lv:2,x0:11.2,z0:19.6,x1:11.2,z1:31.6,y0:-4.5,y1:3.5,ops:[door(21.3,2.6,E2,[-1,-1]),op('closet',27.4,7.4,E2,6.9)],bb:[[E2,-1],[E2,1]]});
-  W({lv:2,x0:13.6,z0:23.1,x1:13.6,z1:31.6,y0:-4.5,y1:3.5,bb:[[E2,1]]});
+  W({lv:2,x0:11.2,z0:19.6,x1:11.2,z1:31.6,y0:-4.5,y1:3.5,ops:[door(21.3,2.6,E2,[-1,-1]),op('closet',27.4,7.4,E2,6.9)],bb:[[E2,-1],[E2,1]],p2:{ops:[],z1:23.1}});   // (plan 2: only the hall's side, closed, behind the shower; the closet is part of the bath)
+  W({lv:2,x0:13.6,z0:23.1,x1:13.6,z1:31.6,y0:-4.5,y1:3.5,bb:[[E2,1]],p2:{bb:[[E2,-1],[E2,1]]}});
   W({lv:2,x0:11.2,z0:23.1,x1:18.5,z1:23.1,y0:-4.5,y1:3.5,ops:[door(15.4,2.4,E2,[-1,1])],bb:[[E2,-1],[E2,1]]});
   W({lv:2,x0:16.4,z0:19.6,x1:16.4,z1:23.1,y0:-4.5,y1:3.5,ops:[door(21.35,2.0,E2,[-1,1])],bb:[[E2,-1]]});
   W({lv:4,x0:12.2,z0:0.3,x1:12.2,z1:13.1,y0:4.5,y1:12.5,ops:[op('closet',3.1,5.0,E4,6.9),op('closet',8.4,4.2,E4,6.9)],bb:[[E4,-1]]});
@@ -133,15 +144,30 @@ function buildSpec(){
   PH='a';
   W({lv:2,x0:A.x0,z0:A.z0,x1:0,z1:A.z0,t:TE,y0:-5.5,y1:3.95,isNew:true,ops:[win(-17.3,5.6,E2,1.0,7.6,2),win(-10.25,5.5,E2,1.0,7.6,2),win(-3.1,5.6,E2,1.0,7.6,2)],ext:{side:-1,mat:'brick'},bb:[[E2,1]]});
   W({lv:2,x0:0,z0:A.z0,x1:0,z1:0,t:TE,y0:-5.5,y1:3.95,isNew:true,ext:{side:1,mat:'brick'}});
-  W({lv:2,x0:A.x0,z0:A.z0,x1:A.x0,z1:A.z1,t:TE,y0:-5.5,y1:3.9,isNew:true,ops:[win(1.55,3.7,E2,1.0,7.6,2),win(5.65,3.9,E2,1.0,7.6,2),win(9.6,3.7,E2,1.0,7.6,2),op('frost',26.15,4.3,E2+4.4,2.9)],ext:{side:-1,mat:'brick'},bb:[[E2,1]]});
-  W({lv:2,x0:A.x0,z0:A.z1,x1:0,z1:A.z1,t:TE,y0:-5.5,y1:4.6,isNew:true,ops:[Object.assign(win(-17.4,4.2,E2,2.0,6.8,2),{k:'frost',dh:true}),Object.assign(win(-6.65,4.6,E2,2.0,6.8,2),{dh:true})],ext:{side:1,mat:'brick'},bb:[[E2,-1]]});
+  W({lv:2,x0:A.x0,z0:A.z0,x1:A.x0,z1:A.z1,t:TE,y0:-5.5,y1:3.9,isNew:true,ops:[win(1.55,3.7,E2,1.0,7.6,2),win(5.65,3.9,E2,1.0,7.6,2),win(9.6,3.7,E2,1.0,7.6,2),op('frost',26.15,4.3,E2+4.4,2.9)],ext:{side:-1,mat:'brick'},bb:[[E2,1]],
+    p2:{ops:[win(1.55,3.7,E2,1.0,7.6,2),win(5.65,3.9,E2,1.0,7.6,2),win(9.6,3.7,E2,1.0,7.6,2),win(17.0,3.6,E2,3.0,7.0,2),win(26.75,9.6,E2,2.0,6.8,4)]}});   // (plan 2: the office window over the desk, and a run of windows along the bedroom)
+  W({lv:2,x0:A.x0,z0:A.z1,x1:0,z1:A.z1,t:TE,y0:-5.5,y1:4.6,isNew:true,ops:[Object.assign(win(-17.4,4.2,E2,2.0,6.8,2),{k:'frost',dh:true}),Object.assign(win(-6.65,4.6,E2,2.0,6.8,2),{dh:true})],ext:{side:1,mat:'brick'},bb:[[E2,-1]],
+    p2:{ops:[Object.assign(win(-13.9,4.0,E2,2.0,6.8,2),{dh:true}),Object.assign(win(-8.1,4.0,E2,2.0,6.8,2),{dh:true})]}});   // (plan 2: the bedroom's two windows)
   W({lv:2,x0:0,z0:31.6,x1:0,z1:A.z1,t:TE,y0:-5.5,y1:4.6,isNew:true,ext:{side:1,mat:'brick'}});
   W({lv:2,x0:A.x0,z0:12.9,x1:-4.9,z1:12.9,y0:-4.5,y1:4.0,isNew:true,bb:[[E2,-1],[E2,1]]});
+  // plan 1: entry, walk-in closet, primary bedroom and bath
+  PH='1';
   W({lv:2,x0:-10.6,z0:12.9,x1:-10.6,z1:18.4,y0:-4.5,y1:3.5,isNew:true,ops:[op('open0',15.5,2.9,E2,6.9)]});
   W({lv:2,x0:-4.9,z0:12.9,x1:-4.9,z1:18.4,y0:-4.5,y1:3.5,isNew:true,ops:[op('open0',15.6,3.8,E2,7.0)]});
   W({lv:2,x0:A.x0,z0:18.4,x1:-10.6,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
+  // (the gallery door is hinged on the office side, so it opens flat against the office wall, clear of the way to the bath)
   W({lv:2,x0:-4.9,z0:18.4,x1:0,z1:18.4,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
   W({lv:2,x0:-13.7,z0:18.4,x1:-13.7,z1:A.z1,y0:-4.5,y1:3.5,isNew:true,ops:[door(24.45,2.6,E2,[-1,-1])],bb:[[E2,-1],[E2,1]]});
+  // plan 2 (the owner's office plan): an office behind the four-seasons room, a door from the gallery into the bedroom's entry, windows along
+  // the bedroom's west wall; the existing bedroom (x 0.3-11.2, with its old closet) becomes the primary bath (the owner's layout): a 44" closet on its addition side,
+  // the toilet on the family-room wall, two vanities facing each other, and a glassed wet room (tub and shower) across the window wall
+  PH='2';
+  W({lv:2,x0:-4.9,z0:12.9,x1:-4.9,z1:21.0,y0:-4.5,y1:3.5,isNew:true,ops:[door(15.9,2.8,E2,[-1,-1])],bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:A.x0,z0:21.0,x1:-4.9,z1:21.0,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:-4.9,z0:18.4,x1:0,z1:18.4,y0:-4.5,y1:3.5,isNew:true,ops:[door(-3.3,2.8,E2,[-1,1])],bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:0.3,z0:23.2,x1:4.4,z1:23.2,y0:-4.5,y1:3.5,isNew:true,ops:[op('closet',2.15,2.6,E2,6.9)],bb:[[E2,-1],[E2,1]]});
+  W({lv:2,x0:4.2,z0:23.0,x1:4.2,z1:31.6,y0:-4.5,y1:3.5,isNew:true,bb:[[E2,-1],[E2,1]]});
+  PH='a';
   // addition foundation under the suite; the four-seasons room sits on piers over the patio
   // (its side and front are concrete, the same as the house's exposed foundation on the front: MAT.stone; there is no wall under the
   // four-seasons room's edge, so the space under the suite opens onto the patio)
@@ -153,12 +179,12 @@ function buildSpec(){
   F(1,14.7,35.6,0.3,12.2,'laminate'); F(1,35.9,44.3,0.3,9.2,'laminate'); F(1,35.6,35.9,2.1,8.1,'laminate'); F(1,25,28,15.6,19.6,'laminate');   // (35.6-35.9: the threshold under the cased opening)
   F(1,28,35.6,12.2,17.1,'laminate'); F(1,18.5,35.6,19.6,31.3,'tileBath'); F(1,28,35.6,17.1,19.6,'tileBath');
   F(2,0.3,14.2,0.3,19.6,'oak'); F(2,11.2,14.2,19.6,23.1,'oak'); F(2,14.2,18.5,19.6,23.1,'oak');
-  F(2,0.3,11.2,19.6,31.3,'oak'); F(2,11.2,13.6,23.1,31.3,'oak'); F(2,13.6,18.5,23.1,31.3,'tileBath');
+  phase('c1',()=>F(2,0.3,11.2,19.6,31.3,'oak'));phase('2',()=>F(2,0.3,11.2,19.6,31.3,'tileBath')); phase('c1',()=>F(2,11.2,13.6,23.1,31.3,'oak'));phase('2',()=>F(2,11.2,13.6,23.1,31.3,'tileBath')); F(2,13.6,18.5,23.1,31.3,'tileBath');
   F(3,14.2,43.5,0.3,10.6,'oak'); F(3,19.2,35.6,10.6,26.2,'oak'); F(3,14.2,19.2,10.6,12.2,'oak');
   F(3,23.6,35.6,26.2,31.3,'oak'); F(3,18.5,23.6,26.2,31.3,'slate'); F(3,20.0,23.6,19.6,26.2,'oak'); F(3,18.5,20.0,19.6,26.2,'oak');
   F(4,0.3,14.2,0.3,13.1,'oak'); F(4,0.3,14.2,13.1,16.4,'oak'); F(4,12.2,14.2,16.4,19.6,'oak');
   F(4,0.3,12.2,16.4,31.3,'oak'); F(4,12.2,17.3,19.6,26.8,'tileBath'); F(4,12.2,18.5,26.8,31.3,'tileBath');
-  PH='a';F(2,A.x0+0.3,0,A.z0+0.3,18.4,'oak'); F(2,-13.7,0,18.4,A.z1-0.3,'oak'); F(2,A.x0+0.3,-13.7,18.4,A.z1-0.3,'tileBath');PH=null;
+  PH='a';F(2,A.x0+0.3,0,A.z0+0.3,18.4,'oak');PH='1';F(2,-13.7,0,18.4,A.z1-0.3,'oak'); F(2,A.x0+0.3,-13.7,18.4,A.z1-0.3,'tileBath');PH='2';F(2,A.x0+0.3,0,18.4,A.z1-0.3,'oak');PH=null;
   // garage slab
   F(3,35.9,53.8,10.9,31.3,'concrete',-0.5);
   // ---------- CEILINGS ----------
@@ -171,11 +197,12 @@ function buildSpec(){
   R(1,'Sitting room',"21'0\" × 11'10\"",14.7,35.6,0.3,12.2); R(1,'Room',"8'2\" × 8'5\"",35.9,44.3,0.3,9.2);
   R(1,'Laundry / storage',"17'0\" × 14'1\"",18.5,35.6,19.6,31.3); R(1,'Hall','',14.7,28,12.2,19.6);
   PH='a';R(1,'Sitting room','',28,35.6,12.2,17.1);PH='c';R(1,'Walk-in closet','',31.1,35.6,12.2,17.1);R(1,'Closet','',28,31.1,12.2,17.1);R(2,'Balcony',"8'11\" × 16'5\"",-8.9,0,0,16.4);PH=null; R(1,'Storage','',0.3,7.5,9,14.6);
-  R(2,'Family room',"13'11\" × 19'1\"",0.3,14.2,0.3,19.6); R(2,'Bedroom',"13'2\" × 13'6\"",0.3,11.2,19.6,31.3);
+  R(2,'Family room',"13'11\" × 19'1\"",0.3,14.2,0.3,19.6); PH='c1';R(2,'Bedroom',"13'2\" × 13'6\"",0.3,11.2,19.6,31.3);PH='2';R(2,'Primary bath',"13'2\" × 13'6\", old bedroom",4.2,11.2,24.3,31.3,true);R(2,'Primary bath','',4.2,11.2,19.6,24.3,true);R(2,'Primary bath','',0.3,4.2,19.6,23.2,true);R(2,'Primary bath','',11.2,13.6,23.1,31.3,true);R(2,'Bath closet','',0.3,4.2,23.2,31.3,true);PH=null;
   R(2,'Bath',"4'11\" × 8'3\"",13.6,18.5,23.1,31.3); R(2,'Hall','',11.2,16.4,19.6,23.1);
   R(2,'Four-seasons room',"21'8\" × 14'6\"",A.x0,-1.8,A.z0,12.9,true); R(2,'Gallery','',-4.9,0,12.9,18.4,true);
-  R(2,'Entry',"5'8\" × 5'6\"",-10.6,-4.9,12.9,18.4,true); R(2,'Closet',"11' × 5'6\"",A.x0,-10.6,12.9,18.4,true);
+  PH='1';R(2,'Entry',"5'8\" × 5'6\"",-10.6,-4.9,12.9,18.4,true); R(2,'Closet',"11' × 5'6\"",A.x0,-10.6,12.9,18.4,true);
   R(2,'Primary bedroom',"13'8\" × 14'3\"",-13.7,0,18.4,A.z1,true); R(2,'Primary bath',"8' × 14'4\"",A.x0,-13.7,18.4,A.z1,true);
+  PH='2';R(2,'Office',"15'8\" × 7'8\"",A.x0,-4.9,12.9,21.0,true);R(2,'Primary bedroom',"20'11\" × 10'5\" plus entry",A.x0,0,21.0,A.z1,true);R(2,'Primary bedroom','',-4.9,0,18.4,21.0,true);PH=null;
   R(3,'Living room',"18'5\" × 10'7\"",14.2,31.8,0.3,12.2); R(3,'Dining area',"12'0\" × 10'3\"",31.8,43.8,0.3,10.6);R(3,'Dining area','',31.8,35.6,10.6,12.4);
   R(3,'Kitchen',"22'2\" × 22'4\"",23.6,35.6,12.2,31.3); R(3,'Foyer',"5'11\" × 11'11\"",18.5,23.6,19.6,31.3);
   R(3,'Garage',"18'6\" × 20'7\" as modeled",35.6,54.1,10.6,31.6); R(3,'Stair hall','',19.2,23.6,12.2,19.6);

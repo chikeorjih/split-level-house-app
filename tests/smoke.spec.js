@@ -59,7 +59,7 @@ test('on a phone the panels live in a bottom sheet with tabs', async ({ browser 
 });
 
 const routes = [
-  // name, start, heading (radians), distance (ft), expected room substring[, house state: 'c' = as it stands]
+  // name, start, heading (radians), distance (ft), expected room substring[, house state: 'c' = as it stands, '2' = the addition's office plan]
   ['front porch into the house', { x: 22.3, z: 34.0, lv: 3, out: true }, 0, 12, 'main level'],
   ['main level down to the family room', { x: 21.5, z: 13.9, lv: 3 }, Math.PI / 2, 14, 'Family room'],
   ['family room down to the lower level', { x: 11, z: 17.7, lv: 2 }, -Math.PI / 2, 16.5, 'lower level'],
@@ -70,12 +70,15 @@ const routes = [
   ['as it stands: family room out onto the balcony', { x: 5, z: 4.4, lv: 2 }, Math.PI / 2, 9, 'Balcony', 'c'],
   ['as it stands: lower hall through the double doors to the sitting room', { x: 24, z: 15.5, lv: 1 }, 0, 6, 'Sitting room', 'c'],
   ['as it stands: lower hall into the closet', { x: 26, z: 14.6, lv: 1 }, -Math.PI / 2, 4, 'Closet', 'c'],
+  ['office plan: gallery into the office', { x: -2.5, z: 15.9, lv: 2 }, Math.PI / 2, 6, 'Office', '2'],
+  ['office plan: gallery through the door to the bedroom', { x: -3.2, z: 15.0, lv: 2 }, Math.PI, 7, 'Primary bedroom', '2'],
+  ['office plan: bedroom entry into the primary bath (the old bedroom)', { x: -2.5, z: 21.6, lv: 2 }, -Math.PI / 2, 7, 'Primary bath', '2'],
 ];
 for (const [name, start, yaw, dist, expectWhere, state] of routes) {
   test(`walk: ${name}`, async ({ page }) => {
     await openApp(page);
     const where = await page.evaluate(({ start, yaw, dist, state }) => {
-      if (state) { setHouseState(state); setHouseState(state); }   // (the second call finishes the wipe)
+      if (state === '2') { setHousePlan('2'); setHousePlan('2'); } else if (state) { setHouseState(state); setHouseState(state); }   // (the second call finishes the wipe)
       ST.view = 'walk'; teleport({ ...start, yaw }); WLK.yaw = yaw; KEYS.KeyW = true;
       for (let t = 0; t < dist / 6.5 + 1.5; t += 1 / 60) stepWalk(1 / 60);
       KEYS.KeyW = false; for (let i = 0; i < 60; i++) stepWalk(1 / 60);
@@ -98,6 +101,23 @@ test('the Current / Addition switch shows one state at a time', async ({ page })
   expect(seen.a.a).toBeGreaterThan(0); expect(seen.a.c).toBe(0);
   expect(seen.c.c).toBeGreaterThan(0); expect(seen.c.a).toBe(0);
   expect(seen).toMatchObject({ pressed: 'true', stored: 'current', suiteA: true, suiteC: false, balconyC: true });
+});
+
+test('the addition floor plans switch: plan 2 shows the office and makes the old bedroom the primary bath', async ({ page }) => {
+  const errors = await openApp(page);
+  const seen = await page.evaluate(() => {
+    const shown = () => { const o = {}; for (const t in TAGS) { const p = tagPh(t); if (p) o[p] = (o[p] || 0) + meshesOf(t).filter(m => m.visible).length; } return o; };
+    setHousePlan('1'); setHousePlan('1'); const one = shown(), rooms1 = SPEC.rooms.filter(r => r.lv === 2).map(r => r.name);
+    document.querySelector('button[data-plan="2"]').click(); setHousePlan('2');
+    const two = shown(), rooms2 = SPEC.rooms.filter(r => r.lv === 2).map(r => r.name);
+    return { one, two, rooms1, rooms2, stored: localStorage.getItem('housePlan'), pressed: document.querySelector('button[data-plan="2"]').getAttribute('aria-pressed') };
+  });
+  expect(errors).toEqual([]);
+  expect(seen.one['1']).toBeGreaterThan(0); expect(seen.one['2'] || 0).toBe(0); expect(seen.one['c1']).toBeGreaterThan(0);
+  expect(seen.two['2']).toBeGreaterThan(0); expect(seen.two['1'] || 0).toBe(0); expect(seen.two['c1'] || 0).toBe(0); expect(seen.two.a).toBeGreaterThan(0);
+  expect(seen.rooms1).toContain('Bedroom'); expect(seen.rooms1).not.toContain('Office');
+  expect(seen.rooms2).toContain('Office'); expect(seen.rooms2).not.toContain('Bedroom');
+  expect(seen).toMatchObject({ stored: '2', pressed: 'true' });
 });
 
 test('the tour plays every part, cycles the light, ends on the addition and puts the view back', async ({ page }) => {

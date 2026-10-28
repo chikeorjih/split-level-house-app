@@ -6,8 +6,8 @@
       "file": "arhaus-rowland-two.min.glb",
       "scale": "m",
       "place": {
-        "x": 17.07,
-        "z": 6.58,
+        "x": 16.9,
+        "z": 6.91,
         "lv": 3,
         "ry": 90
       },
@@ -90,10 +90,10 @@
       "name": "Swivel chair 1",
       "file": "swivel.min.glb",
       "place": {
-        "x": 20.51,
-        "z": 2.35,
+        "x": 21.01,
+        "z": 2.18,
         "lv": 3,
-        "ry": 28
+        "ry": 357
       },
       "note": "Fitted to the product size given by the owner (38.6\" W x 35.4\" D x 28.7\" H); along wall W46.",
       "spec": {
@@ -108,10 +108,10 @@
       "name": "Swivel chair 2",
       "file": "swivel.min.glb",
       "place": {
-        "x": 28.01,
-        "z": 2.27,
+        "x": 25.68,
+        "z": 2.44,
         "lv": 3,
-        "ry": 330
+        "ry": 355
       },
       "note": "Fitted to the product size given by the owner (38.6\" W x 35.4\" D x 28.7\" H); along wall W46.",
       "spec": {
@@ -195,8 +195,8 @@
       "file": "couch-compton.min.glb",
       "scale": 8.376,
       "place": {
-        "x": 26.92,
-        "z": 4.9,
+        "x": 30.34,
+        "z": 5.07,
         "lv": 1,
         "ry": 270
       },
@@ -216,9 +216,9 @@
       "scale": 5.505,
       "place": {
         "x": 9.97,
-        "z": 5.99,
+        "z": 5.66,
         "lv": 2,
-        "ry": 270
+        "ry": 271
       },
       "note": "Owner-supplied model (drift-moss.glb, 374k triangles, 11.1 MB), slimmed with gltfpack -si 0.22 to drift-moss.opt.glb (82k triangles, 2.3 MB, textures kept). Not to scale: scaled to the Crate & Barrel Drift pieces' 29.5\" height, which gives 125\" x 92\", about a three-piece L of Drift pieces (wedge, armless and arm chairs, 129\" x 95\"). Stands in for both halves of the old sectional: corner in the north-east, long side along the east wall, short side under the rear windows.",
       "specSource": "https://www.crateandbarrel.com/drift-stationary-wedge-chair-sectional-piece/s446889",
@@ -282,10 +282,10 @@
       "file": "plant2.min.glb",
       "scale": 3.148,
       "place": {
-        "x": 16.03,
-        "z": 1.6,
+        "x": 15.95,
+        "z": 10.93,
         "lv": 3,
-        "ry": 52
+        "ry": 139
       },
       "note": "Living room, at the south end of the sofa (the satellite lamp is at the north end). Owner-supplied model (plant2.glb), not to scale: the size is an estimate (36\" tall)."
     },
@@ -374,7 +374,7 @@
       "file": "plant2.min.glb",
       "scale": 3.148,
       "place": {
-        "x": -3.1,
+        "x": -1.93,
         "z": -0.3,
         "lv": 2,
         "ry": 0
@@ -408,7 +408,7 @@
         "y": -1.6,
         "ry": 90
       },
-      "tag": "2+",
+      "tag": "2@1",
       "note": "On the primary suite dresser (addition), replacing the orchid. Owner-supplied model (plant2.glb), not to scale: the size is an estimate (18\" tall)."
     },
     {

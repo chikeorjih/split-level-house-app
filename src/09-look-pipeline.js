@@ -103,7 +103,7 @@ function buildLamps(){const fills=[[7,CEIL[2]-1.2,10],[-11,2.6,6],[-6,2.3,25],[6
 // point the pool at the lamps nearest the view (the walker, or the 3/4 view's target); only touches the lights when that set changes
 function updateLampPool(fo){const P=PRESETS[LOOK.preset],dim=lampsDim(),wd=!P.lamps&&walkDay(),on=P.lamps||dim||wd,k=P.lamps?LAMP_EVE:(wd?WALK_DAY:LAMP_DAY),f=fo||(ST.view==='walk'?_lf.set(WLK.x,WLK.f+5,WLK.z):ORB.t);
   const pick=on?LAMPV.filter(v=>phOn(v.ph)&&(!wd||OVERHEAD.test(v.k))).sort((a,b)=>a.position.distanceToSquared(f)-b.position.distanceToSquared(f)).slice(0,LOOK.lights.length):[];
-  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':wd?'walkday':'on'):'off')+og+HOUSE.ph;for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
+  const og=isUltra()?ULTRA.overhead:1;let sig=(on?(dim?'dim':wd?'walkday':'on'):'off')+og+phKey();for(const v of pick)sig+=';'+v.position.x.toFixed(2)+','+v.position.y.toFixed(2)+','+v.position.z.toFixed(2);
   if(sig===LAMP_SIG)return;LAMP_SIG=sig;kitchenLights();
   LOOK.lights.forEach((p,i)=>{const v=pick[i];if(v){p.position.copy(v.position);p.color.setHex(v.color);p.intensity=v.i*k*(/^(ceiling|pendant|chandelier)$/.test(v.k)?og:1);p.distance=v.d;}else p.intensity=0;});
   MAT.shade.emissiveIntensity=P.lamps?1.4:(dim?.8:.35);if(typeof syncDerived==='function')syncDerived();
@@ -562,7 +562,7 @@ function giGrid(){if(GI.N)return;roomMask();const R=indoorRooms(),st=GI_U.giStep
     if(R.some(r=>x>r.x0+.3&&x<r.x1-.3&&z>r.z0+.3&&z<r.z1-.3&&y>E[r.lv]+.8&&y<CEIL[r.lv]-.4))GI.probes.push({ix,iy,iz,p:new THREE.Vector3(x,y,z)});}
   GI.N=new THREE.Vector3(Nx,Ny,Nz);GI_U.giN.value.copy(GI.N);GI_U.giMin.value.set(x0,y0,z0);}
 const giGainNow=()=>ULTRA.giGain;
-const giKey=()=>LOOK.preset+'|'+(LOOK.sunTurn||0)+'|'+(ST.trees?1:0)+(ST.surround?1:0)+'|'+HOUSE.ph;
+const giKey=()=>LOOK.preset+'|'+(LOOK.sunTurn||0)+'|'+(ST.trees?1:0)+(ST.surround?1:0)+'|'+phKey();
 function giAtlas(){const N=GI.N,t=rt(4*N.x,N.z*N.y);const cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha();
   renderer.setRenderTarget(t);renderer.setClearColor(0,0);renderer.clear();renderer.setClearColor(cc,ca);return t;}
 function giBegin(key){giGrid();if(!GI.cube){GI.cubeRT=new THREE.WebGLCubeRenderTarget(16,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,generateMipmaps:false,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});

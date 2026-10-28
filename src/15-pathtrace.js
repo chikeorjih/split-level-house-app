@@ -48,7 +48,7 @@ function ptrLoad(){if(PTRACE.loading)return PTRACE.loading;
 // geometry (what is shown: a rebuild), furniture moves (Arrange: the copies' transforms are updated), light (preset, sun, lamps: the
 // lights and sky are swapped)
 function ptrSigGeo(){const f=[];for(const t in FCUR)f.push(t+(FCUR[t]>=.5?1:0));
-  return [HOUSE.ph,ST.view,ST.cutL,ST.trees,ST.surround,!!(SHADOW_PROXY&&SHADOW_PROXY.userData.on),f.join(''),MODELS_READY?1:0,INSTS.map(i=>(i.variant||'')+(i.hiddenByVariant?'h':'')).join('')].join('|');}   // (a model's configuration changes its mesh: a rebuild)
+  return [phKey(),ST.view,ST.cutL,ST.trees,ST.surround,!!(SHADOW_PROXY&&SHADOW_PROXY.userData.on),f.join(''),MODELS_READY?1:0,INSTS.map(i=>(i.variant||'')+(i.hiddenByVariant?'h':'')).join('')].join('|');}   // (a model's configuration changes its mesh: a rebuild)
 const ptrSigXf=()=>INSTS.map(i=>(i.dx||0).toFixed(3)+','+(i.dz||0).toFixed(3)+','+(i.ry||0).toFixed(4)).join(';');
 function ptrSigLight(){const P=PRESETS[LOOK.preset];return [LOOK.preset,LOOK.sunTurn||0,LOOK.studio?1:0,P.lamps?1:(lampsDim()?.5:walkDay()?.25:0),ULTRA.overhead||1].join('|');}
 // ---------- materials ----------

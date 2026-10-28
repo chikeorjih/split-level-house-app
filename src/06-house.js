@@ -81,8 +81,8 @@ function buildHouse(){
   for(const c of SPEC.ceils){PH=c.ph||null;OWNER={key:'C@'+(c.loc?locKey(c.loc):c.x0+','+c.z0),kind:'ceiling',fn:'C',loc:c.loc,label:'ceiling'};box('C'+c.lv,'ceiling',c.x0,c.x1,c.y,c.y+.12,c.z0,c.z1);}
   OWNER=null;PH=null;
   // recessed can lights (hidden with ceilings); the two upper-floor bedrooms have a ceiling fan with a light instead (07-furniture.js)
-  const cans=[[2,2,12.5,2,17],[3,16,30,2,10],[3,25,34,15,30],[3,19.5,22.5,13,30],[1,3,34,3,28],[2,-20,-2,20,31],[2,2,10,21,30]];
-  for(const [lv,x0,x1,z0,z1] of cans){const y=CEIL[lv];PH=x1<=0?'a':null;   // (the suite's: the addition only)
+  const cans=[[2,2,12.5,2,17],[3,16,30,2,10],[3,25,34,15,30],[3,19.5,22.5,13,30],[1,3,34,3,28],[2,-20,-2,20,31],[2,2,10,21,30],[2,-18,-8,15,18.6,'2']];   // (the last: the office, in the addition's plan 2)
+  for(const [lv,x0,x1,z0,z1,ph] of cans){const y=CEIL[lv];PH=ph||(x1<=0?'a':null);   // (the suite's: the addition only)
    for(let x=x0;x<=x1;x+=Math.max(3.5,(x1-x0)/3))for(let z=z0;z<=z1;z+=Math.max(3.5,(z1-z0)/3)){
     addGeo('C'+lv,'light',new THREE.CylinderGeometry(.22,.22,.04,14),M(x,y-.01,z));addGeo('C'+lv,'trim',new THREE.TorusGeometry(.25,.03,5,16),new THREE.Matrix4().makeRotationX(Math.PI/2).setPosition(x,y-.02,z));}}
   PH=null;

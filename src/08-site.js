@@ -252,8 +252,8 @@ function frontLandscape(){
 function buildGrass(){const CH=16,dens=COARSE?1.1:8.6,cell=1/Math.sqrt(dens),chunks=new Map();RNG_SEED=4242;
   const lin=h=>new THREE.Color(h).convertSRGBToLinear(),tipA=lin(0x7fa245),tipB=lin(0x93ad55),tipDeep=lin(0x5f8436),tipDry=lin(0xbdb36e),tmp=new THREE.Color(),cc=new THREE.Color();
   // a blade where something stands in one state only (the addition and its deck; the balcony) belongs to the other state's lawn
-  const hardIn=ph=>(x,z)=>inFoot(x,z,.8)||isBed(x,z)||nearPath(x,z,.95)||WALKS.some(w=>!w.lawn&&(!w.ph||w.ph===ph)&&x>w.x0-.4&&x<w.x1+.4&&z>w.z0-.4&&z<w.z1+.4)||
-    (ph==='a'&&x>-21.9&&x<.4&&z>-2.05&&z<32.9)||SPEC.allRooms.some(r=>(!r.ph||r.ph===ph)&&r.name!=='Balcony'&&x>Math.min(r.x0,r.x1)-.4&&x<Math.max(r.x0,r.x1)+.4&&z>Math.min(r.z0,r.z1)-.4&&z<Math.max(r.z0,r.z1)+.4)||
+  const hardIn=ph=>(x,z)=>inFoot(x,z,.8)||isBed(x,z)||nearPath(x,z,.95)||WALKS.some(w=>!w.lawn&&phIn(w.ph,ph)&&x>w.x0-.4&&x<w.x1+.4&&z>w.z0-.4&&z<w.z1+.4)||
+    (ph==='a'&&x>-21.9&&x<.4&&z>-2.05&&z<32.9)||SPEC.allRooms.some(r=>phIn(r.ph,ph)&&r.name!=='Balcony'&&x>Math.min(r.x0,r.x1)-.4&&x<Math.max(r.x0,r.x1)+.4&&z>Math.min(r.z0,r.z1)-.4&&z<Math.max(r.z0,r.z1)+.4)||
     (x>-31&&x<-.4&&Math.abs(z-33.3)<.5),hardA=hardIn('a'),hardC=hardIn('c');
   const noise=(x,z)=>.5+.25*Math.sin(x*.21+Math.cos(z*.17)*1.7)+.25*Math.sin(z*.13-x*.07+Math.sin(x*.05)*2);
   // more fields for natural variety: patches of taller grass, lusher deep-green areas and drier, straw-tinted spots

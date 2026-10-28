@@ -337,3 +337,7 @@ html.touring canvas{pointer-events:none}
 .tour-ctl button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}#tourExit{margin-left:auto}
 .tour-bar{display:block;height:3px;border-radius:2px;background:var(--line);overflow:hidden}.tour-bar b{display:block;height:100%;width:0;background:var(--blue)}
 @media (prefers-reduced-motion:reduce){#tourCard.fresh .tour-text{animation:none}}
+
+/* addition floor plan switch, beside Current / Addition (shown with the addition) */
+#bar .seg.st:has(+.seg.pl:not([hidden])){margin-right:0}#bar .seg.pl[hidden]{display:none}
+html.phone #bar .seg.st+.seg.pl{margin-left:0}
